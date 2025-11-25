@@ -30,20 +30,8 @@ import Tooltip from './components/Tooltip';
 import { 
   Sword, Shield, Skull, Heart, Ghost, HelpCircle, Flame, 
   Map as MapIcon, ArrowUpCircle, Scroll, Hourglass,
-  Image as ImageIcon, Loader, Target, Zap, AlertTriangle
+  Target, Zap, AlertTriangle
 } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
-
-// Declare window.aistudio for API Key
-declare global {
-  interface AIStudio {
-    hasSelectedApiKey: () => Promise<boolean>;
-    openSelectKey: () => Promise<void>;
-  }
-  interface Window {
-    aistudio?: AIStudio;
-  }
-}
 
 type EnemyArchetype = 'TANK' | 'ASSASSIN' | 'BALANCED' | 'CASTER' | 'GENJUTSU';
 
@@ -70,13 +58,12 @@ const App: React.FC = () => {
   const [activeEvent, setActiveEvent] = useState<GameEventDefinition | null>(null);
   const [difficulty, setDifficulty] = useState<number>(20);
   const [turnState, setTurnState] = useState<'PLAYER' | 'ENEMY_TURN'>('PLAYER');
-  const [genImageSize, setGenImageSize] = useState<'1K' | '2K' | '4K'>('1K');
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+
 
   // --- Helpers ---
   const addLog = useCallback((text: string, type: LogEntry['type'] = 'info', details?: string) => {
     setLogs(prev => {
-      const newEntry: LogEntry = { id: Date.now(), text, type, details };
+      const newEntry: LogEntry = { id: Date.now() + Math.random(), text, type, details };
       const newLogs = [...prev, newEntry];
       if (newLogs.length > MAX_LOGS) newLogs.shift();
       return newLogs;
@@ -108,50 +95,6 @@ const App: React.FC = () => {
       case EffectType.SILENCE: return "Cannot use skills with chakra cost.";
       case EffectType.CHAKRA_DRAIN: return `Drains ${value} chakra per turn.`;
       default: return buff.name;
-    }
-  };
-
-  // --- Image Generation ---
-  const generateEnemyImage = async () => {
-    if (!enemy) return;
-    if (window.aistudio) {
-      const hasKey = await window.aistudio.hasSelectedApiKey();
-      if (!hasKey) await window.aistudio.openSelectKey();
-    }
-    setIsGeneratingImage(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `A dark fantasy, gritty anime style character portrait of a Naruto-inspired ninja enemy named "${enemy.name}". Rank: ${enemy.tier}. Chakra Element: ${enemy.element}. The character looks dangerous and powerful. High contrast, detailed, atmospheric lighting. Close-up or waist-up shot.`;
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-image-preview',
-        contents: { parts: [{ text: prompt }] },
-        config: { imageConfig: { imageSize: genImageSize, aspectRatio: '1:1' } }
-      });
-      let imageUrl = null;
-      if (response.candidates && response.candidates[0].content?.parts) {
-        for (const part of response.candidates[0].content.parts) {
-          if (part.inlineData) {
-            imageUrl = `data:image/png;base64,${part.inlineData.data}`;
-            break;
-          }
-        }
-      }
-      if (imageUrl) {
-        setEnemy(prev => prev ? { ...prev, image: imageUrl } : null);
-        addLog(`Visualized ${enemy.name} via Genjutsu!`, 'gain');
-      } else {
-        addLog("Genjutsu failed (No image returned).", 'danger');
-      }
-    } catch (error: any) {
-      console.error("Image Gen Error", error);
-      if (error.toString().includes("403") || error.toString().includes("Permission denied")) {
-        addLog("Access denied. Please select a valid API Key.", 'danger');
-        if (window.aistudio) await window.aistudio.openSelectKey();
-      } else {
-        addLog("Failed to visualize enemy.", 'danger');
-      }
-    } finally {
-      setIsGeneratingImage(false);
     }
   };
 
@@ -1150,20 +1093,7 @@ const App: React.FC = () => {
                     {enemy.image ? (
                       <img src={enemy.image} alt={enemy.name} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="flex flex-col items-center gap-2 p-4 w-full">
-                        {isGeneratingImage ? <Loader className="animate-spin text-zinc-500" size={32} /> : (
-                          <>
-                            <ImageIcon className="text-zinc-700 mb-1" size={28} />
-                            <div className="flex gap-1 mb-2">
-                              {(['1K', '2K', '4K'] as const).map(size => (
-                                <button key={size} onClick={() => setGenImageSize(size)}
-                                  className={`text-[9px] px-1 py-0.5 border ${genImageSize === size ? 'border-blue-500 text-blue-400' : 'border-zinc-800 text-zinc-600'}`}>{size}</button>
-                              ))}
-                            </div>
-                            <button onClick={generateEnemyImage} className="text-[9px] uppercase tracking-widest border border-zinc-700 hover:border-blue-500 text-zinc-500 px-2 py-1">Visualize</button>
-                          </>
-                        )}
-                      </div>
+                      <Ghost className="text-zinc-700" size={64} />
                     )}
                   </div>
 

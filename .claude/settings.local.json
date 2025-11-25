@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(timeout 5 npm run dev)"
+    ],
+    "deny": [
+      "Write(*.md)",
+      "Write(*.txt)"
+    ],
+    "ask": []
+  }
+}
