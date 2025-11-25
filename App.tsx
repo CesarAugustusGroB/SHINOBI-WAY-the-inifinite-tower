@@ -8,7 +8,8 @@ import {
 } from './types';
 import { 
   CLAN_STATS, CLAN_START_SKILL, SKILLS, MAX_LOGS, ELEMENTAL_CYCLE, 
-  BASE_ITEM_NAMES, BOSS_NAMES, AMBUSH_ENEMIES, EVENTS, CLAN_GROWTH, ENEMY_PREFIXES
+  BASE_ITEM_NAMES, BOSS_NAMES, AMBUSH_ENEMIES, EVENTS, CLAN_GROWTH, ENEMY_PREFIXES,
+  getElementEffectiveness
 } from './constants';
 import {
   calculateDerivedStats,
@@ -1135,6 +1136,26 @@ const App: React.FC = () => {
                   // Predicted damage
                   const prediction = calculateDamage(playerStats.effectivePrimary, playerStats.derived, enemyStats.effectivePrimary, enemyStats.derived, skill, player.element, enemy.element);
 
+                  // Calculate effectiveness for UI
+                  const effectiveness = getElementEffectiveness(skill.element, enemy.element);
+                  let borderColor = 'border-zinc-800';
+                  let effectivenessIcon = null;
+
+                  if (effectiveness > 1.0) {
+                    borderColor = 'border-green-600';
+                    effectivenessIcon = <div className="absolute top-1 right-1 text-green-500 text-[10px] font-bold">▲</div>;
+                  } else if (effectiveness < 1.0) {
+                    borderColor = 'border-red-900';
+                    effectivenessIcon = <div className="absolute top-1 right-1 text-red-500 text-[10px] font-bold">▼</div>;
+                  }
+
+                  // Override border if unusable or toggle active
+                  if (!((canUse || skill.isActive) && !isStunned && !isEnemyTurn)) {
+                    borderColor = 'border-zinc-900';
+                  } else if (skill.isToggle && skill.isActive) {
+                    borderColor = 'border-blue-500';
+                  }
+
                   return (
                     <Tooltip key={skill.id} content={
                       <div className="space-y-2 p-1 max-w-[220px]">
@@ -1155,8 +1176,9 @@ const App: React.FC = () => {
                     }>
                       <button onClick={() => useSkill(skill)} disabled={(!canUse && !skill.isActive) || isStunned || isEnemyTurn}
                         className={`w-full relative p-3 h-28 text-left border transition-all group flex flex-col justify-between overflow-hidden
-                          ${(canUse || skill.isActive) && !isStunned && !isEnemyTurn ? 'bg-zinc-900 border-zinc-800 hover:border-zinc-500' : 'bg-black border-zinc-900 opacity-40 cursor-not-allowed'}
-                          ${skill.isToggle && skill.isActive ? 'border-blue-500 bg-blue-900/20' : ''}`}>
+                          ${(canUse || skill.isActive) && !isStunned && !isEnemyTurn ? `bg-zinc-900 ${borderColor} hover:border-zinc-500` : 'bg-black border-zinc-900 opacity-40 cursor-not-allowed'}
+                          ${skill.isToggle && skill.isActive ? 'bg-blue-900/20' : ''}`}>
+                        {effectivenessIcon}
                         <div className="relative z-10">
                           <div className="flex justify-between items-start">
                             <div className="font-bold text-xs text-zinc-200 mb-0.5">{skill.name}</div>

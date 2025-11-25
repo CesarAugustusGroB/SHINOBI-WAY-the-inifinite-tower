@@ -14,6 +14,7 @@ import {
   Hourglass
 } from 'lucide-react';
 import { calculateDamage, formatPercent } from '../game/systems/StatSystem';
+import { getElementEffectiveness } from '../game/constants';
 
 interface CombatProps {
   player: Player;
@@ -99,6 +100,26 @@ const Combat: React.FC<CombatProps> = ({
             enemy.element
           );
 
+          // Calculate effectiveness for UI
+          const effectiveness = getElementEffectiveness(skill.element, enemy.element);
+          let borderColor = 'border-zinc-800';
+          let effectivenessIcon = null;
+
+          if (effectiveness > 1.0) {
+            borderColor = 'border-green-600';
+            effectivenessIcon = <div className="absolute top-1 right-1 text-green-500 text-[10px] font-bold z-20">▲</div>;
+          } else if (effectiveness < 1.0) {
+            borderColor = 'border-red-900';
+            effectivenessIcon = <div className="absolute top-1 right-1 text-red-500 text-[10px] font-bold z-20">▼</div>;
+          }
+
+          // Override border if unusable or toggle active
+          if (!((canUse || skill.isActive) && !isStunned && !isEnemyTurn)) {
+            borderColor = 'border-zinc-900';
+          } else if (skill.isToggle && skill.isActive) {
+            borderColor = 'border-blue-500';
+          }
+
           return (
             <Tooltip
               key={skill.id}
@@ -138,11 +159,12 @@ const Combat: React.FC<CombatProps> = ({
                 className={`w-full relative p-3 h-28 text-left border transition-all group flex flex-col justify-between overflow-hidden
                   ${
                     (canUse || skill.isActive) && !isStunned && !isEnemyTurn
-                      ? 'bg-zinc-900 border-zinc-800 hover:border-zinc-500'
+                      ? `bg-zinc-900 ${borderColor} hover:border-zinc-500`
                       : 'bg-black border-zinc-900 opacity-40 cursor-not-allowed'
                   }
-                  ${skill.isToggle && skill.isActive ? 'border-blue-500 bg-blue-900/20' : ''}`}
+                  ${skill.isToggle && skill.isActive ? 'bg-blue-900/20' : ''}`}
               >
+                {effectivenessIcon}
                 <div className="relative z-10">
                   <div className="flex justify-between items-start">
                     <div className="font-bold text-xs text-zinc-200 mb-0.5">{skill.name}</div>
