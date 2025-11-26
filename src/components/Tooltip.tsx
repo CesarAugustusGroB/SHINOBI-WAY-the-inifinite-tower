@@ -14,7 +14,7 @@ const Tooltip: React.FC<TooltipProps> = ({ content, children, className = "w-ful
   const handleMouseEnter = (e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
     setPosition({
-      top: rect.top - 8, 
+      top: rect.bottom + 8,
       left: rect.left + rect.width / 2
     });
     setIsVisible(true);
@@ -30,13 +30,13 @@ const Tooltip: React.FC<TooltipProps> = ({ content, children, className = "w-ful
         {children}
       </div>
       {isVisible && createPortal(
-        <div 
-          className="fixed z-50 bg-black border border-zinc-700 text-zinc-200 rounded p-3 shadow-2xl pointer-events-none transform -translate-x-1/2 -translate-y-full min-w-[200px] max-w-[250px]"
+        <div
+          className="fixed z-50 bg-black border border-zinc-700 text-zinc-200 rounded p-3 shadow-2xl pointer-events-none transform -translate-x-1/2 min-w-[200px] max-w-[250px]"
           style={{ top: position.top, left: position.left }}
         >
           {content}
-          {/* Arrow */}
-          <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-black border-r border-b border-zinc-700"></div>
+          {/* Arrow pointing up */}
+          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rotate-45 w-2 h-2 bg-black border-l border-t border-zinc-700"></div>
         </div>,
         document.body
       )}
