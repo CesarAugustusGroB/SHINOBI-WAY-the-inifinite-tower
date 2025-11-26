@@ -140,6 +140,8 @@ export interface DerivedStats {
 export interface CharacterStats {
   primary: PrimaryAttributes;
   derived: DerivedStats;
+  effectivePrimary: PrimaryAttributes;
+  equipmentBonuses?: ItemStatBonus;
 }
 
 // Legacy Attributes interface for backward compatibility during migration

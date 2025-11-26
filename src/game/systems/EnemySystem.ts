@@ -138,6 +138,12 @@ export const generateEnemy = (currentFloor: number, type: 'NORMAL' | 'ELITE' | '
 
   const derived = calculateDerivedStats(scaledStats, {});
 
+  // Set enemy image based on name
+  let enemyImage: string | undefined;
+  if (name.toLowerCase().includes('puppeteer')) {
+    enemyImage = '/assets/enemy_clumsy_puppeteer.png';
+  }
+
   return {
     name,
     tier: isElite ? (type === 'AMBUSH' ? 'S-Rank Rogue' : 'Jonin') : 'Chunin',
@@ -146,7 +152,8 @@ export const generateEnemy = (currentFloor: number, type: 'NORMAL' | 'ELITE' | '
     primaryStats: scaledStats,
     currentHp: derived.maxHp,
     currentChakra: derived.maxChakra,
-    activeBuffs: []
+    activeBuffs: [],
+    image: enemyImage
   };
 };
 
