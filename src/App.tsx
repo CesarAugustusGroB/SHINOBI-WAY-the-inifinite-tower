@@ -12,7 +12,7 @@ import {
 } from './game/systems/StatSystem';
 import { getStoryArc } from './game/systems/EnemySystem';
 import { generateItem, generateSkillLoot, equipItem as equipItemFn, sellItem as sellItemFn } from './game/systems/LootSystem';
-import { processEnemyTurn } from './game/systems/CombatSystem';
+import { processEnemyTurn, useSkill as useSkillCombat } from './game/systems/CombatSystem';
 import { generateRooms } from './game/systems/RoomSystem';
 import MainMenu from './scenes/MainMenu';
 import CharacterSelect from './scenes/CharacterSelect';
@@ -235,79 +235,77 @@ const App: React.FC = () => {
   const useSkill = (skill: Skill) => {
     if (!player || !enemy || !playerStats || !enemyStats) return;
 
+    // Handle toggle skills
     if (skill.isToggle) {
       const isActive = skill.isActive || false;
+
+      // Check chakra cost for activation
+      if (!isActive && player.currentChakra < skill.chakraCost) {
+        addLog("Insufficient Chakra to activate!", 'danger');
+        return;
+      }
+
       setPlayer(prev => {
         if (!prev) return null;
         let newBuffs = [...prev.activeBuffs];
         let newSkills = prev.skills.map(s => s.id === skill.id ? { ...s, isActive: !isActive } : s);
+        let newChakra = prev.currentChakra;
+
         if (isActive) {
-          newBuffs = newBuffs.filter(b => b.source !== skill.id);
+          // Deactivate: Remove all buffs from this skill
+          newBuffs = newBuffs.filter(b => b.source !== skill.name);
           addLog(`${skill.name} Deactivated.`, 'info');
         } else {
-          addLog(`${skill.name} Activated.`, 'info');
+          // Activate: Apply effects and pay initial cost
+          newChakra -= skill.chakraCost;
+          if (skill.effects) {
+            skill.effects.forEach(eff => {
+              const buff: Buff = {
+                id: Math.random().toString(36).substring(2, 9),
+                name: eff.type,
+                duration: eff.duration,
+                effect: eff,
+                source: skill.name
+              };
+              newBuffs.push(buff);
+            });
+          }
+          addLog(`${skill.name} Activated!`, 'gain');
         }
-        return { ...prev, skills: newSkills, activeBuffs: newBuffs };
+
+        return { ...prev, skills: newSkills, activeBuffs: newBuffs, currentChakra: newChakra };
       });
       setTurnState('ENEMY_TURN');
       return;
     }
 
-    // Check resources
-    if (player.currentChakra < skill.chakraCost || player.currentHp <= skill.hpCost) {
-      addLog("Insufficient Chakra or HP!", 'danger');
-      return;
-    }
+    // Use CombatSystem for regular skills
+    const result = useSkillCombat(player, playerStats, enemy, enemyStats, skill);
 
-    if (skill.currentCooldown > 0) return;
+    if (!result) return;
 
-    const isStunned = player.activeBuffs.some(b => b.effect.type === EffectType.STUN);
-    if (isStunned) {
-      addLog("You are stunned!", 'danger');
-      setTurnState('ENEMY_TURN');
-      return;
-    }
+    // Apply result to game state
+    addLog(result.logMessage, result.logType);
 
-    // Calculate damage
-    const damageResult = calculateDamage(
-      playerStats.effectivePrimary,
-      playerStats.derived,
-      enemyStats.effectivePrimary,
-      enemyStats.derived,
-      skill,
-      player.element,
-      enemy.element
-    );
+    setPlayer(prev => prev ? {
+      ...prev,
+      currentHp: result.newPlayerHp,
+      currentChakra: result.newPlayerChakra,
+      activeBuffs: result.newPlayerBuffs,
+      skills: result.skillsUpdate || prev.skills
+    } : null);
 
-    let logMsg = '';
-    let damageDealt = 0;
+    setEnemy(prev => prev ? {
+      ...prev,
+      currentHp: result.newEnemyHp,
+      activeBuffs: result.newEnemyBuffs
+    } : null);
 
-    if (damageResult.isMiss) {
-      logMsg = `You used ${skill.name} but MISSED!`;
-    } else if (damageResult.isEvaded) {
-      logMsg = `You used ${skill.name} but ${enemy.name} EVADED!`;
-    } else {
-      damageDealt = damageResult.finalDamage;
-      logMsg = `Used ${skill.name} for ${damageDealt} dmg`;
-      if (damageResult.flatReduction > 0) logMsg += ` (${damageResult.flatReduction} blocked)`;
-      if (damageResult.elementMultiplier > 1) logMsg += " SUPER EFFECTIVE!";
-      else if (damageResult.elementMultiplier < 1) logMsg += " Resisted.";
-      if (damageResult.isCrit) logMsg += " CRITICAL!";
-    }
-
-    // Update player state
-    const newPlayerHp = player.currentHp - skill.hpCost;
-    const newPlayerChakra = player.currentChakra - skill.chakraCost;
-    const newEnemyHp = enemy.currentHp - damageDealt;
-    const newSkills = player.skills.map(s => s.id === skill.id ? { ...s, currentCooldown: s.cooldown + 1 } : s);
-
-    setPlayer(prev => prev ? { ...prev, currentHp: newPlayerHp, currentChakra: newPlayerChakra, skills: newSkills } : null);
-    setEnemy(prev => prev ? { ...prev, currentHp: newEnemyHp } : null);
-    addLog(logMsg, damageResult.isMiss || damageResult.isEvaded ? 'info' : 'combat');
-
-    // Check for victory
-    if (newEnemyHp <= 0) {
+    // Check for victory/defeat
+    if (result.enemyDefeated) {
       handleVictory();
+    } else if (result.playerDefeated) {
+      setGameState(GameState.GAME_OVER);
     } else {
       setTurnState('ENEMY_TURN');
     }

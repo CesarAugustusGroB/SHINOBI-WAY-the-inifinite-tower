@@ -14,7 +14,7 @@ const Exploration: React.FC<ExplorationProps> = ({ roomChoices, onSelectRoom }) 
 
       {/* Exploration Header */}
       <CinematicViewscreen
-        image="/assets/image_3b2b13.jpg"
+        image="/assets/background_next_chamber.png"
         overlayContent={
           <div className="flex flex-col items-center justify-center h-full text-center">
             <h2 className="text-4xl font-serif text-zinc-200 mb-2 tracking-[0.3em] drop-shadow-lg">

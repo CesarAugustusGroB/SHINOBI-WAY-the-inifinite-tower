@@ -166,6 +166,7 @@ export function applyBuffsToPrimaryStats(
 // Gets the complete stat picture for a player
 // ============================================================================
 export function getPlayerFullStats(player: Player): {
+  primary: PrimaryAttributes;
   effectivePrimary: PrimaryAttributes;
   derived: DerivedStats;
   equipmentBonuses: ItemStatBonus;
@@ -175,6 +176,7 @@ export function getPlayerFullStats(player: Player): {
   const derived = calculateDerivedStats(buffedPrimary, equipmentBonuses);
 
   return {
+    primary: player.primaryStats,
     effectivePrimary: buffedPrimary,
     derived,
     equipmentBonuses
@@ -185,6 +187,7 @@ export function getPlayerFullStats(player: Player): {
 // ENEMY STATS CALCULATOR
 // ============================================================================
 export function getEnemyFullStats(enemy: Enemy): {
+  primary: PrimaryAttributes;
   effectivePrimary: PrimaryAttributes;
   derived: DerivedStats;
 } {
@@ -192,6 +195,7 @@ export function getEnemyFullStats(enemy: Enemy): {
   const derived = calculateDerivedStats(buffedPrimary, {});
 
   return {
+    primary: enemy.primaryStats,
     effectivePrimary: buffedPrimary,
     derived
   };

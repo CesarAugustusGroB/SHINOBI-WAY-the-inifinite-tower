@@ -182,11 +182,26 @@ export const useSkill = (
     if (damageResult.isCrit) logMsg += " CRITICAL!";
 
     // Apply effects
-    if (skill.effects && finalDamageToEnemy >= 0) {
+    if (skill.effects) {
       skill.effects.forEach(eff => {
-        const resisted = eff.type !== EffectType.BUFF && eff.type !== EffectType.HEAL && !resistStatus(eff.chance, enemyStats.derived.statusResistance);
-        if (!resisted) {
-          if (eff.type !== EffectType.BUFF && eff.type !== EffectType.HEAL) {
+        // Self-buffs (applied to player)
+        const isSelfBuff = [
+          EffectType.BUFF,
+          EffectType.SHIELD,
+          EffectType.REFLECTION,
+          EffectType.REGEN,
+          EffectType.INVULNERABILITY,
+          EffectType.HEAL
+        ].includes(eff.type);
+
+        if (isSelfBuff) {
+          // Apply to player (self-buff always succeeds)
+          const buff: Buff = { id: generateId(), name: eff.type, duration: eff.duration, effect: eff, source: skill.name };
+          newPlayerBuffs.push(buff);
+        } else {
+          // Debuffs (applied to enemy with resistance check)
+          const resisted = !resistStatus(eff.chance, enemyStats.derived.statusResistance);
+          if (!resisted && finalDamageToEnemy >= 0) {
             const buff: Buff = { id: generateId(), name: eff.type, duration: eff.duration, effect: eff, source: skill.name };
             newEnemyBuffs.push(buff);
           }

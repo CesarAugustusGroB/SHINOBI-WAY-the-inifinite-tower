@@ -138,14 +138,11 @@ export const ENEMY_PREFIXES = {
 
 // ============================================================================
 // SKILLS DATABASE
-// Each skill now has:
-// - damageType: Physical/Elemental/Mental/True
-// - damageProperty: Normal/Piercing/ArmorBreak
-// - attackMethod: Melee/Ranged/Auto
-// - requirements: { intelligence: X } for learning gates
 // ============================================================================
 export const SKILLS: Record<string, Skill> = {
-  // ==== COMMON / BASIC ====
+  // ==========================================
+  // ACADEMY / BASIC UTILITY
+  // ==========================================
   BASIC_ATTACK: {
     id: 'basic_atk', 
     name: 'Taijutsu', 
@@ -182,54 +179,141 @@ export const SKILLS: Record<string, Skill> = {
   },
   
   MUD_WALL: {
-    id: 'mud_wall', 
-    name: 'Mud Wall', 
-    tier: SkillTier.COMMON, 
-    description: 'Spits mud that hardens into a defensive barricade. Buffs physical defense.',
-    chakraCost: 15, 
-    hpCost: 0, 
-    cooldown: 4, 
-    currentCooldown: 0, 
-    damageMult: 0.5, 
-    scalingStat: PrimaryStat.SPIRIT, 
+    id: 'mud_wall',
+    name: 'Mud Wall',
+    tier: SkillTier.COMMON,
+    description: 'Spits mud that hardens into a barricade. Creates a Shield.',
+    chakraCost: 15,
+    hpCost: 0,
+    cooldown: 4,
+    currentCooldown: 0,
+    damageMult: 0,
+    scalingStat: PrimaryStat.SPIRIT,
     damageType: DamageType.ELEMENTAL,
     damageProperty: DamageProperty.NORMAL,
     attackMethod: AttackMethod.AUTO,
     element: ElementType.EARTH,
     requirements: { intelligence: 8 },
-    effects: [{ 
-      type: EffectType.BUFF, 
-      targetStat: PrimaryStat.STRENGTH, 
-      value: 0.3, 
-      duration: 3, 
-      chance: 1.0 
-    }]
+    effects: [{ type: EffectType.SHIELD, value: 40, duration: 3, chance: 1.0 }]
   },
   
   PHOENIX_FLOWER: {
-    id: 'phoenix_flower', 
-    name: 'Phoenix Flower', 
-    tier: SkillTier.COMMON, 
-    description: 'Volleys of small fireballs controlled with wire. Chance to burn.',
-    chakraCost: 20, 
-    hpCost: 0, 
-    cooldown: 2, 
-    currentCooldown: 0, 
-    damageMult: 1.5, 
-    scalingStat: PrimaryStat.SPIRIT, 
+    id: 'phoenix_flower',
+    name: 'Phoenix Flower',
+    tier: SkillTier.COMMON,
+    description: 'Volleys of small fireballs. Chance to burn.',
+    chakraCost: 20,
+    hpCost: 0,
+    cooldown: 2,
+    currentCooldown: 0,
+    damageMult: 1.5,
+    scalingStat: PrimaryStat.SPIRIT,
     damageType: DamageType.ELEMENTAL,
     damageProperty: DamageProperty.NORMAL,
     attackMethod: AttackMethod.RANGED,
     element: ElementType.FIRE,
     requirements: { intelligence: 10 },
-    effects: [{ 
-      type: EffectType.BURN, 
-      value: 5, 
-      duration: 2, 
+    effects: [{
+      type: EffectType.BURN,
+      value: 5,
+      duration: 2,
       chance: 0.5,
       damageType: DamageType.ELEMENTAL,
       damageProperty: DamageProperty.NORMAL
     }]
+  },
+
+  KAWARIMI: {
+    id: 'kawarimi',
+    name: 'Body Replacement',
+    tier: SkillTier.COMMON,
+    description: 'Switch places with a log. The log absorbs damage while you reposition.',
+    chakraCost: 10,
+    hpCost: 0,
+    cooldown: 4,
+    currentCooldown: 0,
+    damageMult: 0,
+    scalingStat: PrimaryStat.DEXTERITY,
+    damageType: DamageType.PHYSICAL,
+    damageProperty: DamageProperty.NORMAL,
+    attackMethod: AttackMethod.AUTO,
+    element: ElementType.PHYSICAL,
+    effects: [
+      { type: EffectType.SHIELD, value: 30, duration: 1, chance: 1.0 },
+      { type: EffectType.BUFF, targetStat: PrimaryStat.SPEED, value: 0.3, duration: 2, chance: 1.0 }
+    ]
+  },
+
+  BUNSHIN: {
+    id: 'bunshin',
+    name: 'Clone Technique',
+    tier: SkillTier.COMMON,
+    description: 'Creates illusory copies to distract the enemy. Slight Evasion boost.',
+    chakraCost: 5,
+    hpCost: 0,
+    cooldown: 3,
+    currentCooldown: 0,
+    damageMult: 0,
+    scalingStat: PrimaryStat.CHAKRA,
+    damageType: DamageType.MENTAL,
+    damageProperty: DamageProperty.NORMAL,
+    attackMethod: AttackMethod.AUTO,
+    element: ElementType.MENTAL,
+    effects: [{ type: EffectType.BUFF, targetStat: PrimaryStat.SPEED, value: 0.2, duration: 2, chance: 1.0 }]
+  },
+
+  HENGE: {
+    id: 'henge',
+    name: 'Transformation',
+    tier: SkillTier.COMMON,
+    description: 'Transform into an object or person for a surprise attack.',
+    chakraCost: 5,
+    hpCost: 0,
+    cooldown: 4,
+    currentCooldown: 0,
+    damageMult: 0,
+    scalingStat: PrimaryStat.INTELLIGENCE,
+    damageType: DamageType.MENTAL,
+    damageProperty: DamageProperty.NORMAL,
+    attackMethod: AttackMethod.AUTO,
+    element: ElementType.MENTAL,
+    effects: [{ type: EffectType.BUFF, targetStat: PrimaryStat.DEXTERITY, value: 0.25, duration: 2, chance: 1.0 }]
+  },
+
+  SHUNSHIN: {
+    id: 'shunshin',
+    name: 'Body Flicker',
+    tier: SkillTier.COMMON,
+    description: 'High-speed movement to close gaps. Greatly boosts Initiative.',
+    chakraCost: 15,
+    hpCost: 0,
+    cooldown: 3,
+    currentCooldown: 0,
+    damageMult: 0,
+    scalingStat: PrimaryStat.SPEED,
+    damageType: DamageType.PHYSICAL,
+    damageProperty: DamageProperty.NORMAL,
+    attackMethod: AttackMethod.AUTO,
+    element: ElementType.PHYSICAL,
+    effects: [{ type: EffectType.BUFF, targetStat: PrimaryStat.SPEED, value: 0.4, duration: 2, chance: 1.0 }]
+  },
+
+  KAI: {
+    id: 'kai',
+    name: 'Release',
+    tier: SkillTier.COMMON,
+    description: 'Disrupts chakra flow to break illusions. Boosts Genjutsu Resistance.',
+    chakraCost: 10,
+    hpCost: 0,
+    cooldown: 2,
+    currentCooldown: 0,
+    damageMult: 0,
+    scalingStat: PrimaryStat.CALMNESS,
+    damageType: DamageType.MENTAL,
+    damageProperty: DamageProperty.NORMAL,
+    attackMethod: AttackMethod.AUTO,
+    element: ElementType.MENTAL,
+    effects: [{ type: EffectType.BUFF, targetStat: PrimaryStat.CALMNESS, value: 0.5, duration: 3, chance: 1.0 }]
   },
 
   // ==== RARE ====
@@ -283,29 +367,70 @@ export const SKILLS: Record<string, Skill> = {
       damageProperty: DamageProperty.NORMAL
     }]
   },
-  
+
+  ROTATION: {
+    id: 'kaiten',
+    name: '8 Trigrams Rotation',
+    tier: SkillTier.EPIC,
+    description: 'Expels chakra while spinning to repel attacks. Reflects damage.',
+    chakraCost: 25,
+    hpCost: 0,
+    cooldown: 4,
+    currentCooldown: 0,
+    damageMult: 0.5,
+    scalingStat: PrimaryStat.CALMNESS,
+    damageType: DamageType.ELEMENTAL,
+    damageProperty: DamageProperty.NORMAL,
+    attackMethod: AttackMethod.AUTO,
+    element: ElementType.PHYSICAL,
+    requirements: { clan: Clan.HYUGA },
+    effects: [
+      { type: EffectType.REFLECTION, value: 0.6, duration: 1, chance: 1.0 },
+      { type: EffectType.SHIELD, value: 50, duration: 1, chance: 1.0 }
+    ]
+  },
+
+  BYAKUGAN: {
+    id: 'byakugan',
+    name: 'Byakugan',
+    tier: SkillTier.EPIC,
+    description: 'The All-Seeing White Eye. Drastically improves Accuracy and Crit Chance.',
+    chakraCost: 10,
+    hpCost: 0,
+    cooldown: 5,
+    currentCooldown: 0,
+    damageMult: 0,
+    scalingStat: PrimaryStat.CALMNESS,
+    damageType: DamageType.MENTAL,
+    damageProperty: DamageProperty.NORMAL,
+    attackMethod: AttackMethod.AUTO,
+    element: ElementType.PHYSICAL,
+    requirements: { clan: Clan.HYUGA },
+    isToggle: true,
+    upkeepCost: 5,
+    effects: [
+      { type: EffectType.BUFF, targetStat: PrimaryStat.ACCURACY, value: 0.4, duration: -1, chance: 1.0 },
+      { type: EffectType.BUFF, targetStat: PrimaryStat.DEXTERITY, value: 0.3, duration: -1, chance: 1.0 }
+    ]
+  },
+
   GENTLE_FIST: {
-    id: 'gentle_fist', 
-    name: 'Gentle Fist', 
-    tier: SkillTier.RARE, 
-    description: 'Precise strikes to chakra points. Deals TRUE damage that bypasses all defense.',
-    chakraCost: 15, 
-    hpCost: 0, 
-    cooldown: 2, 
-    currentCooldown: 0, 
-    damageMult: 1.4, // Lower mult because TRUE damage
-    scalingStat: PrimaryStat.ACCURACY, 
-    damageType: DamageType.TRUE, // Bypasses ALL defense!
+    id: 'gentle_fist',
+    name: 'Gentle Fist',
+    tier: SkillTier.RARE,
+    description: 'Precise strikes to chakra points. True damage + Chakra Drain.',
+    chakraCost: 15,
+    hpCost: 0,
+    cooldown: 2,
+    currentCooldown: 0,
+    damageMult: 1.4,
+    scalingStat: PrimaryStat.ACCURACY,
+    damageType: DamageType.TRUE,
     damageProperty: DamageProperty.NORMAL,
     attackMethod: AttackMethod.MELEE,
     element: ElementType.PHYSICAL,
     requirements: { intelligence: 12 },
-    effects: [{ 
-      type: EffectType.CHAKRA_DRAIN, 
-      value: 15, 
-      duration: 1, 
-      chance: 0.6 
-    }]
+    effects: [{ type: EffectType.CHAKRA_DRAIN, value: 20, duration: 1, chance: 1.0 }]
   },
   
   SHARINGAN_2TOMOE: {
@@ -333,16 +458,16 @@ export const SKILLS: Record<string, Skill> = {
   },
   
   WATER_PRISON: {
-    id: 'water_prison', 
-    name: 'Water Prison', 
-    tier: SkillTier.RARE, 
+    id: 'water_prison',
+    name: 'Water Prison',
+    tier: SkillTier.RARE,
     description: 'Traps the enemy in a sphere of heavy water. High stun chance.',
-    chakraCost: 30, 
-    hpCost: 0, 
-    cooldown: 5, 
-    currentCooldown: 0, 
-    damageMult: 1.2, 
-    scalingStat: PrimaryStat.SPIRIT, 
+    chakraCost: 30,
+    hpCost: 0,
+    cooldown: 5,
+    currentCooldown: 0,
+    damageMult: 1.2,
+    scalingStat: PrimaryStat.SPIRIT,
     damageType: DamageType.ELEMENTAL,
     damageProperty: DamageProperty.NORMAL,
     attackMethod: AttackMethod.RANGED,
@@ -350,7 +475,28 @@ export const SKILLS: Record<string, Skill> = {
     requirements: { intelligence: 14 },
     effects: [{ type: EffectType.STUN, duration: 2, chance: 0.7 }]
   },
-  
+
+  WATER_WALL: {
+    id: 'suijinheki',
+    name: 'Water Wall',
+    tier: SkillTier.RARE,
+    description: 'Expels water to form a defensive barrier. Creates a Shield.',
+    chakraCost: 25,
+    hpCost: 0,
+    cooldown: 4,
+    currentCooldown: 0,
+    damageMult: 0,
+    scalingStat: PrimaryStat.SPIRIT,
+    damageType: DamageType.ELEMENTAL,
+    damageProperty: DamageProperty.NORMAL,
+    attackMethod: AttackMethod.AUTO,
+    element: ElementType.WATER,
+    effects: [
+      { type: EffectType.SHIELD, value: 60, duration: 2, chance: 1.0 },
+      { type: EffectType.BUFF, targetStat: PrimaryStat.SPIRIT, value: 0.3, duration: 2, chance: 1.0 }
+    ]
+  },
+
   HELL_VIEWING: {
     id: 'hell_viewing', 
     name: 'Hell Viewing Technique', 
