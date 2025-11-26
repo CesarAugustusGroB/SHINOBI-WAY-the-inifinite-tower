@@ -213,7 +213,14 @@ export enum EffectType {
   BLEED = 'Bleed',        // Physical DoT
   BURN = 'Burn',          // Fire DoT
   POISON = 'Poison',      // Ignores some defense
-  CHAKRA_DRAIN = 'ChakraDrain'
+  CHAKRA_DRAIN = 'ChakraDrain',
+  
+  // --- NEW EFFECTS ---
+  SHIELD = 'Shield',           // Absorbs incoming damage (Temporary HP)
+  INVULNERABILITY = 'Invuln',  // Takes 0 damage for duration
+  CURSE = 'Curse',             // Increases damage taken by X%
+  REFLECTION = 'Reflect',      // Returns % of damage taken
+  REGEN = 'Regen'              // Restores HP at start of turn
 }
 
 export interface EffectDefinition {

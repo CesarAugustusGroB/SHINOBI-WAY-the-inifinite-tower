@@ -49,11 +49,11 @@ export const SkillCard: React.FC<SkillCardProps> = ({
       <img 
         src={bgImage} 
         alt={skill.name} 
-        className="absolute inset-0 w-full h-full object-cover z-0 opacity-40 group-hover:opacity-60 transition-opacity"
+        className="absolute inset-0 w-full h-full object-cover z-0 opacity-70 group-hover:opacity-90 transition-opacity"
       />
       
       {/* Gradient Overlay for text readability */}
-      <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent z-10"></div>
+      <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent z-10"></div>
 
       {/* LAYER 2: CONTENT */}
       <div className="relative z-20 w-full h-full p-3 flex flex-col justify-between">

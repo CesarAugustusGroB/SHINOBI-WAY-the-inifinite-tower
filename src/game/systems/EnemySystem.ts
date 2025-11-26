@@ -37,6 +37,9 @@ export const generateEnemy = (currentFloor: number, type: 'NORMAL' | 'ELITE' | '
     if (bossData.name.toLowerCase().includes('haku')) {
       bossImage = '/assets/enemy_boss_haku.png';
     }
+    if (bossData.name.toLowerCase().includes('demon')) {
+      bossImage = '/assets/enemy_boss_demon_brothers.png';
+    }
     
     const bossStats: PrimaryAttributes = {
       willpower: Math.floor(40 * totalScaling),
@@ -142,6 +145,12 @@ export const generateEnemy = (currentFloor: number, type: 'NORMAL' | 'ELITE' | '
   let enemyImage: string | undefined;
   if (name.toLowerCase().includes('puppeteer')) {
     enemyImage = '/assets/enemy_clumsy_puppeteer.png';
+  }
+  if (name.toLowerCase().includes('monk')) {
+    enemyImage = '/assets/enemy_monk.png';
+  }
+  if (name.toLowerCase().includes('ninja') || name.toLowerCase().includes('shinobi')) {
+    enemyImage = '/assets/enemy_exhausted_shinobi.png';
   }
 
   return {

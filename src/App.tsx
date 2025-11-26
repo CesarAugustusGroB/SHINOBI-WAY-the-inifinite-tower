@@ -26,6 +26,9 @@ import GameLog from './components/GameLog';
 import CharacterSheet from './components/CharacterSheet';
 import Tooltip from './components/Tooltip';
 
+// Import the parchment background styles
+import './App.css';
+
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
 const App: React.FC = () => {
@@ -72,6 +75,12 @@ const App: React.FC = () => {
       case EffectType.CONFUSION: return "50% chance to hurt self in confusion.";
       case EffectType.SILENCE: return "Cannot use skills with chakra cost.";
       case EffectType.CHAKRA_DRAIN: return `Drains ${value} chakra per turn.`;
+      // NEW DESCRIPTIONS
+      case EffectType.SHIELD: return `Absorbs the next ${value} damage taken.`;
+      case EffectType.INVULNERABILITY: return "Takes 0 damage from all attacks.";
+      case EffectType.REFLECTION: return `Reflects ${Math.round((value || 0) * 100)}% of damage taken back to attacker.`;
+      case EffectType.CURSE: return `Damage taken increased by ${Math.round((value || 0) * 100)}%.`;
+      case EffectType.REGEN: return `Restores ${value} HP at the start of each turn.`;
       default: return buff.name;
     }
   };
@@ -505,7 +514,7 @@ const App: React.FC = () => {
 
       {/* Center Panel */}
       <div className="flex-1 flex flex-col relative bg-zinc-950">
-        <div className="flex-1 p-6 flex flex-col items-center justify-center relative overflow-y-auto">
+        <div className="flex-1 p-6 flex flex-col items-center justify-center relative overflow-y-auto parchment-panel">
           {gameState === GameState.EXPLORE && (
             <Exploration roomChoices={roomChoices} onSelectRoom={selectRoom} />
           )}
@@ -548,7 +557,7 @@ const App: React.FC = () => {
         </div>
 
         {/* Logs Footer */}
-        <div className="h-56 bg-black border-t border-zinc-900">
+        <div className="h-56 bg-black border-t border-zinc-900 relative z-10">
           <GameLog logs={logs} />
         </div>
       </div>
