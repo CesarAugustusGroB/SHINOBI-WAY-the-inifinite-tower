@@ -2,6 +2,7 @@ import React from 'react';
 import { Clan, PrimaryAttributes } from '../game/types';
 import { CLAN_STATS, CLAN_START_SKILL } from '../game/constants';
 import Tooltip from '../components/Tooltip';
+import './CharacterSelect.css';
 
 interface CharacterSelectProps {
   onSelectClan: (clan: Clan) => void;
@@ -31,7 +32,7 @@ const getRankColor = (rank: string): string => {
 
 const CharacterSelect: React.FC<CharacterSelectProps> = ({ onSelectClan }) => {
   return (
-    <div className="min-h-screen bg-zinc-950 text-gray-200 p-8 flex flex-col items-center justify-center">
+    <div className="character-select-container min-h-screen bg-zinc-950 text-gray-200 p-8 flex flex-col items-center justify-center">
       <h2 className="text-2xl font-serif text-zinc-500 mb-12 tracking-[0.2em]">SELECT LINEAGE</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 w-full max-w-7xl">
         {Object.values(Clan).map(clan => {
@@ -44,14 +45,13 @@ const CharacterSelect: React.FC<CharacterSelectProps> = ({ onSelectClan }) => {
           const bodyRank = getStatRank(stats, ['strength', 'speed', 'dexterity']);
 
           return (
-            <button
+            <div
               key={clan}
-              onClick={() => onSelectClan(clan)}
-              className="h-80 bg-black border border-zinc-800 hover:border-red-900 p-6 flex flex-col items-start justify-between transition-all group hover:bg-zinc-900 relative overflow-hidden"
+              className="h-96 bg-black border-2 border-zinc-800 p-8 flex flex-col items-start justify-between relative overflow-hidden"
             >
               <div className="absolute -right-8 -top-8 text-8xl font-black text-zinc-900 opacity-20">{clan.charAt(0)}</div>
               <div className="z-10 w-full">
-                <h3 className="text-2xl font-black text-zinc-200 mb-2 group-hover:text-red-600 transition-colors">{clan}</h3>
+                <h3 className="text-2xl font-black text-zinc-200 mb-2">{clan}</h3>
                 <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-4 border-b border-zinc-800 pb-2">{startSkill.name}</div>
 
                 {/* Stat Category Ranks with Tooltip */}
@@ -102,8 +102,13 @@ const CharacterSelect: React.FC<CharacterSelectProps> = ({ onSelectClan }) => {
                   </div>
                 </Tooltip>
               </div>
-              <div className="w-full pt-4 border-t border-zinc-800 text-xs text-zinc-600 uppercase tracking-wider group-hover:text-red-800 z-10">Begin Journey</div>
-            </button>
+              <button 
+                onClick={() => onSelectClan(clan)}
+                className="w-full pt-4 z-10 group"
+              >
+                <img src="/assets/translucent_begin_journey.png" alt="Begin Journey" className="w-full h-auto object-cover transition-transform group-hover:scale-105" />
+              </button>
+            </div>
           );
         })}
       </div>

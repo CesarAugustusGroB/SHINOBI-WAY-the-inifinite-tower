@@ -1,0 +1,6 @@
+.character-select-container {
+  background-image: url(/assets/character_select_background.png);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}

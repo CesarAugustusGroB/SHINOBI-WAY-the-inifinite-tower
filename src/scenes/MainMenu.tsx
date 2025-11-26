@@ -1,5 +1,6 @@
 import React from 'react';
 import { GameState, Clan } from '../game/types';
+import './MainMenu.css';
 
 interface MainMenuProps {
   difficulty: number;
@@ -9,7 +10,7 @@ interface MainMenuProps {
 
 const MainMenu: React.FC<MainMenuProps> = ({ difficulty, onDifficultyChange, onEnter }) => {
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center relative font-sans">
+    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center relative font-sans main-menu-container">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black opacity-80"></div>
       <div className="z-10 flex flex-col items-center w-full max-w-md px-6">
         <div className="mb-8 p-6 border-4 border-double border-red-900 bg-black/80 transform rotate-1">
