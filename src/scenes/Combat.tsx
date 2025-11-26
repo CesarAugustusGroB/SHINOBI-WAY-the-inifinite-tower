@@ -10,6 +10,7 @@ import {
 } from '../game/types';
 import StatBar from '../components/StatBar';
 import Tooltip from '../components/Tooltip';
+import { SkillCard } from '../components/SkillCard';
 import {
   Hourglass
 } from 'lucide-react';
@@ -83,13 +84,14 @@ const Combat: React.FC<CombatProps> = ({
       </div>
 
       {/* Skills Grid */}
-      <div className="mt-auto grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="mt-auto grid grid-cols-2 md:grid-cols-4 gap-4 px-2">
         {player.skills.map(skill => {
           const canUse = player.currentChakra >= skill.chakraCost && player.currentHp > skill.hpCost && skill.currentCooldown === 0;
           const isStunned = player.activeBuffs.some(b => b.effect.type === EffectType.STUN);
           const isEnemyTurn = turnState === 'ENEMY_TURN';
+          const usable = (canUse || skill.isActive) && !isStunned && !isEnemyTurn;
 
-          // Predicted damage
+          // Prediction calculation
           const prediction = calculateDamage(
             playerStats.effectivePrimary,
             playerStats.derived,
@@ -100,25 +102,9 @@ const Combat: React.FC<CombatProps> = ({
             enemy.element
           );
 
-          // Calculate effectiveness for UI
+          // Check effectiveness for the golden glow
           const effectiveness = getElementEffectiveness(skill.element, enemy.element);
-          let borderColor = 'border-zinc-800';
-          let effectivenessIcon = null;
-
-          if (effectiveness > 1.0) {
-            borderColor = 'border-green-600';
-            effectivenessIcon = <div className="absolute top-1 right-1 text-green-500 text-[10px] font-bold z-20">▲</div>;
-          } else if (effectiveness < 1.0) {
-            borderColor = 'border-red-900';
-            effectivenessIcon = <div className="absolute top-1 right-1 text-red-500 text-[10px] font-bold z-20">▼</div>;
-          }
-
-          // Override border if unusable or toggle active
-          if (!((canUse || skill.isActive) && !isStunned && !isEnemyTurn)) {
-            borderColor = 'border-zinc-900';
-          } else if (skill.isToggle && skill.isActive) {
-            borderColor = 'border-blue-500';
-          }
+          const isSuperEffective = effectiveness > 1.0;
 
           return (
             <Tooltip
@@ -153,43 +139,13 @@ const Combat: React.FC<CombatProps> = ({
                 </div>
               }
             >
-              <button
+              <SkillCard 
+                skill={skill}
+                predictedDamage={prediction.finalDamage}
+                isEffective={isSuperEffective}
+                canUse={usable}
                 onClick={() => onUseSkill(skill)}
-                disabled={(!canUse && !skill.isActive) || isStunned || isEnemyTurn}
-                className={`w-full relative p-3 h-28 text-left border transition-all group flex flex-col justify-between overflow-hidden
-                  ${
-                    (canUse || skill.isActive) && !isStunned && !isEnemyTurn
-                      ? `bg-zinc-900 ${borderColor} hover:border-zinc-500`
-                      : 'bg-black border-zinc-900 opacity-40 cursor-not-allowed'
-                  }
-                  ${skill.isToggle && skill.isActive ? 'bg-blue-900/20' : ''}`}
-              >
-                {effectivenessIcon}
-                <div className="relative z-10">
-                  <div className="flex justify-between items-start">
-                    <div className="font-bold text-xs text-zinc-200 mb-0.5">{skill.name}</div>
-                    {(skill.level || 1) > 1 && <div className="text-[8px] text-yellow-500 font-mono">Lv.{skill.level}</div>}
-                  </div>
-                  <div className="text-[9px] text-zinc-500 uppercase flex items-center gap-1">
-                    <span className={getDamageTypeColor(skill.damageType)}>{skill.damageType.charAt(0)}</span>
-                    <span>{skill.element}</span>
-                  </div>
-                </div>
-
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 text-right pointer-events-none">
-                  <div className="text-[8px] font-black uppercase text-zinc-700">DMG</div>
-                  <div className="text-2xl font-black font-serif text-zinc-800 leading-none">{prediction.finalDamage > 0 && !prediction.isMiss ? prediction.finalDamage : '-'}</div>
-                </div>
-
-                <div className="flex justify-between text-[9px] font-mono relative z-10 mt-auto">
-                  <span className={skill.chakraCost > 0 ? 'text-blue-400' : 'text-zinc-700'}>{skill.chakraCost > 0 ? `${skill.chakraCost} CP` : '-'}</span>
-                  <span className={skill.hpCost > 0 ? 'text-red-400' : 'text-zinc-700'}>{skill.hpCost > 0 ? `${skill.hpCost} HP` : '-'}</span>
-                </div>
-
-                {skill.currentCooldown > 0 && (
-                  <div className="absolute inset-0 bg-black/90 flex items-center justify-center text-2xl font-black text-zinc-700 z-20">{skill.currentCooldown}</div>
-                )}
-              </button>
+              />
             </Tooltip>
           );
         })}
