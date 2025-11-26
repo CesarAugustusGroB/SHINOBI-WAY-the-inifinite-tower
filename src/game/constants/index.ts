@@ -502,23 +502,42 @@ export const SKILLS: Record<string, Skill> = {
   },
   
   WATER_DRAGON: {
-    id: 'water_dragon', 
-    name: 'Water Dragon Jutsu', 
-    tier: SkillTier.EPIC, 
+    id: 'water_dragon',
+    name: 'Water Dragon Jutsu',
+    tier: SkillTier.EPIC,
     description: 'Manifests a majestic dragon of water to crash down upon the foe.',
-    chakraCost: 30, 
-    hpCost: 0, 
-    cooldown: 4, 
-    currentCooldown: 0, 
-    damageMult: 2.6, 
-    scalingStat: PrimaryStat.SPIRIT, 
+    chakraCost: 30,
+    hpCost: 0,
+    cooldown: 4,
+    currentCooldown: 0,
+    damageMult: 2.6,
+    scalingStat: PrimaryStat.SPIRIT,
     damageType: DamageType.ELEMENTAL,
     damageProperty: DamageProperty.NORMAL,
     attackMethod: AttackMethod.RANGED,
     element: ElementType.WATER,
     requirements: { intelligence: 18 }
   },
-  
+
+  ICE_MIRRORS: {
+    id: 'ice_mirrors',
+    name: 'Demonic Ice Mirrors',
+    tier: SkillTier.EPIC,
+    description: 'Creates a dome of ice mirrors. Traps the target and deals multiple strikes.',
+    chakraCost: 40,
+    hpCost: 0,
+    cooldown: 4,
+    currentCooldown: 0,
+    damageMult: 2.2,
+    scalingStat: PrimaryStat.SPEED,
+    damageType: DamageType.ELEMENTAL,
+    damageProperty: DamageProperty.PIERCING,
+    attackMethod: AttackMethod.AUTO,
+    element: ElementType.WATER,
+    requirements: { intelligence: 16 },
+    effects: [{ type: EffectType.STUN, duration: 1, chance: 0.5 }]
+  },
+
   FALSE_SURROUNDINGS: {
     id: 'false_surroundings', 
     name: 'False Surroundings', 
@@ -817,15 +836,15 @@ export const BASE_ITEM_NAMES = {
 // BOSS DEFINITIONS
 // ============================================================================
 export const BOSS_NAMES = {
-  10: { name: 'Mizuki', element: ElementType.PHYSICAL, skill: SKILLS.DEMON_SLASH }, 
-  20: { name: 'Zabuza Momochi', element: ElementType.WATER, skill: SKILLS.WATER_DRAGON },
-  30: { name: 'Orochimaru', element: ElementType.WIND, skill: SKILLS.POISON_FOG },
-  40: { name: 'Neji Hyuga', element: ElementType.PHYSICAL, skill: SKILLS.GENTLE_FIST },
-  50: { name: 'Gaara', element: ElementType.EARTH, skill: SKILLS.SAND_COFFIN },
-  60: { name: 'Kimimaro', element: ElementType.PHYSICAL, skill: SKILLS.BONE_DRILL },
-  70: { name: 'Sasuke Uchiha', element: ElementType.LIGHTNING, skill: SKILLS.CHIDORI },
-  80: { name: 'Pain', element: ElementType.WIND, skill: SKILLS.SHINRA_TENSEI }, 
-  90: { name: 'Obito Uchiha', element: ElementType.FIRE, skill: SKILLS.KAMUI_IMPACT },
+  8: { name: 'Demon Brothers', element: ElementType.PHYSICAL, skill: SKILLS.DEMON_SLASH },
+  17: { name: 'Haku', element: ElementType.WATER, skill: SKILLS.ICE_MIRRORS },
+  25: { name: 'Zabuza Momochi', element: ElementType.WATER, skill: SKILLS.WATER_DRAGON },
+  35: { name: 'Orochimaru', element: ElementType.WIND, skill: SKILLS.POISON_FOG },
+  45: { name: 'Gaara', element: ElementType.EARTH, skill: SKILLS.SAND_COFFIN },
+  55: { name: 'Kimimaro', element: ElementType.PHYSICAL, skill: SKILLS.BONE_DRILL },
+  65: { name: 'Sasuke Uchiha', element: ElementType.LIGHTNING, skill: SKILLS.CHIDORI },
+  75: { name: 'Pain', element: ElementType.WIND, skill: SKILLS.SHINRA_TENSEI },
+  85: { name: 'Obito Uchiha', element: ElementType.FIRE, skill: SKILLS.KAMUI_IMPACT },
   100: { name: 'Madara Uchiha', element: ElementType.FIRE, skill: SKILLS.TENGAI_SHINSEI },
 };
 

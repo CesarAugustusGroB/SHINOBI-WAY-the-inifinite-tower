@@ -1,16 +1,24 @@
 import { Room, GameEventDefinition } from '../types';
-import { EVENTS } from '../constants';
+import { EVENTS, BOSS_NAMES } from '../constants';
 import { generateEnemy, getStoryArc } from './EnemySystem';
 
 export const generateRooms = (currentFloor: number, diff: number): Room[] => {
   const rooms: Room[] = [];
   const arc = getStoryArc(currentFloor);
 
-  if (currentFloor % 10 === 0) {
+  if (BOSS_NAMES[currentFloor as keyof typeof BOSS_NAMES]) {
     let bossDesc = "A terrifying chakra pressure crushes the air.";
-    if (arc.name === 'ACADEMY_ARC') bossDesc = "A rogue sensei blocks your graduation.";
-    else if (arc.name === 'WAVES_ARC') bossDesc = "The Mist Demon waits on the bridge.";
-    else if (arc.name === 'EXAMS_ARC') bossDesc = "The Proctor blocks your path.";
+
+    if (arc.name === 'WAVES_ARC') {
+      if (currentFloor === 8) bossDesc = "Two chained shinobi emerge from a puddle!";
+      else if (currentFloor === 17) bossDesc = "The air grows cold. A masked hunter blocks your path.";
+      else if (currentFloor === 25) bossDesc = "The Demon of the Hidden Mist stands before you.";
+    } else if (arc.name === 'ACADEMY_ARC') {
+      bossDesc = "A rogue sensei blocks your graduation.";
+    } else if (arc.name === 'EXAMS_ARC') {
+      bossDesc = "The Proctor blocks your path.";
+    }
+
     rooms.push({ type: 'BOSS', description: bossDesc, enemy: generateEnemy(currentFloor, 'BOSS', diff) });
     return rooms;
   }

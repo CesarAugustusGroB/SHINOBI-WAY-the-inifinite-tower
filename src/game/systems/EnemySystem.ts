@@ -31,6 +31,13 @@ export const generateEnemy = (currentFloor: number, type: 'NORMAL' | 'ELITE' | '
 
   if (type === 'BOSS') {
     const bossData = BOSS_NAMES[currentFloor as keyof typeof BOSS_NAMES] || { name: 'Edo Tensei Legend', element: ElementType.FIRE, skill: SKILLS.RASENGAN };
+    
+    // Set boss image based on name
+    let bossImage: string | undefined;
+    if (bossData.name.toLowerCase().includes('haku')) {
+      bossImage = '/assets/enemy_boss_haku.png';
+    }
+    
     const bossStats: PrimaryAttributes = {
       willpower: Math.floor(40 * totalScaling),
       chakra: Math.floor(30 * totalScaling),
@@ -53,7 +60,8 @@ export const generateEnemy = (currentFloor: number, type: 'NORMAL' | 'ELITE' | '
       currentHp: derived.maxHp,
       currentChakra: derived.maxChakra,
       dropRateBonus: 50 + diff,
-      activeBuffs: []
+      activeBuffs: [],
+      image: bossImage
     };
   }
 
