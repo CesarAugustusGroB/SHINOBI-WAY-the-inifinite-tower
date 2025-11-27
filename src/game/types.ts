@@ -441,24 +441,24 @@ export const STAT_FORMULAS = {
 
   // Defense Scaling (Diminishing Returns Formula)
   // Formula: stat / (stat + SOFT_CAP) = % reduction
-  PHYSICAL_DEF_SOFT_CAP: 120,
-  ELEMENTAL_DEF_SOFT_CAP: 120,
-  MENTAL_DEF_SOFT_CAP: 100,
-  
-  // Flat Defense
-  FLAT_PHYS_DEF_PER_STR: 0.6,
-  FLAT_ELEM_DEF_PER_SPIRIT: 0.6,
-  FLAT_MENTAL_DEF_PER_CALM: 0.5,
+  PHYSICAL_DEF_SOFT_CAP: 200,    // BUFFED: Was 120 - harder to cap
+  ELEMENTAL_DEF_SOFT_CAP: 200,   // BUFFED: Was 120
+  MENTAL_DEF_SOFT_CAP: 150,      // BUFFED: Was 100
 
-  // Evasion & Hit
-  EVASION_SOFT_CAP: 150,
-  BASE_HIT_CHANCE: 85,
-  HIT_PER_STAT_DIFF: 1.5,       // Per point of SPD/ACC vs target SPD
+  // Flat Defense - HALVED for better damage scaling
+  FLAT_PHYS_DEF_PER_STR: 0.3,    // NERFED: Was 0.6 - HALVED
+  FLAT_ELEM_DEF_PER_SPIRIT: 0.3, // NERFED: Was 0.6 - HALVED
+  FLAT_MENTAL_DEF_PER_CALM: 0.25,// NERFED: Was 0.5 - HALVED
 
-  // Critical
-  BASE_CRIT_CHANCE: 5,
-  CRIT_PER_DEX: 0.4,
-  BASE_CRIT_MULT: 1.5,
+  // Evasion & Hit - More reliable attacks
+  EVASION_SOFT_CAP: 250,         // BUFFED: Was 150 - harder to dodge
+  BASE_HIT_CHANCE: 92,           // BUFFED: Was 85 - more reliable
+  HIT_PER_STAT_DIFF: 1.5,        // Per point of SPD/ACC vs target SPD
+
+  // Critical - Slight buff to reward precision
+  BASE_CRIT_CHANCE: 8,           // BUFFED: Was 5
+  CRIT_PER_DEX: 0.5,             // BUFFED: Was 0.4
+  BASE_CRIT_MULT: 1.75,          // BUFFED: Was 1.5
   RANGED_CRIT_BONUS_PER_ACC: 0.008, // Extra crit multiplier for ranged
 
   // Survival

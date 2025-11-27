@@ -152,7 +152,7 @@ export const SKILLS: Record<string, Skill> = {
     hpCost: 0, 
     cooldown: 0, 
     currentCooldown: 0, 
-    damageMult: 1.0, 
+    damageMult: 2.0,  // BUFFED: Was 1.0 - doubled for better base damage
     scalingStat: PrimaryStat.STRENGTH, 
     damageType: DamageType.PHYSICAL,
     damageProperty: DamageProperty.NORMAL,
@@ -169,7 +169,7 @@ export const SKILLS: Record<string, Skill> = {
     hpCost: 0, 
     cooldown: 1, 
     currentCooldown: 0, 
-    damageMult: 0.8, 
+    damageMult: 1.8,  // BUFFED: Was 0.8 - more than doubled
     scalingStat: PrimaryStat.ACCURACY, 
     damageType: DamageType.PHYSICAL,
     damageProperty: DamageProperty.NORMAL,
@@ -206,7 +206,7 @@ export const SKILLS: Record<string, Skill> = {
     hpCost: 0,
     cooldown: 2,
     currentCooldown: 0,
-    damageMult: 1.5,
+    damageMult: 2.2,  // BUFFED: Was 1.5 - elemental attacks should hit harder
     scalingStat: PrimaryStat.SPIRIT,
     damageType: DamageType.ELEMENTAL,
     damageProperty: DamageProperty.NORMAL,
@@ -215,7 +215,7 @@ export const SKILLS: Record<string, Skill> = {
     requirements: { intelligence: 10 },
     effects: [{
       type: EffectType.BURN,
-      value: 5,
+      value: 8,      // BUFFED: Was 5 - burn should be meaningful
       duration: 2,
       chance: 0.5,
       damageType: DamageType.ELEMENTAL,
@@ -326,7 +326,7 @@ export const SKILLS: Record<string, Skill> = {
     hpCost: 0, 
     cooldown: 3, 
     currentCooldown: 0, 
-    damageMult: 2.8, 
+    damageMult: 4.0,  // BUFFED: Was 2.8 - signature move should hit hard
     scalingStat: PrimaryStat.SPIRIT, 
     damageType: DamageType.ELEMENTAL,
     damageProperty: DamageProperty.PIERCING, // Ignores flat armor!
@@ -351,7 +351,7 @@ export const SKILLS: Record<string, Skill> = {
     hpCost: 0, 
     cooldown: 3, 
     currentCooldown: 0, 
-    damageMult: 2.4, 
+    damageMult: 3.5,  // BUFFED: Was 2.4 - main elemental nuke
     scalingStat: PrimaryStat.SPIRIT, 
     damageType: DamageType.ELEMENTAL,
     damageProperty: DamageProperty.NORMAL,
@@ -423,7 +423,7 @@ export const SKILLS: Record<string, Skill> = {
     hpCost: 0,
     cooldown: 2,
     currentCooldown: 0,
-    damageMult: 1.4,
+    damageMult: 2.5,  // BUFFED: Was 1.4 - TRUE damage should hit harder
     scalingStat: PrimaryStat.ACCURACY,
     damageType: DamageType.TRUE,
     damageProperty: DamageProperty.NORMAL,
@@ -466,7 +466,7 @@ export const SKILLS: Record<string, Skill> = {
     hpCost: 0,
     cooldown: 5,
     currentCooldown: 0,
-    damageMult: 1.2,
+    damageMult: 2.0,  // BUFFED: Was 1.2 - CC-focused but should deal damage
     scalingStat: PrimaryStat.SPIRIT,
     damageType: DamageType.ELEMENTAL,
     damageProperty: DamageProperty.NORMAL,
@@ -498,41 +498,41 @@ export const SKILLS: Record<string, Skill> = {
   },
 
   HELL_VIEWING: {
-    id: 'hell_viewing', 
-    name: 'Hell Viewing Technique', 
-    tier: SkillTier.RARE, 
+    id: 'hell_viewing',
+    name: 'Hell Viewing Technique',
+    tier: SkillTier.RARE,
     description: 'A Genjutsu that reveals the target\'s worst fears. MENTAL damage bypasses physical defense, resisted by Calmness.',
-    chakraCost: 25, 
-    hpCost: 0, 
-    cooldown: 4, 
-    currentCooldown: 0, 
-    damageMult: 1.5, 
-    scalingStat: PrimaryStat.CALMNESS, 
+    chakraCost: 25,
+    hpCost: 0,
+    cooldown: 4,
+    currentCooldown: 0,
+    damageMult: 2.8,  // BUFFED: Was 1.5 - mental damage should be reliable
+    scalingStat: PrimaryStat.CALMNESS,
     damageType: DamageType.MENTAL, // Uses Mental Defense!
     damageProperty: DamageProperty.NORMAL,
     attackMethod: AttackMethod.AUTO, // Genjutsu auto-hits
     element: ElementType.MENTAL,
     requirements: { intelligence: 16 },
-    effects: [{ 
-      type: EffectType.DEBUFF, 
-      targetStat: PrimaryStat.STRENGTH, 
-      value: 0.3, 
-      duration: 3, 
-      chance: 1.0 
+    effects: [{
+      type: EffectType.DEBUFF,
+      targetStat: PrimaryStat.STRENGTH,
+      value: 0.3,
+      duration: 3,
+      chance: 1.0
     }]
   },
   
   MIND_DESTRUCTION: {
-    id: 'mind_destruction', 
-    name: 'Mind Body Disturbance', 
-    tier: SkillTier.RARE, 
+    id: 'mind_destruction',
+    name: 'Mind Body Disturbance',
+    tier: SkillTier.RARE,
     description: 'Sends chakra into the opponent\'s nervous system to confuse their movement. MENTAL damage, causes confusion.',
-    chakraCost: 30, 
-    hpCost: 0, 
-    cooldown: 4, 
-    currentCooldown: 0, 
-    damageMult: 1.8, 
-    scalingStat: PrimaryStat.CALMNESS, 
+    chakraCost: 30,
+    hpCost: 0,
+    cooldown: 4,
+    currentCooldown: 0,
+    damageMult: 3.0,  // BUFFED: Was 1.8 - piercing mental should hit hard
+    scalingStat: PrimaryStat.CALMNESS,
     damageType: DamageType.MENTAL,
     damageProperty: DamageProperty.PIERCING, // Pierces mental flat def
     attackMethod: AttackMethod.AUTO,
@@ -543,63 +543,63 @@ export const SKILLS: Record<string, Skill> = {
 
   // ==== EPIC ====
   SHADOW_CLONE: {
-    id: 'shadow_clone', 
-    name: 'Shadow Clone Jutsu', 
-    tier: SkillTier.EPIC, 
-    description: 'Creates solid clones to overwhelm the enemy. Massive stat buffs.',
-    chakraCost: 50, 
-    hpCost: 0, 
-    cooldown: 6, 
-    currentCooldown: 0, 
-    damageMult: 0, 
-    scalingStat: PrimaryStat.CHAKRA, 
+    id: 'shadow_clone',
+    name: 'Shadow Clone Jutsu',
+    tier: SkillTier.EPIC,
+    description: 'Creates solid clones to overwhelm the enemy. Massive stat buffs but deals NO direct damage.',
+    chakraCost: 50,
+    hpCost: 0,
+    cooldown: 6,
+    currentCooldown: 0,
+    damageMult: 0,  // FIXED: Pure buff skill, no damage
+    scalingStat: PrimaryStat.CHAKRA,
     damageType: DamageType.PHYSICAL,
     damageProperty: DamageProperty.NORMAL,
     attackMethod: AttackMethod.AUTO,
     element: ElementType.PHYSICAL,
     requirements: { intelligence: 18 },
     effects: [
-      { type: EffectType.BUFF, targetStat: PrimaryStat.STRENGTH, value: 0.5, duration: 3, chance: 1.0 }, 
-      { type: EffectType.BUFF, targetStat: PrimaryStat.SPEED, value: 0.3, duration: 3, chance: 1.0 }
+      { type: EffectType.BUFF, targetStat: PrimaryStat.STRENGTH, value: 0.6, duration: 3, chance: 1.0 },  // BUFFED: Was 0.5
+      { type: EffectType.BUFF, targetStat: PrimaryStat.SPEED, value: 0.4, duration: 3, chance: 1.0 }  // BUFFED: Was 0.3
     ]
   },
   
   PRIMARY_LOTUS: {
-    id: 'primary_lotus', 
-    name: 'Primary Lotus', 
-    tier: SkillTier.EPIC, 
+    id: 'primary_lotus',
+    name: 'Primary Lotus',
+    tier: SkillTier.EPIC,
     description: 'A forbidden technique unlocking the body\'s limits. Devastating PIERCING physical damage at the cost of HP.',
-    chakraCost: 0, 
-    hpCost: 25, 
-    cooldown: 4, 
-    currentCooldown: 0, 
-    damageMult: 3.8, 
-    scalingStat: PrimaryStat.STRENGTH, 
+    chakraCost: 0,
+    hpCost: 25,
+    cooldown: 4,
+    currentCooldown: 0,
+    damageMult: 5.0,  // BUFFED: Was 3.8 - Lee's signature move
+    scalingStat: PrimaryStat.STRENGTH,
     damageType: DamageType.PHYSICAL,
     damageProperty: DamageProperty.PIERCING, // Ignores flat phys def
     attackMethod: AttackMethod.MELEE,
     element: ElementType.PHYSICAL,
     requirements: { intelligence: 6 }, // Lee can use it!
-    effects: [{ 
-      type: EffectType.BUFF, 
-      targetStat: PrimaryStat.STRENGTH, 
-      value: 0.3, 
-      duration: 2, 
-      chance: 1.0 
+    effects: [{
+      type: EffectType.BUFF,
+      targetStat: PrimaryStat.STRENGTH,
+      value: 0.3,
+      duration: 2,
+      chance: 1.0
     }]
   },
   
   CHIDORI: {
-    id: 'chidori', 
-    name: 'Chidori', 
-    tier: SkillTier.EPIC, 
+    id: 'chidori',
+    name: 'Chidori',
+    tier: SkillTier.EPIC,
     description: 'A crackling assassination technique. High speed thrust that deals PIERCING elemental damage.',
-    chakraCost: 35, 
-    hpCost: 0, 
-    cooldown: 4, 
-    currentCooldown: 0, 
-    damageMult: 3.2, 
-    scalingStat: PrimaryStat.SPEED, 
+    chakraCost: 35,
+    hpCost: 0,
+    cooldown: 4,
+    currentCooldown: 0,
+    damageMult: 4.5,  // BUFFED: Was 3.2 - high speed thrust should hit hard
+    scalingStat: PrimaryStat.SPEED,
     damageType: DamageType.ELEMENTAL,
     damageProperty: DamageProperty.PIERCING,
     attackMethod: AttackMethod.MELEE,
@@ -629,16 +629,16 @@ export const SKILLS: Record<string, Skill> = {
   },
   
   SAND_COFFIN: {
-    id: 'sand_coffin', 
-    name: 'Sand Coffin', 
-    tier: SkillTier.EPIC, 
+    id: 'sand_coffin',
+    name: 'Sand Coffin',
+    tier: SkillTier.EPIC,
     description: 'Encases the enemy in crushing waves of sand. ARMOR_BREAK ignores % defense.',
-    chakraCost: 40, 
-    hpCost: 0, 
-    cooldown: 5, 
-    currentCooldown: 0, 
-    damageMult: 2.4, 
-    scalingStat: PrimaryStat.SPIRIT, 
+    chakraCost: 40,
+    hpCost: 0,
+    cooldown: 5,
+    currentCooldown: 0,
+    damageMult: 4.0,  // BUFFED: Was 2.4 - armor break is strong
+    scalingStat: PrimaryStat.SPIRIT,
     damageType: DamageType.ELEMENTAL,
     damageProperty: DamageProperty.ARMOR_BREAK, // Ignores % def!
     attackMethod: AttackMethod.RANGED,
@@ -656,7 +656,7 @@ export const SKILLS: Record<string, Skill> = {
     hpCost: 0,
     cooldown: 4,
     currentCooldown: 0,
-    damageMult: 2.6,
+    damageMult: 3.8,  // BUFFED: Was 2.6 - elemental nuke
     scalingStat: PrimaryStat.SPIRIT,
     damageType: DamageType.ELEMENTAL,
     damageProperty: DamageProperty.NORMAL,
@@ -674,7 +674,7 @@ export const SKILLS: Record<string, Skill> = {
     hpCost: 0,
     cooldown: 4,
     currentCooldown: 0,
-    damageMult: 2.2,
+    damageMult: 3.5,  // BUFFED: Was 2.2 - multi-hit + stun should be strong
     scalingStat: PrimaryStat.SPEED,
     damageType: DamageType.ELEMENTAL,
     damageProperty: DamageProperty.PIERCING,
@@ -724,25 +724,25 @@ export const SKILLS: Record<string, Skill> = {
 
   // ==== LEGENDARY / AMBUSH ====
   DEMON_SLASH: {
-    id: 'demon_slash', 
-    name: 'Demon Slash', 
-    tier: SkillTier.LEGENDARY, 
+    id: 'demon_slash',
+    name: 'Demon Slash',
+    tier: SkillTier.LEGENDARY,
     description: 'A brutal, sweeping cleave with the Executioner Blade. Causes BLEED.',
-    chakraCost: 0, 
-    hpCost: 0, 
-    cooldown: 2, 
-    currentCooldown: 0, 
-    damageMult: 2.0, 
-    scalingStat: PrimaryStat.STRENGTH, 
+    chakraCost: 0,
+    hpCost: 0,
+    cooldown: 2,
+    currentCooldown: 0,
+    damageMult: 3.5,  // BUFFED: Was 2.0 - piercing + bleed legendary
+    scalingStat: PrimaryStat.STRENGTH,
     damageType: DamageType.PHYSICAL,
     damageProperty: DamageProperty.PIERCING,
     attackMethod: AttackMethod.MELEE,
     element: ElementType.PHYSICAL,
     requirements: { intelligence: 10 },
-    effects: [{ 
-      type: EffectType.BLEED, 
-      value: 15, 
-      duration: 3, 
+    effects: [{
+      type: EffectType.BLEED,
+      value: 15,
+      duration: 3,
       chance: 1.0,
       damageType: DamageType.PHYSICAL,
       damageProperty: DamageProperty.PIERCING
@@ -750,16 +750,16 @@ export const SKILLS: Record<string, Skill> = {
   },
   
   BONE_DRILL: {
-    id: 'bone_drill', 
-    name: 'Dance of Clematis', 
-    tier: SkillTier.LEGENDARY, 
+    id: 'bone_drill',
+    name: 'Dance of Clematis',
+    tier: SkillTier.LEGENDARY,
     description: 'A macabre dance manipulating bone density into a piercing spear. TRUE damage.',
-    chakraCost: 0, 
-    hpCost: 10, 
-    cooldown: 3, 
-    currentCooldown: 0, 
-    damageMult: 2.0, // Lower because TRUE damage
-    scalingStat: PrimaryStat.STRENGTH, 
+    chakraCost: 0,
+    hpCost: 10,
+    cooldown: 3,
+    currentCooldown: 0,
+    damageMult: 4.0,  // BUFFED: Was 2.0 - TRUE damage is ultimate
+    scalingStat: PrimaryStat.STRENGTH,
     damageType: DamageType.TRUE, // Bypasses ALL defense
     damageProperty: DamageProperty.NORMAL,
     attackMethod: AttackMethod.MELEE,
@@ -795,16 +795,16 @@ export const SKILLS: Record<string, Skill> = {
   },
   
   TSUKUYOMI: {
-    id: 'tsukuyomi', 
-    name: 'Tsukuyomi', 
-    tier: SkillTier.LEGENDARY, 
+    id: 'tsukuyomi',
+    name: 'Tsukuyomi',
+    tier: SkillTier.LEGENDARY,
     description: 'Traps the target in an illusion of torture. Massive TRUE MENTAL damage.',
-    chakraCost: 80, 
-    hpCost: 15, 
-    cooldown: 6, 
-    currentCooldown: 0, 
-    damageMult: 3.5, 
-    scalingStat: PrimaryStat.CALMNESS, 
+    chakraCost: 80,
+    hpCost: 15,
+    cooldown: 6,
+    currentCooldown: 0,
+    damageMult: 5.0,  // BUFFED: Was 3.5 - TRUE mental ultimate
+    scalingStat: PrimaryStat.CALMNESS,
     damageType: DamageType.TRUE, // Bypasses mental defense too!
     damageProperty: DamageProperty.NORMAL,
     attackMethod: AttackMethod.AUTO,
@@ -833,16 +833,16 @@ export const SKILLS: Record<string, Skill> = {
   },
   
   RASENSHURIKEN: {
-    id: 'rasenshuriken', 
-    name: 'Rasenshuriken', 
-    tier: SkillTier.FORBIDDEN, 
+    id: 'rasenshuriken',
+    name: 'Rasenshuriken',
+    tier: SkillTier.FORBIDDEN,
     description: 'A microscopic wind blade vortex that severs chakra channels. PIERCING + TRUE damage hybrid.',
-    chakraCost: 120, 
-    hpCost: 0, 
-    cooldown: 5, 
-    currentCooldown: 0, 
-    damageMult: 4.0, 
-    scalingStat: PrimaryStat.SPIRIT, 
+    chakraCost: 120,
+    hpCost: 0,
+    cooldown: 5,
+    currentCooldown: 0,
+    damageMult: 6.0,  // BUFFED: Was 4.0 - ultimate forbidden jutsu
+    scalingStat: PrimaryStat.SPIRIT,
     damageType: DamageType.TRUE,
     damageProperty: DamageProperty.PIERCING,
     attackMethod: AttackMethod.RANGED,
@@ -851,25 +851,25 @@ export const SKILLS: Record<string, Skill> = {
   },
   
   AMATERASU: {
-    id: 'amaterasu', 
-    name: 'Amaterasu', 
-    tier: SkillTier.FORBIDDEN, 
+    id: 'amaterasu',
+    name: 'Amaterasu',
+    tier: SkillTier.FORBIDDEN,
     description: 'Inextinguishable black flames. Deals initial PIERCING damage + massive TRUE DoT.',
-    chakraCost: 80, 
-    hpCost: 20, 
-    cooldown: 5, 
-    currentCooldown: 0, 
-    damageMult: 1.5, 
-    scalingStat: PrimaryStat.SPIRIT, 
+    chakraCost: 80,
+    hpCost: 20,
+    cooldown: 5,
+    currentCooldown: 0,
+    damageMult: 3.0,  // BUFFED: Was 1.5 - DoT-focused but should have good initial hit
+    scalingStat: PrimaryStat.SPIRIT,
     damageType: DamageType.ELEMENTAL,
     damageProperty: DamageProperty.PIERCING,
     attackMethod: AttackMethod.AUTO,
     element: ElementType.FIRE,
     requirements: { intelligence: 22, clan: Clan.UCHIHA },
-    effects: [{ 
-      type: EffectType.BURN, 
-      value: 50, 
-      duration: 5, 
+    effects: [{
+      type: EffectType.BURN,
+      value: 50,
+      duration: 5,
       chance: 1.0,
       damageType: DamageType.TRUE, // Black flames deal TRUE damage
       damageProperty: DamageProperty.NORMAL
@@ -877,16 +877,16 @@ export const SKILLS: Record<string, Skill> = {
   },
   
   KIRIN: {
-    id: 'kirin', 
-    name: 'Kirin', 
-    tier: SkillTier.FORBIDDEN, 
+    id: 'kirin',
+    name: 'Kirin',
+    tier: SkillTier.FORBIDDEN,
     description: 'Harnesses natural lightning from the heavens. Unavoidable ARMOR_BREAK strike.',
-    chakraCost: 150, 
-    hpCost: 0, 
-    cooldown: 8, 
-    currentCooldown: 0, 
-    damageMult: 4.5, 
-    scalingStat: PrimaryStat.SPIRIT, 
+    chakraCost: 150,
+    hpCost: 0,
+    cooldown: 8,
+    currentCooldown: 0,
+    damageMult: 7.0,  // BUFFED: Was 4.5 - ultimate armor-break nuke
+    scalingStat: PrimaryStat.SPIRIT,
     damageType: DamageType.ELEMENTAL,
     damageProperty: DamageProperty.ARMOR_BREAK, // Ignores % def
     attackMethod: AttackMethod.AUTO, // Cannot be dodged
