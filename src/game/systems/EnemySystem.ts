@@ -152,6 +152,9 @@ export const generateEnemy = (currentFloor: number, type: 'NORMAL' | 'ELITE' | '
   if (name.toLowerCase().includes('ninja') || name.toLowerCase().includes('shinobi')) {
     enemyImage = '/assets/enemy_exhausted_shinobi.png';
   }
+  if (name.toLowerCase().includes('samurai')) {
+    enemyImage = '/assets/enemy_samurai.png';
+  }
 
   return {
     name,

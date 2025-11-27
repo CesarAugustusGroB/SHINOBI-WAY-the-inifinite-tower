@@ -961,7 +961,7 @@ export const SKILLS: Record<string, Skill> = {
 // CLAN STARTING SKILLS
 // ============================================================================
 export const CLAN_START_SKILL: Record<Clan, Skill> = {
-  [Clan.UZUMAKI]: SKILLS.RASENGAN,
+  [Clan.UZUMAKI]: SKILLS.SHADOW_CLONE,
   [Clan.UCHIHA]: SKILLS.FIREBALL,
   [Clan.HYUGA]: SKILLS.GENTLE_FIST,
   [Clan.LEE]: SKILLS.PRIMARY_LOTUS,
