@@ -1,14 +1,16 @@
 import React from 'react';
 import { GameState, Clan } from '../game/types';
 import './MainMenu.css';
+import { BookOpen } from 'lucide-react';
 
 interface MainMenuProps {
   difficulty: number;
   onDifficultyChange: (value: number) => void;
   onEnter: () => void;
+  onGuide: () => void;
 }
 
-const MainMenu: React.FC<MainMenuProps> = ({ difficulty, onDifficultyChange, onEnter }) => {
+const MainMenu: React.FC<MainMenuProps> = ({ difficulty, onDifficultyChange, onEnter, onGuide }) => {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center relative font-sans main-menu-container">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black opacity-80"></div>
@@ -38,6 +40,10 @@ const MainMenu: React.FC<MainMenuProps> = ({ difficulty, onDifficultyChange, onE
         <button onClick={onEnter} className="w-full group relative px-16 py-4 bg-black border border-zinc-800 hover:border-red-800 transition-all overflow-hidden">
           <div className="absolute inset-0 w-0 bg-red-900/20 transition-all duration-300 ease-out group-hover:w-full"></div>
           <span className="relative font-bold text-lg tracking-widest text-zinc-300 group-hover:text-red-500">ENTER TOWER</span>
+        </button>
+
+        <button type="button" onClick={onGuide} className="w-full py-3 bg-zinc-900/80 border border-zinc-700 text-zinc-400 font-bold uppercase tracking-widest hover:bg-zinc-800 hover:text-white transition-colors text-xs flex items-center justify-center gap-2">
+          <BookOpen size={14} /> Shinobi Handbook
         </button>
       </div>
     </div>

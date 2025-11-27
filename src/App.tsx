@@ -21,6 +21,7 @@ import Combat from './scenes/Combat';
 import Event from './scenes/Event';
 import Loot from './scenes/Loot';
 import GameOver from './scenes/GameOver';
+import GameGuide from './scenes/GameGuide';
 import StatBar from './components/StatBar';
 import GameLog from './components/GameLog';
 import CharacterSheet from './components/CharacterSheet';
@@ -449,8 +450,13 @@ const App: React.FC = () => {
         difficulty={difficulty}
         onDifficultyChange={setDifficulty}
         onEnter={() => setGameState(GameState.CHAR_SELECT)}
+        onGuide={() => setGameState(GameState.GUIDE)}
       />
     );
+  }
+
+  if (gameState === GameState.GUIDE) {
+    return <GameGuide onBack={() => setGameState(GameState.MENU)} />;
   }
 
   if (gameState === GameState.CHAR_SELECT) {

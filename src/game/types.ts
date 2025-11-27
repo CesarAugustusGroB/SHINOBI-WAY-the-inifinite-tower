@@ -11,7 +11,8 @@ export enum GameState {
   LOOT,
   EVENT,
   GAME_OVER,
-  VICTORY
+  VICTORY,
+  GUIDE
 }
 
 export enum ElementType {

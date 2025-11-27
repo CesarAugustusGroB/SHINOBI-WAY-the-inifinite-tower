@@ -134,6 +134,27 @@ export function aggregateEquipmentBonuses(equipment: Record<ItemSlot, Item | nul
 }
 
 // ============================================================================
+// EQUIPMENT BONUS APPLICATOR
+// Applies equipment bonuses to primary attributes
+// ============================================================================
+export function applyEquipmentToPrimaryStats(
+  baseStats: PrimaryAttributes,
+  equipmentBonuses: ItemStatBonus
+): PrimaryAttributes {
+  return {
+    willpower: baseStats.willpower + (equipmentBonuses.willpower || 0),
+    chakra: baseStats.chakra + (equipmentBonuses.chakra || 0),
+    strength: baseStats.strength + (equipmentBonuses.strength || 0),
+    spirit: baseStats.spirit + (equipmentBonuses.spirit || 0),
+    intelligence: baseStats.intelligence + (equipmentBonuses.intelligence || 0),
+    calmness: baseStats.calmness + (equipmentBonuses.calmness || 0),
+    speed: baseStats.speed + (equipmentBonuses.speed || 0),
+    accuracy: baseStats.accuracy + (equipmentBonuses.accuracy || 0),
+    dexterity: baseStats.dexterity + (equipmentBonuses.dexterity || 0),
+  };
+}
+
+// ============================================================================
 // BUFF MODIFIER CALCULATOR
 // Applies active buff/debuff modifiers to primary stats
 // ============================================================================
@@ -172,12 +193,13 @@ export function getPlayerFullStats(player: Player): {
   equipmentBonuses: ItemStatBonus;
 } {
   const equipmentBonuses = aggregateEquipmentBonuses(player.equipment);
-  const buffedPrimary = applyBuffsToPrimaryStats(player.primaryStats, player.activeBuffs);
-  const derived = calculateDerivedStats(buffedPrimary, equipmentBonuses);
+  const withEquipment = applyEquipmentToPrimaryStats(player.primaryStats, equipmentBonuses);
+  const effectivePrimary = applyBuffsToPrimaryStats(withEquipment, player.activeBuffs);
+  const derived = calculateDerivedStats(effectivePrimary, equipmentBonuses);
 
   return {
     primary: player.primaryStats,
-    effectivePrimary: buffedPrimary,
+    effectivePrimary,
     derived,
     equipmentBonuses
   };
