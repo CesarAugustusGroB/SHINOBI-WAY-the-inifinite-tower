@@ -28,6 +28,9 @@ export const SkillCard: React.FC<SkillCardProps> = ({
     if (skillName.includes('taijutsu')) {
       return '/assets/skill_taijutsu.png';
     }
+    if (skillName.includes('primary lotus')) {
+      return '/assets/skill_primary_lotus.png';
+    }
     // Default fallback image
     return "https://i.pinimg.com/736x/2c/a6/34/2ca6347bd392eb997d74720838b90839.jpg";
   };

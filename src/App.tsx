@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   GameState, Player, Clan, Skill, Enemy, Room, Item, Rarity, DamageType, EffectType, Buff
 } from './game/types';
@@ -45,10 +45,12 @@ const App: React.FC = () => {
   const [activeEvent, setActiveEvent] = useState<any>(null);
   const [difficulty, setDifficulty] = useState<number>(20);
   const [turnState, setTurnState] = useState<'PLAYER' | 'ENEMY_TURN'>('PLAYER');
+  const logIdCounter = useRef<number>(0);
 
   const addLog = useCallback((text: string, type: any = 'info', details?: string) => {
     setLogs(prev => {
-      const newEntry: any = { id: Date.now(), text, type, details };
+      logIdCounter.current += 1;
+      const newEntry: any = { id: logIdCounter.current, text, type, details };
       const newLogs = [...prev, newEntry];
       if (newLogs.length > 50) newLogs.shift();
       return newLogs;
@@ -64,27 +66,6 @@ const App: React.FC = () => {
     if (!enemy) return null;
     return getEnemyFullStats(enemy);
   }, [enemy]);
-
-  const getBuffDescription = (buff: Buff) => {
-    const { type, value, targetStat } = buff.effect;
-    switch (type) {
-      case EffectType.STUN: return "Cannot perform any actions.";
-      case EffectType.DOT: case EffectType.BLEED: case EffectType.BURN: case EffectType.POISON:
-        return `Takes ${value} damage at the start of each turn.`;
-      case EffectType.BUFF: return `${targetStat} increased by ${Math.round((value || 0) * 100)}%.`;
-      case EffectType.DEBUFF: return `${targetStat} decreased by ${Math.round((value || 0) * 100)}%.`;
-      case EffectType.CONFUSION: return "50% chance to hurt self in confusion.";
-      case EffectType.SILENCE: return "Cannot use skills with chakra cost.";
-      case EffectType.CHAKRA_DRAIN: return `Drains ${value} chakra per turn.`;
-      // NEW DESCRIPTIONS
-      case EffectType.SHIELD: return `Absorbs the next ${value} damage taken.`;
-      case EffectType.INVULNERABILITY: return "Takes 0 damage from all attacks.";
-      case EffectType.REFLECTION: return `Reflects ${Math.round((value || 0) * 100)}% of damage taken back to attacker.`;
-      case EffectType.CURSE: return `Damage taken increased by ${Math.round((value || 0) * 100)}%.`;
-      case EffectType.REGEN: return `Restores ${value} HP at the start of each turn.`;
-      default: return buff.name;
-    }
-  };
 
   const checkLevelUp = (p: Player): Player => {
     let currentPlayer = { ...p };
@@ -212,6 +193,27 @@ const App: React.FC = () => {
         } else {
           text = "Not enough Ryō."; type = 'danger';
         }
+        break;
+      case 'FIGHT_GHOST':
+        // Generate a ghost enemy and start combat
+        const ghostEnemy = generateEnemy(floor, difficulty, 'Vengeful Spirit', 'ASSASSIN', false);
+        setEnemy(ghostEnemy);
+        setTurnState('PLAYER');
+        setGameState(GameState.COMBAT);
+        text = "The spirit rises to defend its grave!"; type = 'danger'; next = false;
+        break;
+      case 'TRAP_DMG':
+        const trapDamage = choice.value || Math.floor(player.currentHp * 0.3);
+        setPlayer(p => p ? ({ ...p, currentHp: Math.max(1, p.currentHp - trapDamage) }) : null);
+        text = `You triggered a trap! Lost ${trapDamage} HP.`; type = 'danger';
+        break;
+      case 'CHALLENGE_GUARDIAN':
+        // Generate a guardian enemy (stronger than normal)
+        const guardian = generateEnemy(floor + 2, difficulty, 'Guardian', 'TANK', false);
+        setEnemy(guardian);
+        setTurnState('PLAYER');
+        setGameState(GameState.COMBAT);
+        text = "The guardian accepts your challenge!"; type = 'danger'; next = false;
         break;
     }
     if (next) { addLog(text, type); nextFloor(); }

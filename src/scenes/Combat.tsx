@@ -6,6 +6,7 @@ import {
   EffectType,
   DamageType,
   CharacterStats,
+  Buff,
 } from '../game/types';
 import StatBar from '../components/StatBar';
 import Tooltip from '../components/Tooltip';
@@ -14,6 +15,17 @@ import { CinematicViewscreen } from '../components/CinematicViewscreen';
 import { Hourglass } from 'lucide-react';
 import { calculateDamage, formatPercent } from '../game/systems/StatSystem';
 import { getElementEffectiveness } from '../game/constants';
+import {
+  formatScalingStat,
+  getStatColor,
+  getElementColor,
+  getEffectColor,
+  getEffectIcon,
+  formatEffectDescription,
+  getBuffDescription,
+  getCategoryRanks,
+  getRankColor,
+} from '../game/utils/tooltipFormatters';
 
 interface CombatProps {
   player: Player;
@@ -77,18 +89,103 @@ const Combat: React.FC<CombatProps> = ({
                 </span>
               </div>
 
-              {/* Detailed Stats (Small) */}
-              <div className="mt-2 flex gap-3 text-[9px] font-mono text-zinc-500 opacity-80 hover:opacity-100 transition-opacity cursor-help">
-                <span>Phys: <span className="text-orange-400">{enemyStats.derived.physicalDefenseFlat}+{formatPercent(enemyStats.derived.physicalDefensePercent)}</span></span>
-                <span>Elem: <span className="text-purple-400">{enemyStats.derived.elementalDefenseFlat}+{formatPercent(enemyStats.derived.elementalDefensePercent)}</span></span>
-                <span>Mind: <span className="text-indigo-400">{enemyStats.derived.mentalDefenseFlat}+{formatPercent(enemyStats.derived.mentalDefensePercent)}</span></span>
-              </div>
+              {/* Detailed Stats with Tooltip */}
+              <Tooltip
+                content={
+                  (() => {
+                    const ranks = getCategoryRanks(enemyStats.effectivePrimary);
+                    return (
+                      <div className="space-y-3 p-1 max-w-[280px]">
+                        <div className="text-sm font-bold text-zinc-200">{enemy.name}</div>
+                        <div className="text-[10px] text-zinc-500">{enemy.tier} - {enemy.element} Affinity</div>
+
+                        {/* THE BODY */}
+                        <div className="border-t border-zinc-700 pt-2">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-[10px] font-bold text-orange-400 uppercase">The Body</span>
+                            <span className={`text-sm font-black ${getRankColor(ranks.body)}`}>{ranks.body}</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 text-[9px] font-mono text-zinc-300 mb-1">
+                            <div><span className="text-orange-500">STR</span> {enemyStats.effectivePrimary.strength}</div>
+                            <div><span className="text-red-500">WIL</span> {enemyStats.effectivePrimary.willpower}</div>
+                            <div><span className="text-blue-500">CHA</span> {enemyStats.effectivePrimary.chakra}</div>
+                          </div>
+                          <div className="text-[9px] text-zinc-500">
+                            Phys Def: <span className="text-orange-400">{enemyStats.derived.physicalDefenseFlat} + {formatPercent(enemyStats.derived.physicalDefensePercent)}</span>
+                          </div>
+                        </div>
+
+                        {/* THE MIND */}
+                        <div className="border-t border-zinc-700 pt-2">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-[10px] font-bold text-purple-400 uppercase">The Mind</span>
+                            <span className={`text-sm font-black ${getRankColor(ranks.mind)}`}>{ranks.mind}</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 text-[9px] font-mono text-zinc-300 mb-1">
+                            <div><span className="text-purple-500">SPI</span> {enemyStats.effectivePrimary.spirit}</div>
+                            <div><span className="text-cyan-500">INT</span> {enemyStats.effectivePrimary.intelligence}</div>
+                            <div><span className="text-indigo-500">CAL</span> {enemyStats.effectivePrimary.calmness}</div>
+                          </div>
+                          <div className="text-[9px] text-zinc-500 space-y-0.5">
+                            <div>Elem Def: <span className="text-purple-400">{enemyStats.derived.elementalDefenseFlat} + {formatPercent(enemyStats.derived.elementalDefensePercent)}</span></div>
+                            <div>Mind Def: <span className="text-indigo-400">{enemyStats.derived.mentalDefenseFlat} + {formatPercent(enemyStats.derived.mentalDefensePercent)}</span></div>
+                          </div>
+                        </div>
+
+                        {/* THE TECHNIQUE */}
+                        <div className="border-t border-zinc-700 pt-2">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-[10px] font-bold text-green-400 uppercase">The Technique</span>
+                            <span className={`text-sm font-black ${getRankColor(ranks.technique)}`}>{ranks.technique}</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 text-[9px] font-mono text-zinc-300 mb-1">
+                            <div><span className="text-green-500">SPD</span> {enemyStats.effectivePrimary.speed}</div>
+                            <div><span className="text-yellow-500">ACC</span> {enemyStats.effectivePrimary.accuracy}</div>
+                            <div><span className="text-pink-500">DEX</span> {enemyStats.effectivePrimary.dexterity}</div>
+                          </div>
+                          <div className="text-[9px] text-zinc-500 space-y-0.5">
+                            <div>Evasion: <span className="text-green-400">{formatPercent(enemyStats.derived.evasion)}</span></div>
+                            <div>Crit: <span className="text-yellow-400">{Math.round(enemyStats.derived.critChance)}%</span></div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()
+                }
+              >
+                <div className="mt-2 flex gap-3 text-[9px] font-mono text-zinc-500 opacity-80 hover:opacity-100 transition-opacity cursor-help">
+                  <span>Phys: <span className="text-orange-400">{enemyStats.derived.physicalDefenseFlat}+{formatPercent(enemyStats.derived.physicalDefensePercent)}</span></span>
+                  <span>Elem: <span className="text-purple-400">{enemyStats.derived.elementalDefenseFlat}+{formatPercent(enemyStats.derived.elementalDefensePercent)}</span></span>
+                  <span>Mind: <span className="text-indigo-400">{enemyStats.derived.mentalDefenseFlat}+{formatPercent(enemyStats.derived.mentalDefensePercent)}</span></span>
+                </div>
+              </Tooltip>
             </div>
 
             {/* RIGHT: Active Buffs */}
             <div className="flex flex-col items-end gap-2">
               {enemy.activeBuffs.map(buff => (
-                <Tooltip key={buff.id} content={buff.effect.type}>
+                <Tooltip
+                  key={buff.id}
+                  content={
+                    <div className="space-y-2 p-1 max-w-[220px]">
+                      <div className="font-bold text-zinc-200 flex items-center gap-2">
+                        <span className={getEffectColor(buff.effect.type)}>{getEffectIcon(buff.effect.type)}</span>
+                        <span>{buff.name}</span>
+                      </div>
+                      <div className="text-xs text-zinc-400">{getBuffDescription(buff)}</div>
+                      <div className="border-t border-zinc-700 pt-2 text-[10px] text-zinc-500 space-y-0.5">
+                        <div className="flex justify-between">
+                          <span>Source</span>
+                          <span className="text-zinc-300">{buff.source}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Remaining</span>
+                          <span className="text-zinc-300">{buff.duration} {buff.duration === 1 ? 'turn' : 'turns'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                >
                   <div className="px-2 py-1 bg-red-950/80 border border-red-500/30 text-[10px] text-red-200 font-mono uppercase tracking-wider shadow-lg backdrop-blur-sm">
                     {buff.name} <span className="text-red-500">[{buff.duration}]</span>
                   </div>
@@ -127,22 +224,69 @@ const Combat: React.FC<CombatProps> = ({
               <Tooltip
                 key={skill.id}
                 content={
-                  <div className="space-y-2 p-1 max-w-[220px]">
-                    <div className="font-bold text-zinc-200 flex justify-between">
+                  <div className="space-y-2 p-1 max-w-[280px]">
+                    {/* Header */}
+                    <div className="font-bold text-zinc-200 flex justify-between items-center">
                       <span>{skill.name}</span>
-                      <span className="text-yellow-500">Lv.{skill.level || 1}</span>
+                      <span className="text-yellow-500 text-xs">Lv.{skill.level || 1}</span>
                     </div>
-                    <div className="text-xs text-zinc-400">{skill.description}</div>
-                    <div className="border-t border-zinc-700 my-2 pt-2 space-y-1 text-[10px] font-mono text-zinc-500">
+
+                    {/* Description */}
+                    <div className="text-xs text-zinc-400 italic">{skill.description}</div>
+
+                    {/* Core Stats */}
+                    <div className="border-t border-zinc-700 pt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] font-mono">
                       <div className="flex justify-between">
-                        <span>Damage Type</span>
+                        <span className="text-zinc-500">Scales</span>
+                        <span className={getStatColor(skill.scalingStat)}>{formatScalingStat(skill.scalingStat)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Element</span>
+                        <span className={getElementColor(skill.element)}>{skill.element}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Attack</span>
+                        <span className="text-zinc-300">{skill.attackMethod}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Type</span>
                         <span className={getDamageTypeColor(skill.damageType)}>{skill.damageType}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Property</span>
-                        <span className="text-zinc-300">{skill.damageProperty}</span>
-                      </div>
                     </div>
+
+                    {/* Effects Section */}
+                    {skill.effects && skill.effects.length > 0 && (
+                      <div className="border-t border-zinc-700 pt-2">
+                        <div className="text-[9px] text-zinc-500 uppercase tracking-wider mb-1">Effects</div>
+                        <div className="space-y-0.5">
+                          {skill.effects.map((effect, idx) => (
+                            <div key={idx} className="text-[10px] flex items-center gap-1.5">
+                              <span className={getEffectColor(effect.type)}>{getEffectIcon(effect.type)}</span>
+                              <span className="text-zinc-300">{formatEffectDescription(effect)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bonus Stats */}
+                    {(skill.critBonus || skill.penetration) && (
+                      <div className="border-t border-zinc-700 pt-2 text-[10px] space-y-0.5">
+                        {skill.critBonus && (
+                          <div className="text-yellow-400">+{skill.critBonus}% Crit Chance</div>
+                        )}
+                        {skill.penetration && (
+                          <div className="text-red-400">{Math.round(skill.penetration * 100)}% Defense Penetration</div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Toggle Skill Info */}
+                    {skill.isToggle && (
+                      <div className="border-t border-zinc-700 pt-2 text-[10px] text-amber-400">
+                        Toggle Skill - {skill.upkeepCost} CP/turn upkeep
+                      </div>
+                    )}
                   </div>
                 }
               >

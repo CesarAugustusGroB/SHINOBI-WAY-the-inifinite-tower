@@ -580,6 +580,7 @@ export const SKILLS: Record<string, Skill> = {
     attackMethod: AttackMethod.MELEE,
     element: ElementType.PHYSICAL,
     requirements: { intelligence: 6 }, // Lee can use it!
+    image: '/assets/skill_primary_lotus.png',
     effects: [{
       type: EffectType.BUFF,
       targetStat: PrimaryStat.STRENGTH,
