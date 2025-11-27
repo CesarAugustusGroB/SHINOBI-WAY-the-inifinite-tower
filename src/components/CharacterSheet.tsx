@@ -163,7 +163,7 @@ const CharacterSheet: React.FC<CharacterSheetProps> = ({ player, effectivePrimar
   };
 
   return (
-    <div className="flex flex-col gap-4 h-full text-[11px]">
+    <div className="flex flex-col gap-4 h-full text-[11px] character-stats-panel rounded-lg p-3 border border-zinc-800">
       {/* Header: Clan & Element */}
       <div className="bg-zinc-900/80 p-3 rounded border border-zinc-800">
         <div className="flex items-center gap-3 mb-3 border-b border-zinc-800 pb-2">

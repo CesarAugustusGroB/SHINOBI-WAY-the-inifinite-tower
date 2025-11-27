@@ -10,7 +10,7 @@ import {
   canLearnSkill,
   calculateDamage
 } from './game/systems/StatSystem';
-import { getStoryArc } from './game/systems/EnemySystem';
+import { getStoryArc, generateEnemy } from './game/systems/EnemySystem';
 import { generateItem, generateSkillLoot, equipItem as equipItemFn, sellItem as sellItemFn } from './game/systems/LootSystem';
 import { processEnemyTurn, useSkill as useSkillCombat } from './game/systems/CombatSystem';
 import { generateRooms } from './game/systems/RoomSystem';
@@ -22,10 +22,8 @@ import Event from './scenes/Event';
 import Loot from './scenes/Loot';
 import GameOver from './scenes/GameOver';
 import GameGuide from './scenes/GameGuide';
-import StatBar from './components/StatBar';
 import GameLog from './components/GameLog';
-import CharacterSheet from './components/CharacterSheet';
-import Tooltip from './components/Tooltip';
+import LeftSidebarPanel from './components/LeftSidebarPanel';
 
 // Import the parchment background styles
 import './App.css';
@@ -482,39 +480,14 @@ const App: React.FC = () => {
   return (
     <div className="h-screen bg-black text-gray-300 flex overflow-hidden font-sans">
       {/* Left Panel */}
-      <div className="hidden lg:flex w-[320px] flex-col border-r border-zinc-900 bg-zinc-950 p-4 overflow-y-auto">
-        <div className="mb-4 text-center border-b border-zinc-900 pb-3">
-          <div className="text-[9px] text-zinc-500 uppercase tracking-[0.3em] font-bold mb-1">Current Arc</div>
-          <div className="text-base font-serif text-zinc-200 font-bold">{getStoryArc(floor).label}</div>
-        </div>
-
-        <div className="mb-4 flex flex-col gap-2 border-b border-zinc-900 pb-4">
-          <div className="flex items-baseline justify-between">
-            <span className="text-xs text-zinc-600 uppercase tracking-widest font-bold">Floor</span>
-            <span className="text-4xl font-black text-zinc-200 font-serif">{floor}</span>
-          </div>
-          {player && (
-            <div className="mt-2">
-              <div className="flex items-baseline justify-between mb-1">
-                <span className="text-xs text-yellow-700 uppercase tracking-widest font-bold">Level</span>
-                <span className="text-lg font-bold text-yellow-500 font-mono">{player.level}</span>
-              </div>
-              <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
-                <div className="h-full bg-yellow-600" style={{ width: `${(player.exp / player.maxExp) * 100}%` }}></div>
-              </div>
-              <div className="flex justify-end text-[9px] text-zinc-600 font-mono mt-1">{player.exp} / {player.maxExp} XP</div>
-            </div>
-          )}
-        </div>
-
+      <div className="hidden lg:flex w-[320px] flex-col border-r border-zinc-900 bg-zinc-950 p-4">
         {player && playerStats && (
-          <div className="flex-1 flex flex-col gap-4">
-            <div className="space-y-2">
-              <StatBar current={player.currentHp} max={playerStats.derived.maxHp} label="Health" color="green" />
-              <StatBar current={player.currentChakra} max={playerStats.derived.maxChakra} label="Chakra" color="blue" />
-            </div>
-            <CharacterSheet player={player} effectivePrimary={playerStats.effectivePrimary} derived={playerStats.derived} />
-          </div>
+          <LeftSidebarPanel
+            floor={floor}
+            player={player}
+            playerStats={playerStats}
+            storyArcLabel={getStoryArc(floor).label}
+          />
         )}
       </div>
 

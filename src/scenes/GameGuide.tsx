@@ -6,7 +6,7 @@ interface GameGuideProps {
   onBack: () => void;
 }
 
-type Tab = 'STATS' | 'ELEMENTS' | 'EFFECTS' | 'COMBAT';
+type Tab = 'STATS' | 'ELEMENTS' | 'EFFECTS' | 'COMBAT' | 'CLANS' | 'PROGRESSION' | 'EQUIPMENT' | 'DUNGEONS';
 
 const GameGuide: React.FC<GameGuideProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState<Tab>('STATS');
@@ -32,8 +32,8 @@ const GameGuide: React.FC<GameGuideProps> = ({ onBack }) => {
         </div>
 
         {/* Tabs */}
-        <div className="flex justify-center gap-1 bg-zinc-900/5 p-3 border-b border-zinc-800/10">
-          {['STATS', 'ELEMENTS', 'EFFECTS', 'COMBAT'].map((tab) => (
+        <div className="flex justify-center gap-1 bg-zinc-900/5 p-3 border-b border-zinc-800/10 flex-wrap">
+          {['STATS', 'ELEMENTS', 'EFFECTS', 'COMBAT', 'CLANS', 'PROGRESSION', 'EQUIPMENT', 'DUNGEONS'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as Tab)}
@@ -202,6 +202,168 @@ const GameGuide: React.FC<GameGuideProps> = ({ onBack }) => {
                   <p className="text-xs leading-relaxed">
                     Shields (Temporary HP) take damage before your actual Health. However, <strong>Shields do not benefit from your Defense stats</strong>. They take raw damage.
                   </p>
+                </div>
+              </section>
+            </div>
+          )}
+
+          {/* --- CLANS TAB --- */}
+          {activeTab === 'CLANS' && (
+            <div className="space-y-6 max-w-4xl mx-auto">
+              {HELP_TEXT.CLANS.map(clan => (
+                <div key={clan.id} className="bg-white/50 p-5 rounded border border-zinc-300 shadow-sm">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="text-lg font-black text-zinc-900 uppercase tracking-wider">{clan.name}</h3>
+                    <span className="text-xs font-bold text-zinc-600 uppercase tracking-widest bg-white/60 px-2 py-1 rounded">{clan.role}</span>
+                  </div>
+                  <p className="text-sm text-zinc-700 italic mb-3">{clan.desc}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <div className="font-bold text-green-800 mb-1 uppercase">Strengths</div>
+                      <ul className="list-disc list-inside space-y-1 text-green-900">
+                        {clan.strengths.map((s, i) => <li key={i}>{s}</li>)}
+                      </ul>
+                    </div>
+                    <div>
+                      <div className="font-bold text-red-800 mb-1 uppercase">Weakness</div>
+                      <p className="text-red-900">{clan.weakness}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-zinc-700 mt-3 border-t border-zinc-300 pt-2"><span className="font-bold">Strategy:</span> {clan.strategy}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* --- PROGRESSION TAB --- */}
+          {activeTab === 'PROGRESSION' && (
+            <div className="space-y-6 max-w-4xl mx-auto text-zinc-800">
+              <section className="bg-white/50 p-5 rounded border border-zinc-300">
+                <h3 className="font-black uppercase tracking-widest mb-3 text-lg">Enemy Scaling Formula</h3>
+                <div className="bg-zinc-900 text-zinc-300 p-3 rounded font-mono text-xs mb-4 shadow-inner">
+                  {HELP_TEXT.PROGRESSION.SCALING.formula}
+                </div>
+                <div className="space-y-2">
+                  {HELP_TEXT.PROGRESSION.SCALING.examples.map((ex, idx) => (
+                    <div key={idx} className="text-sm bg-white/30 p-2 rounded">{ex.text}</div>
+                  ))}
+                </div>
+              </section>
+
+              <section>
+                <h3 className="font-black uppercase tracking-widest mb-3 text-lg">Difficulty Ranks</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {HELP_TEXT.PROGRESSION.DIFFICULTY_RANKS.map((rank, idx) => (
+                    <div key={idx} className={`bg-white/50 p-3 rounded border border-${rank.color}/20`}>
+                      <div className={`text-lg font-black text-${rank.color} mb-1`}>Rank {rank.rank}</div>
+                      <div className="text-xs text-zinc-700 font-mono mb-1">Range: {rank.range}</div>
+                      <p className="text-xs text-zinc-700">{rank.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="space-y-3">
+                <h3 className="font-black uppercase tracking-widest mb-3 text-lg">Resources & Formulas</h3>
+                {HELP_TEXT.PROGRESSION.RESOURCES.map((res, idx) => (
+                  <div key={idx} className="bg-white/50 p-3 rounded border border-zinc-300">
+                    <div className="font-bold text-sm text-zinc-900 mb-1">{res.label}</div>
+                    <div className="font-mono text-xs text-zinc-700 bg-white/40 p-2 rounded">{res.formula}</div>
+                  </div>
+                ))}
+                {HELP_TEXT.PROGRESSION.PROGRESSION_DETAILS.map((detail, idx) => (
+                  <div key={idx} className="bg-white/50 p-3 rounded border border-zinc-300">
+                    <div className="font-bold text-sm text-zinc-900 mb-1">{detail.label}</div>
+                    <div className="font-mono text-xs text-zinc-700 bg-white/40 p-2 rounded">{detail.formula}</div>
+                  </div>
+                ))}
+              </section>
+            </div>
+          )}
+
+          {/* --- EQUIPMENT TAB --- */}
+          {activeTab === 'EQUIPMENT' && (
+            <div className="space-y-6 max-w-4xl mx-auto text-zinc-800">
+              <section>
+                <h3 className="font-black uppercase tracking-widest mb-3 text-lg">Rarity Tiers</h3>
+                <div className="space-y-3">
+                  {HELP_TEXT.EQUIPMENT.RARITIES.map((rarity, idx) => (
+                    <div key={idx} className="bg-white/50 p-4 rounded border border-zinc-300">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className={`font-black text-lg uppercase tracking-wider ${rarity.color}`}>{rarity.rarity}</div>
+                        <span className="text-xs font-bold bg-white/60 px-2 py-1 rounded">{rarity.dropRate}</span>
+                      </div>
+                      <p className="text-xs text-zinc-700 mb-2">{rarity.desc}</p>
+                      <div className="text-xs text-zinc-600 font-mono bg-white/40 p-2 rounded">{rarity.statBonus}</div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section>
+                <h3 className="font-black uppercase tracking-widest mb-3 text-lg">Equipment Slots</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {HELP_TEXT.EQUIPMENT.SLOTS.map((slot, idx) => (
+                    <div key={idx} className="bg-white/50 p-3 rounded border border-zinc-300">
+                      <div className="font-bold text-zinc-900 text-sm mb-1 uppercase">{slot.slot}</div>
+                      <div className="text-xs text-zinc-700 mb-1">Primary: <span className="font-mono">{slot.primary}</span></div>
+                      <p className="text-xs text-zinc-700">{slot.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="bg-white/50 p-4 rounded border border-zinc-300">
+                <h3 className="font-black uppercase tracking-widest mb-2 text-lg">Item Scaling</h3>
+                <p className="text-sm text-zinc-700">{HELP_TEXT.EQUIPMENT.SCALING}</p>
+              </section>
+            </div>
+          )}
+
+          {/* --- DUNGEONS TAB --- */}
+          {activeTab === 'DUNGEONS' && (
+            <div className="space-y-6 max-w-4xl mx-auto text-zinc-800">
+              <section>
+                <h3 className="font-black uppercase tracking-widest mb-3 text-lg">Room Types</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {HELP_TEXT.DUNGEONS.ROOM_TYPES.map((room, idx) => (
+                    <div key={idx} className="bg-white/50 p-3 rounded border border-zinc-300">
+                      <div className="font-black text-zinc-900 text-sm mb-1 uppercase tracking-wider">{room.type}</div>
+                      <p className="text-xs text-zinc-700 mb-2">{room.desc}</p>
+                      <div className="text-xs font-mono text-zinc-600 bg-white/40 p-1.5 rounded">Reward: {room.reward}</div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section>
+                <h3 className="font-black uppercase tracking-widest mb-3 text-lg">Enemy Archetypes</h3>
+                <div className="space-y-3">
+                  {HELP_TEXT.DUNGEONS.ARCHETYPES.map((arch, idx) => (
+                    <div key={idx} className="bg-white/50 p-3 rounded border border-zinc-300">
+                      <div className="font-black text-zinc-900 text-sm mb-2 uppercase tracking-wider">{arch.archetype}</div>
+                      <div className="text-xs space-y-1 text-zinc-700">
+                        <div><span className="font-bold">Stats:</span> {arch.stats}</div>
+                        <div><span className="font-bold">Playstyle:</span> {arch.playstyle}</div>
+                        <div><span className="font-bold">Skills:</span> {arch.skills}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section>
+                <h3 className="font-black uppercase tracking-widest mb-3 text-lg">Story Arcs</h3>
+                <div className="space-y-2">
+                  {HELP_TEXT.DUNGEONS.STORY_ARCS.map((arc, idx) => (
+                    <div key={idx} className="bg-white/50 p-3 rounded border border-zinc-300">
+                      <div className="flex justify-between items-start mb-1">
+                        <div className="font-black text-zinc-900 text-sm uppercase tracking-wider">Arc {arc.arc}: {arc.name}</div>
+                        <span className="text-xs font-mono bg-white/40 px-2 py-1 rounded">Floors {arc.floors}</span>
+                      </div>
+                      <p className="text-xs text-zinc-700">{arc.desc}</p>
+                    </div>
+                  ))}
                 </div>
               </section>
             </div>

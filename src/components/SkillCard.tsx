@@ -31,6 +31,12 @@ export const SkillCard: React.FC<SkillCardProps> = ({
     if (skillName.includes('primary lotus')) {
       return '/assets/skill_primary_lotus.png';
     }
+    if (skillName.includes('shadow') && skillName.includes('clone')) {
+      return '/assets/skill_shadow_clones.png';
+    }
+    if (skillName.includes('gentle') && skillName.includes('fist')) {
+      return '/assets/skill_gentle_fist.png';
+    }
     // Default fallback image
     return "https://i.pinimg.com/736x/2c/a6/34/2ca6347bd392eb997d74720838b90839.jpg";
   };
