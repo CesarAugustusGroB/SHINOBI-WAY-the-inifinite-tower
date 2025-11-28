@@ -60,7 +60,7 @@ const PrimaryStatsPanel: React.FC<PrimaryStatsPanelProps> = ({ player, effective
   };
 
   return (
-    <div className="bg-zinc-900/80 p-3 rounded border border-zinc-800">
+    <div className="primary-stats-panel p-3 rounded border border-zinc-800">
       {/* Header: Clan & Element */}
       <div className="flex items-center gap-3 mb-3 border-b border-zinc-800 pb-2">
         <div className="p-1.5 bg-zinc-950 rounded-full border border-zinc-800">

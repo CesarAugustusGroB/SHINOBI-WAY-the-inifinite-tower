@@ -1,11 +1,47 @@
-import { Room, GameEventDefinition } from '../types';
-import { EVENTS, BOSS_NAMES } from '../constants';
+import { Room, GameEventDefinition, Player, EnhancedGameEventDefinition } from '../types';
+import { EVENTS, BOSS_NAMES, ENHANCED_EVENTS } from '../constants';
 import { generateEnemy, getStoryArc } from './EnemySystem';
+import { getEventsForArc } from './EventSystem';
 
-export const generateRooms = (currentFloor: number, diff: number): Room[] => {
+/**
+ * Analyze player state to determine their current condition
+ * Returns assessment for adaptive room generation
+ */
+const analyzePlayerState = (player: Player) => {
+  const resources = player.resources;
+  const starving = resources.hunger < 25;
+  const exhausted = resources.fatigue > 75;
+  const broken = resources.morale < 25;
+  const heroic = resources.morale > 80;
+  const wellFed = resources.hunger > 60;
+  const wellRested = resources.fatigue < 15;
+  const healthy = resources.hunger > 50 && resources.fatigue < 50 && resources.morale > 50;
+
+  return {
+    starving,
+    exhausted,
+    broken,
+    heroic,
+    wellFed,
+    wellRested,
+    healthy,
+    needsHealing: starving || exhausted || broken,
+    isStrong: heroic && wellFed && wellRested,
+    resources,
+  };
+};
+
+/**
+ * Generate adaptive rooms based on player state
+ * Slot 1: Responds to player condition (rest if struggling, challenge if thriving)
+ * Slot 2: Always combat (guaranteed challenge)
+ * Slot 3: Wild card (ambush, elite, or resource room)
+ */
+export const generateRooms = (currentFloor: number, diff: number, player?: Player): Room[] => {
   const rooms: Room[] = [];
   const arc = getStoryArc(currentFloor);
 
+  // Boss floor logic - unchanged
   if (BOSS_NAMES[currentFloor as keyof typeof BOSS_NAMES]) {
     let bossDesc = "A terrifying chakra pressure crushes the air.";
 
@@ -23,56 +59,111 @@ export const generateRooms = (currentFloor: number, diff: number): Room[] => {
     return rooms;
   }
 
-  for (let i = 0; i < 3; i++) {
-    const roll = Math.random();
-    const rivalChance = arc.name === 'ROGUE_ARC' ? 0.15 : 0.05;
+  // Analyze player state for adaptive generation
+  const playerState = player ? analyzePlayerState(player) : null;
 
-    if (roll < rivalChance && currentFloor > 5) {
-      rooms.push({
-        type: 'ELITE',
-        description: 'Your rival has found you...',
-        enemy: { ...generateEnemy(currentFloor, 'ELITE', diff + 20), name: 'Rival Ninja', tier: 'Fated Rival', dropRateBonus: 100 }
-      });
-      continue;
+  // SLOT 1: Adaptive response to player condition
+  if (playerState?.needsHealing) {
+    // Player struggling: offer healing/rest
+    if (Math.random() < 0.6) {
+      rooms.push({ type: 'REST', description: 'A safe haven appears. Your body begs for rest.' });
+    } else {
+      rooms.push(generateResourceEvent(currentFloor, arc.name));
     }
+  } else if (playerState?.isStrong) {
+    // Player thriving: offer high-risk challenge
+    rooms.push(generateHighRiskEvent(currentFloor, arc.name));
+  } else {
+    // Player balanced: offer story event
+    rooms.push(generateStoryEvent(currentFloor, arc.name));
+  }
 
-    if (i === 0) {
-      const restThreshold = arc.name === 'EXAMS_ARC' ? 0.2 : 0.4;
-      if (Math.random() < restThreshold) {
-        if (Math.random() < 0.1) {
-          rooms.push({
-            type: 'EVENT',
-            description: 'A hidden Ramen stand!',
-            eventDefinition: { id: 'ramen_shop', title: 'Ichiraku Ramen', description: 'Teuchi offers you a special bowl.', choices: [{ label: 'Eat Ramen', type: 'HEAL_ALL', description: 'Full Heal' }] }
-          });
-        } else {
-          rooms.push({ type: 'REST', description: 'A brief respite in the shadows.' });
-        }
-      } else {
-        rooms.push({
-          type: 'EVENT',
-          description: 'A quiet spot for training.',
-          eventDefinition: { id: 'training_tree', title: 'Tree Climbing Practice', description: 'Focus your chakra.', choices: [{ label: 'Train Hard', type: 'GAIN_XP', value: 50 + (currentFloor * 5), description: 'Gain XP' }, { label: 'Meditate', type: 'HEAL_CHAKRA', description: 'Restore Chakra' }] }
-        });
-      }
-      continue;
-    }
+  // SLOT 2: Always combat (guaranteed challenge)
+  const enemy = generateEnemy(currentFloor, 'NORMAL', diff);
+  let combatDesc = "A rogue ninja blocks the path.";
+  if (arc.name === 'EXAMS_ARC') combatDesc = "Another team wants your scroll.";
+  if (arc.name === 'ACADEMY_ARC') combatDesc = "A rival student challenges you.";
+  rooms.push({ type: 'COMBAT', description: combatDesc, enemy });
 
+  // SLOT 3: Wild card
+  const wildRoll = Math.random();
+  if (wildRoll < 0.15 && currentFloor > 5) {
+    // Elite encounter
+    rooms.push({
+      type: 'ELITE',
+      description: 'A formidable opponent emerges from the shadows.',
+      enemy: { ...generateEnemy(currentFloor, 'ELITE', diff + 20), name: 'Rival Ninja', tier: 'Fated Rival', dropRateBonus: 100 }
+    });
+  } else if (wildRoll < 0.3) {
+    // Ambush
     let ambushRate = 0.1 + (diff * 0.002);
     if (arc.name === 'WAR_ARC') ambushRate += 0.2;
-
-    if (roll < ambushRate) {
-      rooms.push({ type: 'AMBUSH', description: 'Killer Intent spikes nearby!', enemy: generateEnemy(currentFloor, 'AMBUSH', diff) });
-    } else if (roll < ambushRate + 0.3) {
-      const eventDef = EVENTS[Math.floor(Math.random() * EVENTS.length)];
-      rooms.push({ type: 'EVENT', description: 'An odd occurrence.', eventDefinition: eventDef });
+    if (Math.random() < ambushRate) {
+      rooms.push({ type: 'AMBUSH', description: 'Killer Intent spikes nearby! An ambush!', enemy: generateEnemy(currentFloor, 'AMBUSH', diff) });
     } else {
-      const enemy = generateEnemy(currentFloor, 'NORMAL', diff);
-      let combatDesc = "A rogue ninja blocks the path.";
-      if (arc.name === 'EXAMS_ARC') combatDesc = "Another team wants your scroll.";
-      rooms.push({ type: 'COMBAT', description: combatDesc, enemy });
+      rooms.push(generateStoryEvent(currentFloor, arc.name));
     }
+  } else {
+    rooms.push(generateStoryEvent(currentFloor, arc.name));
   }
 
   return rooms;
+};
+
+/**
+ * Generate a story-specific event for the current arc
+ */
+const generateStoryEvent = (floor: number, arcName: string): Room => {
+  const arcEvents = getEventsForArc(ENHANCED_EVENTS, arcName);
+
+  if (arcEvents.length === 0) {
+    // Fallback to legacy events
+    const eventDef = EVENTS[Math.floor(Math.random() * EVENTS.length)];
+    return {
+      type: 'EVENT',
+      description: 'An odd occurrence.',
+      eventDefinition: eventDef,
+    };
+  }
+
+  const selectedEvent = arcEvents[Math.floor(Math.random() * arcEvents.length)];
+  return {
+    type: 'EVENT',
+    description: selectedEvent.description,
+    eventDefinition: selectedEvent as any, // Type bridge for now
+  };
+};
+
+/**
+ * Generate a high-risk event for players in good condition
+ */
+const generateHighRiskEvent = (floor: number, arcName: string): Room => {
+  const arcEvents = getEventsForArc(ENHANCED_EVENTS, arcName);
+  const highRiskEvents = arcEvents.filter((e) => {
+    const hasExtremeChoice = e.choices.some((c: any) => c.riskLevel === 'EXTREME' || c.riskLevel === 'HIGH');
+    return hasExtremeChoice;
+  });
+
+  if (highRiskEvents.length > 0) {
+    const selectedEvent = highRiskEvents[Math.floor(Math.random() * highRiskEvents.length)];
+    return {
+      type: 'EVENT',
+      description: `A dangerous opportunity presents itself: "${selectedEvent.title}"`,
+      eventDefinition: selectedEvent as any,
+    };
+  }
+
+  return generateStoryEvent(floor, arcName);
+};
+
+/**
+ * Generate a resource-providing event (food, supplies, healing)
+ */
+const generateResourceEvent = (floor: number, arcName: string): Room => {
+  // Return a generic resource room that's not an event
+  // In a full implementation, this could be a special room type
+  return {
+    type: 'REST',
+    description: 'A hidden cache of supplies provides sustenance and respite.',
+  };
 };

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
-  GameState, Player, Clan, Skill, Enemy, Room, Item, Rarity, DamageType, EffectType, Buff
+  GameState, Player, Clan, Skill, Enemy, Room, Item, Rarity, DamageType, EffectType, Buff, SupplyType
 } from './game/types';
 import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS, getElementEffectiveness } from './game/constants';
 import {
@@ -14,6 +14,8 @@ import { getStoryArc, generateEnemy } from './game/systems/EnemySystem';
 import { generateItem, generateSkillLoot, equipItem as equipItemFn, sellItem as sellItemFn } from './game/systems/LootSystem';
 import { processEnemyTurn, useSkill as useSkillCombat } from './game/systems/CombatSystem';
 import { generateRooms } from './game/systems/RoomSystem';
+import { getStartingResources, applyResourceDrain, applyVictoryMorale, applyNearDeathPenalty } from './game/systems/ResourceSystem';
+import { useSupply } from './game/systems/SupplySystem';
 import MainMenu from './scenes/MainMenu';
 import CharacterSelect from './scenes/CharacterSelect';
 import Exploration from './scenes/Exploration';
@@ -43,6 +45,7 @@ const App: React.FC = () => {
   const [activeEvent, setActiveEvent] = useState<any>(null);
   const [difficulty, setDifficulty] = useState<number>(20);
   const [turnState, setTurnState] = useState<'PLAYER' | 'ENEMY_TURN'>('PLAYER');
+  const [lastRoomType, setLastRoomType] = useState<string | null>(null);
   const logIdCounter = useRef<number>(0);
 
   const addLog = useCallback((text: string, type: any = 'info', details?: string) => {
@@ -113,7 +116,8 @@ const App: React.FC = () => {
       ryo: 100,
       equipment: { WEAPON: null, HEAD: null, BODY: null, ACCESSORY: null } as any,
       skills: [SKILLS.BASIC_ATTACK, SKILLS.SHURIKEN, { ...startSkill, level: 1 }],
-      activeBuffs: []
+      activeBuffs: [],
+      resources: getStartingResources()
     };
 
     setPlayer(newPlayer);
@@ -125,12 +129,14 @@ const App: React.FC = () => {
     setActiveEvent(null);
     setTurnState('PLAYER');
     addLog(`Lineage chosen: ${clan}. The Tower awaits.`, 'info');
-    const rooms = generateRooms(1, difficulty);
+    const rooms = generateRooms(1, difficulty, newPlayer);
     setRoomChoices(rooms);
     setGameState(GameState.EXPLORE);
   };
 
   const selectRoom = (room: Room) => {
+    setLastRoomType(room.type);
+
     if (room.type === 'REST') {
       if (!player || !playerStats) return;
       setPlayer({ ...player, currentHp: playerStats.derived.maxHp, currentChakra: playerStats.derived.maxChakra });
@@ -218,18 +224,30 @@ const App: React.FC = () => {
   };
 
   const nextFloor = () => {
-    setFloor(f => f + 1);
+    const nextFloorNum = floor + 1;
+    setFloor(nextFloorNum);
     setPlayer(p => {
       if (!p) return null;
       const stats = getPlayerFullStats(p);
-      return {
+
+      // Apply natural regeneration
+      let updatedPlayer = {
         ...p,
         currentChakra: Math.min(stats.derived.maxChakra, p.currentChakra + stats.derived.chakraRegen),
         currentHp: Math.min(stats.derived.maxHp, p.currentHp + stats.derived.hpRegen)
       };
+
+      // Apply resource drain based on room type
+      if (lastRoomType && lastRoomType !== 'REST') {
+        updatedPlayer = applyResourceDrain(updatedPlayer, lastRoomType);
+      }
+
+      // Generate rooms with updated player
+      const rooms = generateRooms(nextFloorNum, difficulty, updatedPlayer);
+      setRoomChoices(rooms);
+
+      return updatedPlayer;
     });
-    const rooms = generateRooms(floor + 1, difficulty);
-    setRoomChoices(rooms);
     setGameState(GameState.EXPLORE);
   };
 
@@ -356,6 +374,9 @@ const App: React.FC = () => {
       const ryoGain = (floor * 15) + Math.floor(Math.random() * 25);
       updatedPlayer.ryo += ryoGain;
 
+      // Apply morale gains from victory
+      updatedPlayer = applyVictoryMorale(updatedPlayer, enemyTier);
+
       let rarityBonus = undefined;
       if (isBoss) rarityBonus = Rarity.EPIC;
       if (isAmbush || isGuardian) rarityBonus = Rarity.LEGENDARY;
@@ -369,6 +390,18 @@ const App: React.FC = () => {
       setGameState(GameState.LOOT);
 
       return updatedPlayer;
+    });
+  };
+
+  const handleUseSupply = (supplyType: SupplyType) => {
+    if (!player) return;
+    setPlayer(prev => {
+      if (!prev) return null;
+      const result = useSupply(prev, supplyType);
+      if (result.logMessage) {
+        addLog(result.logMessage, result.logType || 'gain');
+      }
+      return result.player;
     });
   };
 
@@ -516,7 +549,7 @@ const App: React.FC = () => {
           )}
 
           {gameState === GameState.EVENT && activeEvent && (
-            <Event activeEvent={activeEvent} onChoice={handleEventChoice} />
+            <Event activeEvent={activeEvent} onChoice={handleEventChoice} player={player} playerStats={playerStats} />
           )}
 
           {gameState === GameState.LOOT && (

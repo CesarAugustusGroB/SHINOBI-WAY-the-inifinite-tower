@@ -1,6 +1,6 @@
 import React from 'react';
 import { Room } from '../game/types';
-import Card from '../components/Card';
+import EnhancedCard from '../components/EnhancedCard';
 import { CinematicViewscreen } from '../components/CinematicViewscreen';
 
 interface ExplorationProps {
@@ -30,7 +30,7 @@ const Exploration: React.FC<ExplorationProps> = ({ roomChoices, onSelectRoom }) 
       {/* Room Cards */}
       <div className="flex-1 p-6 grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
         {roomChoices.map((room, idx) => (
-          <Card key={idx} room={room} index={idx} onSelect={onSelectRoom} />
+          <EnhancedCard key={idx} room={room} onClick={() => onSelectRoom(room)} />
         ))}
       </div>
     </div>

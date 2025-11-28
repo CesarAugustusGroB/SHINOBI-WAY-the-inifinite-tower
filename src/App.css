@@ -33,6 +33,28 @@
   z-index: 2;
 }
 
+/* Primary Stats Panel Background */
+.primary-stats-panel {
+  background-image: url('/assets/background_left_panel_character_stats.png');
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+}
+
+.primary-stats-panel > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Exploration Combat Card Background */
+.exploration-combat-card {
+  background-image: url('/assets/background_exploration_combat.png');
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+}
+
 .parchment-panel {
   /* Use your specific PNG file here */
   background-image: url('/assets/background_parchment.png');

@@ -341,18 +341,21 @@ export interface Player {
   level: number;
   exp: number;
   maxExp: number;
-  
+
   // Stats
   primaryStats: PrimaryAttributes;
-  
+
   // Resources (tracked separately from derived for current values)
   currentHp: number;
   currentChakra: number;
-  
+
+  // Resource Management System
+  resources: PlayerResources;
+
   // Flavor
   element: ElementType;
   ryo: number;
-  
+
   // Loadout
   equipment: Record<ItemSlot, Item | null>;
   skills: Skill[];
@@ -424,6 +427,136 @@ export interface Room {
   description: string;
   enemy?: Enemy;
   eventDefinition?: GameEventDefinition;
+}
+
+// ============================================================================
+// RESOURCE MANAGEMENT SYSTEM
+// ============================================================================
+export interface PlayerResources {
+  hunger: number;      // 0-100, decreases per floor
+  fatigue: number;     // 0-100, increases with combat
+  morale: number;      // 0-100, fluctuates with events
+  supplies: number;    // 0-10, discrete consumable items
+}
+
+export enum SupplyType {
+  RATIONS = 'Rations',
+  BANDAGES = 'Bandages',
+  CHAKRA_PILLS = 'ChakraPills',
+  STAMINA_TONIC = 'StaminaTonic'
+}
+
+export interface ResourceModifiers {
+  hpMult: number;
+  damageOut: number;
+  speedMult: number;
+  chakraCostMult: number;
+  defenseMult: number;
+  xpGainMult: number;
+}
+
+export enum ResourceStatus {
+  CRITICAL = 'critical',
+  WARNING = 'warning',
+  GOOD = 'good'
+}
+
+// ============================================================================
+// ENHANCED EVENT SYSTEM
+// ============================================================================
+export enum RiskLevel {
+  SAFE = 'SAFE',
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  EXTREME = 'EXTREME'
+}
+
+export interface RequirementCheck {
+  minMorale?: number;
+  minHunger?: number;
+  maxFatigue?: number;
+  minSupplies?: number;
+  minStat?: { stat: PrimaryStat; value: number };
+  requiredClan?: Clan;
+}
+
+export interface ResourceCost {
+  hunger?: number;
+  fatigue?: number;
+  morale?: number;
+  supplies?: number;
+  ryo?: number;
+}
+
+export interface EventOutcome {
+  weight: number; // Probability weight (sum should = 100 across outcomes)
+
+  effects: {
+    // Resources
+    resourceChanges?: Partial<PlayerResources>;
+
+    // Stats & progression
+    statChanges?: Partial<PrimaryAttributes>;
+    exp?: number;
+    ryo?: number;
+
+    // HP/Chakra changes
+    hpChange?: number | { percent: number };
+    chakraChange?: number | { percent: number };
+
+    // Loot
+    items?: Item[];
+    skills?: Skill[];
+
+    // Persistent buffs
+    buffs?: Buff[];
+
+    // Combat triggers
+    triggerCombat?: {
+      floor: number;
+      difficulty: number;
+      archetype: string;
+      name?: string;
+    };
+
+    // Logging
+    logMessage: string;
+    logType: 'gain' | 'danger' | 'info' | 'loot';
+  };
+}
+
+export interface EnhancedEventChoice {
+  label: string;
+  description: string;
+
+  // Risk indicator (shown to player)
+  riskLevel: RiskLevel;
+  hintText?: string; // Vague clue about outcome
+
+  // Requirements (choice disabled if not met)
+  requirements?: RequirementCheck;
+
+  // Resource costs (paid upfront)
+  costs?: ResourceCost;
+
+  // Multiple outcomes with weighted probability
+  outcomes: EventOutcome[];
+
+  // Clan-specific bonus (multiplier to weight on favorable outcome)
+  clanBonus?: {
+    clan: Clan;
+    weightMultiplier: number;
+  };
+}
+
+export interface EnhancedGameEventDefinition {
+  id: string;
+  title: string;
+  description: string;
+  allowedArcs?: string[]; // Story arcs where this event can occur
+  rarity?: Rarity; // How common is this event
+  choices: EnhancedEventChoice[];
 }
 
 // ============================================================================

@@ -1,8 +1,14 @@
 import {
   PrimaryAttributes, PrimaryStat, Clan, ElementType, GameEventDefinition,
   ItemSlot, Rarity, Skill, EffectType, SkillTier, DamageType,
-  DamageProperty, AttackMethod
+  DamageProperty, AttackMethod, SupplyType, PlayerResources, ResourceCost,
+  EnhancedGameEventDefinition
 } from '../types';
+import { ACADEMY_ARC_EVENTS } from './events/academyArcEvents';
+import { WAVES_ARC_EVENTS } from './events/wavesArcEvents';
+import { EXAMS_ARC_EVENTS } from './events/examsArcEvents';
+import { ROGUE_ARC_EVENTS } from './events/rogueArcEvents';
+import { WAR_ARC_EVENTS } from './events/warArcEvents';
 
 export const MAX_LOGS = 50;
 
@@ -23,14 +29,82 @@ export const ELEMENTAL_CYCLE: Record<ElementType, ElementType> = {
 // Helper to check effectiveness (1.5 = Strong, 0.5 = Weak, 1.0 = Neutral)
 export const getElementEffectiveness = (attacker: ElementType, defender: ElementType): number => {
   if (attacker === ElementType.PHYSICAL || attacker === ElementType.MENTAL) return 1.0;
-  
+
   // Standard Cycle (Attacker beats Defender)
   if (ELEMENTAL_CYCLE[attacker] === defender) return 1.5;
-  
+
   // Reverse Cycle (Defender beats Attacker -> Resistance)
   if (ELEMENTAL_CYCLE[defender] === attacker) return 0.5;
-  
+
   return 1.0;
+};
+
+// ============================================================================
+// RESOURCE MANAGEMENT SYSTEM CONSTANTS
+// ============================================================================
+export const RESOURCE_CONSTANTS = {
+  // Floor progression effects
+  HUNGER_DRAIN_PER_FLOOR: 8,
+  FATIGUE_GAIN_PER_FLOOR: 4,
+
+  // Combat fatigue gains
+  FATIGUE_NORMAL_COMBAT: 8,
+  FATIGUE_ELITE_COMBAT: 12,
+  FATIGUE_BOSS_COMBAT: 15,
+
+  // Morale gains from victory
+  MORALE_NORMAL_VICTORY: 5,
+  MORALE_ELITE_VICTORY: 8,
+  MORALE_BOSS_VICTORY: 15,
+
+  // Morale penalty
+  MORALE_NEAR_DEATH_PENALTY: 10, // When HP < 20% of max
+
+  // Thresholds for resource effects
+  HUNGER_CRITICAL: 20,
+  HUNGER_GOOD_MIN: 80,
+  FATIGUE_CRITICAL: 80,
+  FATIGUE_GOOD_MAX: 15,
+  MORALE_CRITICAL: 20,
+  MORALE_GOOD_MIN: 85,
+
+  // Stat modifiers when in critical/good state
+  HUNGER_CRITICAL_HP_MULT: 0.85,
+  HUNGER_CRITICAL_DAMAGE_MULT: 0.9,
+  HUNGER_GOOD_HP_REGEN_MULT: 1.05,
+
+  FATIGUE_CRITICAL_SPEED_MULT: 0.8,
+  FATIGUE_CRITICAL_CHAKRA_COST_MULT: 1.15,
+  FATIGUE_GOOD_SPEED_MULT: 1.1,
+  FATIGUE_GOOD_CHAKRA_COST_MULT: 0.9,
+
+  MORALE_CRITICAL_DAMAGE_MULT: 0.8,
+  MORALE_CRITICAL_DEFENSE_MULT: 0.8,
+  MORALE_GOOD_DAMAGE_MULT: 1.15,
+  MORALE_GOOD_XP_MULT: 1.1,
+
+  // Supply effects
+  RATIONS_HUNGER_RESTORE: 35,
+  BANDAGES_HP_RESTORE_PERCENT: 0.3,
+  CHAKRA_PILLS_CHAKRA_RESTORE_PERCENT: 0.5,
+  STAMINA_TONIC_FATIGUE_REDUCTION: 25,
+
+  // Supply shop
+  SUPPLY_SHOP_COST: 50, // Ryo
+  MAX_SUPPLIES: 10,
+
+  // Default starting resources
+  STARTING_HUNGER: 80,
+  STARTING_FATIGUE: 20,
+  STARTING_MORALE: 60,
+  STARTING_SUPPLIES: 2,
+} as const;
+
+export const SUPPLY_EFFECTS: Record<SupplyType, Partial<PlayerResources>> = {
+  [SupplyType.RATIONS]: { hunger: RESOURCE_CONSTANTS.RATIONS_HUNGER_RESTORE },
+  [SupplyType.BANDAGES]: {}, // HP is handled separately
+  [SupplyType.CHAKRA_PILLS]: {}, // Chakra is handled separately
+  [SupplyType.STAMINA_TONIC]: { fatigue: -RESOURCE_CONSTANTS.STAMINA_TONIC_FATIGUE_REDUCTION },
 };
 
 // ============================================================================
@@ -1050,4 +1124,15 @@ export const EVENTS: GameEventDefinition[] = [
       { label: "Leave", type: 'LEAVE', description: "The risk is too great." }
     ]
   }
+];
+
+// ============================================================================
+// ENHANCED EVENT DEFINITIONS (New Resource Management System)
+// ============================================================================
+export const ENHANCED_EVENTS: EnhancedGameEventDefinition[] = [
+  ...ACADEMY_ARC_EVENTS,
+  ...WAVES_ARC_EVENTS,
+  ...EXAMS_ARC_EVENTS,
+  ...ROGUE_ARC_EVENTS,
+  ...WAR_ARC_EVENTS,
 ];
