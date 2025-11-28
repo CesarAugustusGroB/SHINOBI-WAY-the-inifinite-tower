@@ -16,21 +16,17 @@ import {
   EffectType,
   PrimaryStat,
   ElementType,
-  STAT_FORMULAS,
-  PlayerResources
+  STAT_FORMULAS
 } from '../types';
 import { ELEMENTAL_CYCLE } from '../constants';
-import { calculateResourceModifiers } from './ResourceSystem';
 
 // ============================================================================
 // DERIVED STATS CALCULATOR
 // Converts Primary Attributes into all Derived Stats
-// Optionally applies resource modifiers for hunger, fatigue, morale
 // ============================================================================
 export function calculateDerivedStats(
   primary: PrimaryAttributes,
-  equipmentBonuses: ItemStatBonus = {},
-  resources?: PlayerResources
+  equipmentBonuses: ItemStatBonus = {}
 ): DerivedStats {
   const F = STAT_FORMULAS;
 
@@ -47,68 +43,48 @@ export function calculateDerivedStats(
     dexterity: primary.dexterity + (equipmentBonuses.dexterity || 0),
   };
 
-  // Calculate resource modifiers if resources provided
-  const resourceMods = resources ? calculateResourceModifiers(resources) : {
-    hpMult: 1.0,
-    damageOut: 1.0,
-    speedMult: 1.0,
-    chakraCostMult: 1.0,
-    defenseMult: 1.0,
-    xpGainMult: 1.0,
-  };
-
-  // Resource Pools (apply HP multiplier from hunger/morale)
-  let maxHp = F.HP_BASE + (effective.willpower * F.HP_PER_WILLPOWER) + (equipmentBonuses.flatHp || 0);
-  maxHp = Math.floor(maxHp * resourceMods.hpMult);
-
+  // Resource Pools
+  const maxHp = F.HP_BASE + (effective.willpower * F.HP_PER_WILLPOWER) + (equipmentBonuses.flatHp || 0);
   const maxChakra = F.CHAKRA_BASE + (effective.chakra * F.CHAKRA_PER_CHAKRA) + (equipmentBonuses.flatChakra || 0);
 
   // Regeneration
   const hpRegen = Math.floor(maxHp * F.HP_REGEN_PERCENT * (effective.willpower / 20));
   const chakraRegen = Math.floor(effective.intelligence * F.CHAKRA_REGEN_PER_INT);
 
-  // Flat Defense (linear scaling, apply defense multiplier from morale)
-  let physicalDefenseFlat = Math.floor(effective.strength * F.FLAT_PHYS_DEF_PER_STR) + (equipmentBonuses.flatPhysicalDef || 0);
-  let elementalDefenseFlat = Math.floor(effective.spirit * F.FLAT_ELEM_DEF_PER_SPIRIT) + (equipmentBonuses.flatElementalDef || 0);
-  let mentalDefenseFlat = Math.floor(effective.calmness * F.FLAT_MENTAL_DEF_PER_CALM) + (equipmentBonuses.flatMentalDef || 0);
-
-  physicalDefenseFlat = Math.floor(physicalDefenseFlat * resourceMods.defenseMult);
-  elementalDefenseFlat = Math.floor(elementalDefenseFlat * resourceMods.defenseMult);
-  mentalDefenseFlat = Math.floor(mentalDefenseFlat * resourceMods.defenseMult);
+  // Flat Defense (linear scaling)
+  const physicalDefenseFlat = Math.floor(effective.strength * F.FLAT_PHYS_DEF_PER_STR) + (equipmentBonuses.flatPhysicalDef || 0);
+  const elementalDefenseFlat = Math.floor(effective.spirit * F.FLAT_ELEM_DEF_PER_SPIRIT) + (equipmentBonuses.flatElementalDef || 0);
+  const mentalDefenseFlat = Math.floor(effective.calmness * F.FLAT_MENTAL_DEF_PER_CALM) + (equipmentBonuses.flatMentalDef || 0);
 
   // Percent Defense (diminishing returns: stat / (stat + SOFT_CAP))
-  let physicalDefensePercent = Math.min(0.75,
+  const physicalDefensePercent = Math.min(0.75,
     (effective.strength / (effective.strength + F.PHYSICAL_DEF_SOFT_CAP)) + (equipmentBonuses.percentPhysicalDef || 0)
   );
-  let elementalDefensePercent = Math.min(0.75,
+  const elementalDefensePercent = Math.min(0.75,
     (effective.spirit / (effective.spirit + F.ELEMENTAL_DEF_SOFT_CAP)) + (equipmentBonuses.percentElementalDef || 0)
   );
-  let mentalDefensePercent = Math.min(0.75,
+  const mentalDefensePercent = Math.min(0.75,
     (effective.calmness / (effective.calmness + F.MENTAL_DEF_SOFT_CAP)) + (equipmentBonuses.percentMentalDef || 0)
   );
-
-  physicalDefensePercent *= resourceMods.defenseMult;
-  elementalDefensePercent *= resourceMods.defenseMult;
-  mentalDefensePercent *= resourceMods.defenseMult;
 
   // Status & Survival
   const statusResistance = effective.calmness / (effective.calmness + F.STATUS_RESIST_SOFT_CAP);
   const gutsChance = effective.willpower / (effective.willpower + F.GUTS_SOFT_CAP);
 
-  // Hit Rates (base, modified in combat by target's speed, apply speed modifier)
-  const meleeHitRate = F.BASE_HIT_CHANCE + (effective.speed * 0.3 * resourceMods.speedMult);
+  // Hit Rates (base, modified in combat by target's speed)
+  const meleeHitRate = F.BASE_HIT_CHANCE + (effective.speed * 0.3);
   const rangedHitRate = F.BASE_HIT_CHANCE + (effective.accuracy * 0.3);
 
-  // Evasion (diminishing returns, apply speed modifier)
-  const evasion = (effective.speed * resourceMods.speedMult) / ((effective.speed * resourceMods.speedMult) + F.EVASION_SOFT_CAP);
+  // Evasion (diminishing returns)
+  const evasion = effective.speed / (effective.speed + F.EVASION_SOFT_CAP);
 
   // Critical
   const critChance = Math.min(75, F.BASE_CRIT_CHANCE + (effective.dexterity * F.CRIT_PER_DEX) + (equipmentBonuses.critChance || 0));
   const critDamageMelee = F.BASE_CRIT_MULT + (equipmentBonuses.critDamage || 0);
   const critDamageRanged = F.BASE_CRIT_MULT + (effective.accuracy * F.RANGED_CRIT_BONUS_PER_ACC) + (equipmentBonuses.critDamage || 0);
 
-  // Initiative (apply speed modifier from fatigue)
-  const initiative = F.INIT_BASE + (effective.speed * F.INIT_PER_SPEED * resourceMods.speedMult);
+  // Initiative
+  const initiative = F.INIT_BASE + (effective.speed * F.INIT_PER_SPEED);
 
   return {
     maxHp,
@@ -209,7 +185,6 @@ export function applyBuffsToPrimaryStats(
 // ============================================================================
 // FULL CHARACTER STATS CALCULATOR
 // Gets the complete stat picture for a player
-// Includes resource modifiers (hunger, fatigue, morale) in calculations
 // ============================================================================
 export function getPlayerFullStats(player: Player): {
   primary: PrimaryAttributes;
@@ -220,7 +195,7 @@ export function getPlayerFullStats(player: Player): {
   const equipmentBonuses = aggregateEquipmentBonuses(player.equipment);
   const withEquipment = applyEquipmentToPrimaryStats(player.primaryStats, equipmentBonuses);
   const effectivePrimary = applyBuffsToPrimaryStats(withEquipment, player.activeBuffs);
-  const derived = calculateDerivedStats(effectivePrimary, equipmentBonuses, player.resources);
+  const derived = calculateDerivedStats(effectivePrimary, equipmentBonuses);
 
   return {
     primary: player.primaryStats,

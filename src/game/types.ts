@@ -349,9 +349,6 @@ export interface Player {
   currentHp: number;
   currentChakra: number;
 
-  // Resource Management System
-  resources: PlayerResources;
-
   // Flavor
   element: ElementType;
   ryo: number;
@@ -430,38 +427,6 @@ export interface Room {
 }
 
 // ============================================================================
-// RESOURCE MANAGEMENT SYSTEM
-// ============================================================================
-export interface PlayerResources {
-  hunger: number;      // 0-100, decreases per floor
-  fatigue: number;     // 0-100, increases with combat
-  morale: number;      // 0-100, fluctuates with events
-  supplies: number;    // 0-10, discrete consumable items
-}
-
-export enum SupplyType {
-  RATIONS = 'Rations',
-  BANDAGES = 'Bandages',
-  CHAKRA_PILLS = 'ChakraPills',
-  STAMINA_TONIC = 'StaminaTonic'
-}
-
-export interface ResourceModifiers {
-  hpMult: number;
-  damageOut: number;
-  speedMult: number;
-  chakraCostMult: number;
-  defenseMult: number;
-  xpGainMult: number;
-}
-
-export enum ResourceStatus {
-  CRITICAL = 'critical',
-  WARNING = 'warning',
-  GOOD = 'good'
-}
-
-// ============================================================================
 // ENHANCED EVENT SYSTEM
 // ============================================================================
 export enum RiskLevel {
@@ -473,19 +438,11 @@ export enum RiskLevel {
 }
 
 export interface RequirementCheck {
-  minMorale?: number;
-  minHunger?: number;
-  maxFatigue?: number;
-  minSupplies?: number;
   minStat?: { stat: PrimaryStat; value: number };
   requiredClan?: Clan;
 }
 
-export interface ResourceCost {
-  hunger?: number;
-  fatigue?: number;
-  morale?: number;
-  supplies?: number;
+export interface EventCost {
   ryo?: number;
 }
 
@@ -493,9 +450,6 @@ export interface EventOutcome {
   weight: number; // Probability weight (sum should = 100 across outcomes)
 
   effects: {
-    // Resources
-    resourceChanges?: Partial<PlayerResources>;
-
     // Stats & progression
     statChanges?: Partial<PrimaryAttributes>;
     exp?: number;
@@ -537,8 +491,8 @@ export interface EnhancedEventChoice {
   // Requirements (choice disabled if not met)
   requirements?: RequirementCheck;
 
-  // Resource costs (paid upfront)
-  costs?: ResourceCost;
+  // Costs (paid upfront)
+  costs?: EventCost;
 
   // Multiple outcomes with weighted probability
   outcomes: EventOutcome[];

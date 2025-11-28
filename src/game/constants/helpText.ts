@@ -253,7 +253,7 @@ export const HELP_TEXT = {
       },
       {
         type: "REST",
-        desc: "Safe room to heal and restore resources.",
+        desc: "Safe room to heal and recover.",
         reward: "Full HP/Chakra restore"
       },
       {

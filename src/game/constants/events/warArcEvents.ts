@@ -32,7 +32,6 @@ export const WAR_ARC_EVENTS: EnhancedGameEventDefinition[] = [
             weight: 35,
             effects: {
               exp: 150,
-              resourceChanges: { morale: 15 },
               logMessage: 'Your instinct was right! You destroy the clones before they can act.',
               logType: 'gain',
             },
@@ -40,7 +39,6 @@ export const WAR_ARC_EVENTS: EnhancedGameEventDefinition[] = [
           {
             weight: 25,
             effects: {
-              resourceChanges: { morale: -20 },
               hpChange: { percent: -20 },
               logMessage: 'You attack nothing. Your paranoia exhausts you.',
               logType: 'danger',
@@ -52,14 +50,12 @@ export const WAR_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Wait and Observe',
         description: 'MEDIUM RISK - Patience tests your nerves',
         riskLevel: RiskLevel.MEDIUM,
-        costs: { fatigue: 10, morale: 5 },
         requirements: { minStat: { stat: 'Calmness', value: 25 } },
         outcomes: [
           {
             weight: 80,
             effects: {
               exp: 100,
-              resourceChanges: { morale: 10 },
               logMessage: 'Your patience reveals the truth. The clones materialize and you destroy them calmly.',
               logType: 'gain',
             },
@@ -83,12 +79,10 @@ export const WAR_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Flee Through the Chaos',
         description: 'LOW RISK - Don\'t engage',
         riskLevel: RiskLevel.LOW,
-        costs: { fatigue: 12 },
         outcomes: [
           {
             weight: 90,
             effects: {
-              resourceChanges: { morale: -10 },
               logMessage: 'You run. Cowardice tastes bitter.',
               logType: 'danger',
             },
@@ -119,15 +113,12 @@ export const WAR_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         description: 'EXTREME RISK - God-like power or annihilation',
         riskLevel: RiskLevel.EXTREME,
         hintText: 'Only legends speak of surviving this...',
-        requirements: { minMorale: 80 },
-        costs: { morale: 10 },
         outcomes: [
           {
             weight: 30,
             effects: {
               statChanges: { chakra: 10, spirit: 8, willpower: 8 },
               exp: 300,
-              resourceChanges: { morale: -15, fatigue: 20 },
               logMessage: 'The Bijuu power floods through you! You are forever changed.',
               logType: 'loot',
             },
@@ -136,7 +127,6 @@ export const WAR_ARC_EVENTS: EnhancedGameEventDefinition[] = [
             weight: 50,
             effects: {
               hpChange: { percent: -80 },
-              resourceChanges: { morale: -50 },
               logMessage: 'The power is too great! Your body burns from the inside.',
               logType: 'danger',
             },
@@ -146,7 +136,6 @@ export const WAR_ARC_EVENTS: EnhancedGameEventDefinition[] = [
             effects: {
               exp: 180,
               statChanges: { chakra: 5 },
-              resourceChanges: { morale: 10 },
               logMessage: 'You carefully extract a small portion of the chakra.',
               logType: 'gain',
             },
@@ -157,7 +146,6 @@ export const WAR_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Contain It Safely',
         description: 'MEDIUM RISK - Scientific approach',
         riskLevel: RiskLevel.MEDIUM,
-        costs: { fatigue: 15, supplies: 1 },
         requirements: { minStat: { stat: 'Intelligence', value: 25 } },
         outcomes: [
           {
@@ -166,7 +154,6 @@ export const WAR_ARC_EVENTS: EnhancedGameEventDefinition[] = [
               exp: 200,
               ryo: 500,
               statChanges: { intelligence: 3 },
-              resourceChanges: { morale: 15 },
               logMessage: 'Your brilliant technique safely harnesses the chakra!',
               logType: 'loot',
             },
@@ -189,7 +176,6 @@ export const WAR_ARC_EVENTS: EnhancedGameEventDefinition[] = [
           {
             weight: 100,
             effects: {
-              resourceChanges: { morale: 10 },
               logMessage: 'Some power is not meant for mortal hands.',
               logType: 'gain',
             },

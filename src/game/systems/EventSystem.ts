@@ -3,11 +3,10 @@ import {
   EventOutcome,
   Player,
   RequirementCheck,
-  ResourceCost,
+  EventCost,
   PrimaryStat,
   EnhancedGameEventDefinition,
 } from '../types';
-import { applyResourceCost, applyResourceChanges, canAffordResourceCost } from './ResourceSystem';
 
 /**
  * Check if a player meets all requirements for an event choice
@@ -18,26 +17,6 @@ export const checkRequirements = (
   playerStats: any, // DerivedStats
 ): boolean => {
   if (!requirements) return true;
-
-  // Check morale requirement
-  if (requirements.minMorale !== undefined && player.resources.morale < requirements.minMorale) {
-    return false;
-  }
-
-  // Check hunger requirement
-  if (requirements.minHunger !== undefined && player.resources.hunger < requirements.minHunger) {
-    return false;
-  }
-
-  // Check fatigue requirement
-  if (requirements.maxFatigue !== undefined && player.resources.fatigue > requirements.maxFatigue) {
-    return false;
-  }
-
-  // Check supplies requirement
-  if (requirements.minSupplies !== undefined && player.resources.supplies < requirements.minSupplies) {
-    return false;
-  }
 
   // Check stat requirement
   if (requirements.minStat) {
@@ -59,15 +38,19 @@ export const checkRequirements = (
 };
 
 /**
- * Check if a player can afford the resource cost of a choice
+ * Check if a player can afford the cost of a choice
  */
-export const checkResourceCost = (
+export const checkEventCost = (
   player: Player,
-  cost: ResourceCost | undefined,
+  cost: EventCost | undefined,
 ): boolean => {
   if (!cost) return true;
 
-  return canAffordResourceCost(player.resources, cost);
+  if (cost.ryo && player.ryo < cost.ryo) {
+    return false;
+  }
+
+  return true;
 };
 
 /**
@@ -76,40 +59,12 @@ export const checkResourceCost = (
 export const getDisabledReason = (
   player: Player,
   requirements: RequirementCheck | undefined,
-  cost: ResourceCost | undefined,
+  cost: EventCost | undefined,
   playerStats: any,
 ): string => {
   if (!requirements && !cost) return '';
 
   if (requirements) {
-    if (
-      requirements.minMorale !== undefined &&
-      player.resources.morale < requirements.minMorale
-    ) {
-      return `Requires ${requirements.minMorale} Morale (Current: ${player.resources.morale})`;
-    }
-
-    if (
-      requirements.minHunger !== undefined &&
-      player.resources.hunger < requirements.minHunger
-    ) {
-      return `Requires ${requirements.minHunger} Hunger (Current: ${player.resources.hunger})`;
-    }
-
-    if (
-      requirements.maxFatigue !== undefined &&
-      player.resources.fatigue > requirements.maxFatigue
-    ) {
-      return `Too fatigued (Max: ${requirements.maxFatigue}, Current: ${player.resources.fatigue})`;
-    }
-
-    if (
-      requirements.minSupplies !== undefined &&
-      player.resources.supplies < requirements.minSupplies
-    ) {
-      return `Requires ${requirements.minSupplies} Supplies (Current: ${player.resources.supplies})`;
-    }
-
     if (requirements.minStat) {
       return `Requires ${requirements.minStat.value} ${requirements.minStat.stat}`;
     }
@@ -121,7 +76,7 @@ export const getDisabledReason = (
 
   if (cost) {
     if (cost.ryo && player.ryo < cost.ryo) {
-      return `Not enough Ryō (Costs: ${cost.ryo}, Have: ${player.ryo})`;
+      return `Not enough Ryo (Costs: ${cost.ryo}, Have: ${player.ryo})`;
     }
   }
 
@@ -180,11 +135,6 @@ export const applyOutcomeEffects = (
   let updated = { ...player };
   const effects = outcome.effects;
 
-  // Apply resource changes
-  if (effects.resourceChanges) {
-    updated.resources = applyResourceChanges(updated.resources, effects.resourceChanges);
-  }
-
   // Apply stat changes
   if (effects.statChanges) {
     updated.primaryStats = { ...updated.primaryStats };
@@ -200,7 +150,7 @@ export const applyOutcomeEffects = (
     updated.exp += effects.exp;
   }
 
-  // Apply Ryō
+  // Apply Ryo
   if (effects.ryo) {
     updated.ryo += effects.ryo;
   }
@@ -262,8 +212,8 @@ export const resolveEventChoice = (
     };
   }
 
-  // Check resource cost
-  if (!checkResourceCost(player, choice.costs)) {
+  // Check cost
+  if (!checkEventCost(player, choice.costs)) {
     return {
       success: false,
       player: null,
@@ -272,13 +222,9 @@ export const resolveEventChoice = (
     };
   }
 
-  // Apply resource costs first
+  // Apply costs first
   let updated = { ...player };
   if (choice.costs) {
-    updated = {
-      ...updated,
-      resources: applyResourceCost(player.resources, choice.costs),
-    };
     if (choice.costs.ryo) {
       updated.ryo = Math.max(0, updated.ryo - choice.costs.ryo);
     }

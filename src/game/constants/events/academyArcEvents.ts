@@ -14,14 +14,12 @@ export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         description: 'HIGH RISK - Powerful knowledge or punishment',
         riskLevel: RiskLevel.HIGH,
         hintText: 'Some scrolls are sealed for a reason...',
-        costs: { fatigue: 5 },
         outcomes: [
           {
             weight: 40,
             effects: {
               statChanges: { intelligence: 3 },
               exp: 60,
-              resourceChanges: { morale: 5 },
               logMessage: 'You absorbed forbidden jutsu knowledge!',
               logType: 'gain',
             },
@@ -29,7 +27,6 @@ export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
           {
             weight: 35,
             effects: {
-              resourceChanges: { morale: -15 },
               hpChange: { percent: -20 },
               logMessage:
                 'Cursed chakra erupted! The scroll burns and your hands are singed.',
@@ -41,7 +38,6 @@ export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
             effects: {
               exp: 100,
               ryo: 200,
-              resourceChanges: { morale: 10 },
               logMessage: 'The scroll revealed the location of a hidden treasure!',
               logType: 'loot',
             },
@@ -52,13 +48,11 @@ export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Take the Scroll Sealed',
         description: 'MEDIUM RISK - Sell it later',
         riskLevel: RiskLevel.MEDIUM,
-        costs: { fatigue: 3 },
         outcomes: [
           {
             weight: 70,
             effects: {
               ryo: 150,
-              resourceChanges: { morale: 3 },
               logMessage: 'A collector pays well for sealed curiosities.',
               logType: 'gain',
             },
@@ -66,7 +60,6 @@ export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
           {
             weight: 30,
             effects: {
-              resourceChanges: { morale: -10 },
               logMessage: 'The seal breaks en route. The scroll crumbles to dust.',
               logType: 'danger',
             },
@@ -82,7 +75,6 @@ export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
             weight: 100,
             effects: {
               exp: 30,
-              resourceChanges: { morale: 8 },
               logMessage: 'Your honesty impresses the academy instructors.',
               logType: 'gain',
             },
@@ -124,7 +116,6 @@ export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
           {
             weight: 60,
             effects: {
-              resourceChanges: { morale: 15, fatigue: 8 },
               exp: 40,
               logMessage: 'You stand up for the victim. The bullies back down, grudgingly respecting strength.',
               logType: 'gain',
@@ -134,7 +125,7 @@ export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
             weight: 40,
             effects: {
               triggerCombat: {
-                floor: 0, // Special - use current floor
+                floor: 0,
                 difficulty: 5,
                 archetype: 'BALANCED',
                 name: 'Bullies',
@@ -154,7 +145,6 @@ export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
           {
             weight: 80,
             effects: {
-              resourceChanges: { morale: 10 },
               exp: 25,
               logMessage: 'Your calm words defuse the situation without violence.',
               logType: 'gain',
@@ -163,7 +153,6 @@ export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
           {
             weight: 20,
             effects: {
-              resourceChanges: { morale: -5 },
               logMessage: 'They mock you and leave anyway.',
               logType: 'info',
             },
@@ -178,7 +167,6 @@ export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
           {
             weight: 100,
             effects: {
-              resourceChanges: { morale: -8 },
               logMessage: 'You walk past. The guilt lingers.',
               logType: 'danger',
             },
@@ -201,15 +189,12 @@ export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         description: 'HIGH RISK - Exhausting but rewarding',
         riskLevel: RiskLevel.HIGH,
         hintText: 'Push your limits or rest?',
-        requirements: { minMorale: 40 },
-        costs: { fatigue: 20 },
         outcomes: [
           {
             weight: 65,
             effects: {
               exp: 120,
               statChanges: { strength: 2, speed: 1 },
-              resourceChanges: { hunger: -15, morale: 5 },
               logMessage: 'Grueling training that pushes you to your limits!',
               logType: 'gain',
             },
@@ -217,7 +202,6 @@ export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
           {
             weight: 35,
             effects: {
-              resourceChanges: { morale: -10, hunger: -20, fatigue: 10 },
               hpChange: { percent: -15 },
               logMessage: 'You overdo it and collapse from exhaustion.',
               logType: 'danger',
@@ -229,14 +213,12 @@ export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Practice Specific Techniques',
         description: 'MEDIUM RISK - Moderate gains',
         riskLevel: RiskLevel.MEDIUM,
-        costs: { fatigue: 10, hunger: 5 },
         outcomes: [
           {
             weight: 80,
             effects: {
               exp: 70,
               statChanges: { dexterity: 1 },
-              resourceChanges: { morale: 3 },
               logMessage: 'Focused practice improves your technique.',
               logType: 'gain',
             },
@@ -244,7 +226,6 @@ export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
           {
             weight: 20,
             effects: {
-              resourceChanges: { morale: -5 },
               logMessage: 'You fail to make progress and feel discouraged.',
               logType: 'danger',
             },
@@ -253,13 +234,14 @@ export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
       },
       {
         label: 'Meditate and Restore',
-        description: 'SAFE - Recover resources',
+        description: 'SAFE - Recover HP and Chakra',
         riskLevel: RiskLevel.SAFE,
         outcomes: [
           {
             weight: 100,
             effects: {
-              resourceChanges: { fatigue: -20, hunger: 10, morale: 8 },
+              hpChange: { percent: 30 },
+              chakraChange: { percent: 30 },
               logMessage: 'Peaceful meditation restores your spirit.',
               logType: 'gain',
             },

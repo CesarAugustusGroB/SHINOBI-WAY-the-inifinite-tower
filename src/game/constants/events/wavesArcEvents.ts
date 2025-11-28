@@ -14,7 +14,6 @@ export const WAVES_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         description: 'HIGH RISK - Combat for justice',
         riskLevel: RiskLevel.HIGH,
         hintText: 'You might save a life... or lose yours.',
-        costs: { morale: 5 },
         outcomes: [
           {
             weight: 50,
@@ -34,7 +33,6 @@ export const WAVES_ARC_EVENTS: EnhancedGameEventDefinition[] = [
             effects: {
               exp: 80,
               ryo: 300,
-              resourceChanges: { morale: 20 },
               logMessage: 'You rescue the child and earn the eternal gratitude of the family!',
               logType: 'loot',
             },
@@ -51,7 +49,6 @@ export const WAVES_ARC_EVENTS: EnhancedGameEventDefinition[] = [
           {
             weight: 70,
             effects: {
-              resourceChanges: { morale: 5 },
               logMessage: "You broker a deal. The child's parents are grateful, if poorer.",
               logType: 'gain',
             },
@@ -59,7 +56,6 @@ export const WAVES_ARC_EVENTS: EnhancedGameEventDefinition[] = [
           {
             weight: 30,
             effects: {
-              resourceChanges: { morale: -8 },
               logMessage: 'The kidnappers take your money and disappear. No one knows if the child was ever released.',
               logType: 'danger',
             },
@@ -75,7 +71,6 @@ export const WAVES_ARC_EVENTS: EnhancedGameEventDefinition[] = [
           {
             weight: 100,
             effects: {
-              resourceChanges: { morale: 8 },
               logMessage: 'Your kindness provides hope, though it may not be enough.',
               logType: 'gain',
             },
@@ -90,7 +85,6 @@ export const WAVES_ARC_EVENTS: EnhancedGameEventDefinition[] = [
           {
             weight: 100,
             effects: {
-              resourceChanges: { morale: -15 },
               logMessage: "You hear screams in the distance that haunt you for days.",
               logType: 'danger',
             },
@@ -113,13 +107,11 @@ export const WAVES_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         description: 'HIGH RISK - Loot or ambush',
         riskLevel: RiskLevel.HIGH,
         hintText: 'The guards could return at any moment...',
-        costs: { fatigue: 10 },
         outcomes: [
           {
             weight: 45,
             effects: {
               ryo: 250,
-              resourceChanges: { supplies: 2, morale: 8 },
               logMessage: 'You grab weapons and supplies before fleeing. Excellent haul!',
               logType: 'loot',
             },
@@ -144,14 +136,12 @@ export const WAVES_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         description: 'MEDIUM RISK - Destroy supplies',
         riskLevel: RiskLevel.MEDIUM,
         requirements: { minStat: { stat: 'Dexterity', value: 18 } },
-        costs: { fatigue: 8 },
         outcomes: [
           {
             weight: 75,
             effects: {
               ryo: 150,
               exp: 60,
-              resourceChanges: { morale: 10 },
               logMessage: 'You sabotage their supplies without being detected!',
               logType: 'gain',
             },
@@ -200,13 +190,11 @@ export const WAVES_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Work the Full Shift',
         description: 'MEDIUM RISK - Hard labor for payment',
         riskLevel: RiskLevel.MEDIUM,
-        costs: { fatigue: 15, hunger: 10 },
         outcomes: [
           {
             weight: 100,
             effects: {
               ryo: 200,
-              resourceChanges: { morale: 5 },
               logMessage: 'Honest work earns honest pay. Your muscles ache but your spirit feels lighter.',
               logType: 'gain',
             },
@@ -223,7 +211,6 @@ export const WAVES_ARC_EVENTS: EnhancedGameEventDefinition[] = [
             weight: 80,
             effects: {
               ryo: 300,
-              resourceChanges: { morale: 3 },
               logMessage: 'Your negotiation skills net you a much better rate.',
               logType: 'gain',
             },
@@ -232,7 +219,6 @@ export const WAVES_ARC_EVENTS: EnhancedGameEventDefinition[] = [
             weight: 20,
             effects: {
               ryo: 150,
-              resourceChanges: { morale: -5 },
               logMessage: 'Tazuna refuses your demands and pays less out of spite.',
               logType: 'danger',
             },

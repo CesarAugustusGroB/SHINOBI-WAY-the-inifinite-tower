@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { EnhancedEventChoice, Player, RiskLevel } from '../game/types';
-import { checkRequirements, checkResourceCost, getDisabledReason } from '../game/systems/EventSystem';
+import { checkRequirements, checkEventCost, getDisabledReason } from '../game/systems/EventSystem';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 
 interface EventChoicePanelProps {
@@ -21,7 +21,7 @@ const EventChoicePanel: React.FC<EventChoicePanelProps> = ({
   const [hovering, setHovering] = useState(false);
 
   const meetsRequirements = checkRequirements(player, choice.requirements, playerStats);
-  const canAffordCost = checkResourceCost(player, choice.costs);
+  const canAffordCost = checkEventCost(player, choice.costs);
   const isDisabled = disabled || !meetsRequirements || !canAffordCost;
   const disabledReason = !meetsRequirements || !canAffordCost
     ? getDisabledReason(player, choice.requirements, choice.costs, playerStats)
@@ -63,11 +63,7 @@ const EventChoicePanel: React.FC<EventChoicePanelProps> = ({
 
   const getCostDisplay = (): string => {
     const costs: string[] = [];
-    if (choice.costs?.hunger) costs.push(`${choice.costs.hunger} Hunger`);
-    if (choice.costs?.fatigue) costs.push(`${choice.costs.fatigue} Fatigue`);
-    if (choice.costs?.morale) costs.push(`${choice.costs.morale} Morale`);
-    if (choice.costs?.supplies) costs.push(`${choice.costs.supplies} Supplies`);
-    if (choice.costs?.ryo) costs.push(`${choice.costs.ryo} Ryō`);
+    if (choice.costs?.ryo) costs.push(`${choice.costs.ryo} Ryo`);
     return costs.length > 0 ? costs.join(', ') : 'No cost';
   };
 
@@ -107,7 +103,7 @@ const EventChoicePanel: React.FC<EventChoicePanelProps> = ({
           )}
 
           {/* Cost Display */}
-          {choice.costs && (
+          {choice.costs?.ryo && (
             <div className='text-xs font-mono text-zinc-400 mb-2 bg-zinc-900 bg-opacity-50 p-2 rounded'>
               Cost: {getCostDisplay()}
             </div>
@@ -116,7 +112,6 @@ const EventChoicePanel: React.FC<EventChoicePanelProps> = ({
           {/* Requirements Display */}
           {choice.requirements && (
             <div className='text-xs font-mono text-zinc-400 mb-2'>
-              {choice.requirements.minMorale && <p>Requires: {choice.requirements.minMorale}+ Morale</p>}
               {choice.requirements.minStat && (
                 <p>
                   Requires: {choice.requirements.minStat.value}+ {choice.requirements.minStat.stat}

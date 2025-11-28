@@ -13,12 +13,10 @@ export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Disarm Trap Carefully',
         description: 'MEDIUM RISK - Requires focus',
         riskLevel: RiskLevel.MEDIUM,
-        costs: { fatigue: 8 },
         outcomes: [
           {
             weight: 70,
             effects: {
-              resourceChanges: { morale: 10 },
               ryo: 150,
               logMessage: 'You disarmed the trap and claimed the scroll!',
               logType: 'gain',
@@ -28,7 +26,6 @@ export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
             weight: 30,
             effects: {
               hpChange: { percent: -25 },
-              resourceChanges: { morale: -5 },
               logMessage: 'Wire snapped! Kunai grazed your arm.',
               logType: 'danger',
             },
@@ -44,7 +41,6 @@ export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
           {
             weight: 45,
             effects: {
-              resourceChanges: { morale: 15 },
               exp: 80,
               logMessage: 'Lightning-fast reflexes! You snatched it!',
               logType: 'gain',
@@ -54,7 +50,6 @@ export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
             weight: 55,
             effects: {
               hpChange: { percent: -40 },
-              resourceChanges: { fatigue: 15, morale: -10 },
               logMessage: 'The trap activated! Kunai pierced your shoulder!',
               logType: 'danger',
             },
@@ -65,12 +60,10 @@ export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Burn the Trap',
         description: 'LOW RISK - Destroy from range',
         riskLevel: RiskLevel.LOW,
-        costs: { chakra: 20 },
         outcomes: [
           {
             weight: 100,
             effects: {
-              resourceChanges: { morale: 5 },
               logMessage: 'Fire consumed the trap. The scroll burned too.',
               logType: 'info',
             },
@@ -124,7 +117,6 @@ export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
             weight: 50,
             effects: {
               exp: 100,
-              resourceChanges: { morale: 15, fatigue: 10 },
               logMessage: 'Your confident aura intimidates them. They back down.',
               logType: 'gain',
             },
@@ -141,7 +133,6 @@ export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
             weight: 65,
             effects: {
               exp: 40,
-              resourceChanges: { morale: 5 },
               logMessage: 'You negotiate a temporary alliance.',
               logType: 'gain',
             },
@@ -165,12 +156,10 @@ export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Flee into the Forest',
         description: 'LOW RISK - Escape without fighting',
         riskLevel: RiskLevel.LOW,
-        costs: { fatigue: 12 },
         outcomes: [
           {
             weight: 80,
             effects: {
-              resourceChanges: { morale: -5 },
               logMessage: 'You slip away into the dense forest.',
               logType: 'info',
             },
@@ -201,7 +190,6 @@ export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         description: 'EXTREME RISK - Legendary loot or death',
         riskLevel: RiskLevel.EXTREME,
         hintText: 'Only the truly brave (or foolish) dare this.',
-        requirements: { minMorale: 60 },
         outcomes: [
           {
             weight: 30,
@@ -221,7 +209,6 @@ export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
             effects: {
               exp: 200,
               ryo: 500,
-              resourceChanges: { morale: 30, fatigue: 15 },
               logMessage: 'You emerge from the nest victorious! The serpents retreat, leaving behind treasure.',
               logType: 'loot',
             },
@@ -232,14 +219,12 @@ export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Move Carefully Around',
         description: 'MEDIUM RISK - Stealth approach',
         riskLevel: RiskLevel.MEDIUM,
-        costs: { fatigue: 15, hunger: 10 },
         requirements: { minStat: { stat: 'Dexterity', value: 20 } },
         outcomes: [
           {
             weight: 75,
             effects: {
               exp: 60,
-              resourceChanges: { morale: 5 },
               logMessage: 'You slip past the serpents without disturbing them.',
               logType: 'gain',
             },
@@ -262,7 +247,6 @@ export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
           {
             weight: 100,
             effects: {
-              resourceChanges: { morale: -10 },
               logMessage: 'You avoid the serpents but wonder what treasures were left behind.',
               logType: 'info',
             },
@@ -308,7 +292,6 @@ export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
             weight: 70,
             effects: {
               exp: 100,
-              resourceChanges: { morale: 5 },
               logMessage: 'The merchant reveals the location of a hidden shortcut.',
               logType: 'loot',
             },
@@ -316,7 +299,6 @@ export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
           {
             weight: 30,
             effects: {
-              resourceChanges: { morale: -10 },
               logMessage: 'The information is worthless. You feel cheated.',
               logType: 'danger',
             },

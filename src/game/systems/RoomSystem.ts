@@ -7,27 +7,13 @@ import { getEventsForArc } from './EventSystem';
  * Analyze player state to determine their current condition
  * Returns assessment for adaptive room generation
  */
-const analyzePlayerState = (player: Player) => {
-  const resources = player.resources;
-  const starving = resources.hunger < 25;
-  const exhausted = resources.fatigue > 75;
-  const broken = resources.morale < 25;
-  const heroic = resources.morale > 80;
-  const wellFed = resources.hunger > 60;
-  const wellRested = resources.fatigue < 15;
-  const healthy = resources.hunger > 50 && resources.fatigue < 50 && resources.morale > 50;
+const analyzePlayerState = (player: Player, maxHp: number) => {
+  const lowHp = player.currentHp < maxHp * 0.3;
+  const healthyHp = player.currentHp > maxHp * 0.7;
 
   return {
-    starving,
-    exhausted,
-    broken,
-    heroic,
-    wellFed,
-    wellRested,
-    healthy,
-    needsHealing: starving || exhausted || broken,
-    isStrong: heroic && wellFed && wellRested,
-    resources,
+    needsHealing: lowHp,
+    isStrong: healthyHp,
   };
 };
 
@@ -35,9 +21,9 @@ const analyzePlayerState = (player: Player) => {
  * Generate adaptive rooms based on player state
  * Slot 1: Responds to player condition (rest if struggling, challenge if thriving)
  * Slot 2: Always combat (guaranteed challenge)
- * Slot 3: Wild card (ambush, elite, or resource room)
+ * Slot 3: Wild card (ambush, elite, or event room)
  */
-export const generateRooms = (currentFloor: number, diff: number, player?: Player): Room[] => {
+export const generateRooms = (currentFloor: number, diff: number, player?: Player, maxHp?: number): Room[] => {
   const rooms: Room[] = [];
   const arc = getStoryArc(currentFloor);
 
@@ -60,7 +46,7 @@ export const generateRooms = (currentFloor: number, diff: number, player?: Playe
   }
 
   // Analyze player state for adaptive generation
-  const playerState = player ? analyzePlayerState(player) : null;
+  const playerState = player && maxHp ? analyzePlayerState(player, maxHp) : null;
 
   // SLOT 1: Adaptive response to player condition
   if (playerState?.needsHealing) {
@@ -68,7 +54,7 @@ export const generateRooms = (currentFloor: number, diff: number, player?: Playe
     if (Math.random() < 0.6) {
       rooms.push({ type: 'REST', description: 'A safe haven appears. Your body begs for rest.' });
     } else {
-      rooms.push(generateResourceEvent(currentFloor, arc.name));
+      rooms.push({ type: 'REST', description: 'A hidden cache of supplies provides respite.' });
     }
   } else if (playerState?.isStrong) {
     // Player thriving: offer high-risk challenge
@@ -156,14 +142,3 @@ const generateHighRiskEvent = (floor: number, arcName: string): Room => {
   return generateStoryEvent(floor, arcName);
 };
 
-/**
- * Generate a resource-providing event (food, supplies, healing)
- */
-const generateResourceEvent = (floor: number, arcName: string): Room => {
-  // Return a generic resource room that's not an event
-  // In a full implementation, this could be a special room type
-  return {
-    type: 'REST',
-    description: 'A hidden cache of supplies provides sustenance and respite.',
-  };
-};
