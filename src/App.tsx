@@ -19,12 +19,11 @@ import { useSupply } from './game/systems/SupplySystem';
 import MainMenu from './scenes/MainMenu';
 import CharacterSelect from './scenes/CharacterSelect';
 import Exploration from './scenes/Exploration';
-import Combat from './scenes/Combat';
+import Combat, { CombatRef } from './scenes/Combat';
 import Event from './scenes/Event';
 import Loot from './scenes/Loot';
 import GameOver from './scenes/GameOver';
 import GameGuide from './scenes/GameGuide';
-import GameLog from './components/GameLog';
 import LeftSidebarPanel from './components/LeftSidebarPanel';
 
 // Import the parchment background styles
@@ -47,6 +46,9 @@ const App: React.FC = () => {
   const [turnState, setTurnState] = useState<'PLAYER' | 'ENEMY_TURN'>('PLAYER');
   const [lastRoomType, setLastRoomType] = useState<string | null>(null);
   const logIdCounter = useRef<number>(0);
+
+  // Combat ref for floating text
+  const combatRef = useRef<CombatRef>(null);
 
   const addLog = useCallback((text: string, type: any = 'info', details?: string) => {
     setLogs(prev => {
@@ -306,6 +308,14 @@ const App: React.FC = () => {
     // Apply result to game state
     addLog(result.logMessage, result.logType);
 
+    // Spawn floating combat text
+    if (result.damageDealt > 0) {
+      const isCrit = result.logMessage.includes('CRITICAL');
+      combatRef.current?.spawnFloatingText('enemy', result.damageDealt.toString(), isCrit ? 'crit' : 'damage');
+    } else if (result.logMessage.includes('MISSED') || result.logMessage.includes('EVADED')) {
+      combatRef.current?.spawnFloatingText('enemy', 'MISS', 'miss');
+    }
+
     setPlayer(prev => prev ? {
       ...prev,
       currentHp: result.newPlayerHp,
@@ -337,6 +347,34 @@ const App: React.FC = () => {
         result.logMessages.forEach(msg => {
           addLog(msg, msg.includes('GUTS') ? 'gain' : msg.includes('took') ? 'combat' : 'danger');
         });
+
+        // Calculate damage dealt to player for floating text
+        const playerDamageTaken = player.currentHp - result.newPlayerHp;
+        if (playerDamageTaken > 0) {
+          // Check if it was a crit from log messages
+          const isCrit = result.logMessages.some(m => m.includes('Crit'));
+          combatRef.current?.spawnFloatingText('player', playerDamageTaken.toString(), isCrit ? 'crit' : 'damage');
+        } else if (result.logMessages.some(m => m.includes('MISSED') || m.includes('EVADED'))) {
+          combatRef.current?.spawnFloatingText('player', 'MISS', 'miss');
+        }
+
+        // Check if enemy took DoT damage for floating text
+        const enemyDamageTaken = enemy.currentHp - result.newEnemyHp;
+        if (enemyDamageTaken > 0) {
+          combatRef.current?.spawnFloatingText('enemy', enemyDamageTaken.toString(), 'damage');
+        }
+
+        // Check for player healing (regen)
+        if (result.logMessages.some(m => m.includes('regenerated'))) {
+          const healMatch = result.logMessages.find(m => m.includes('You regenerated'));
+          if (healMatch) {
+            const healAmount = healMatch.match(/(\d+)/)?.[1];
+            if (healAmount) {
+              combatRef.current?.spawnFloatingText('player', healAmount, 'heal');
+            }
+          }
+        }
+
         setPlayer(prev => prev ? { ...prev, currentHp: result.newPlayerHp, activeBuffs: result.newPlayerBuffs, skills: result.playerSkills } : null);
         setEnemy(prev => prev ? { ...prev, currentHp: result.newEnemyHp, activeBuffs: result.newEnemyBuffs } : null);
 
@@ -510,29 +548,40 @@ const App: React.FC = () => {
     );
   }
 
+  // Hide sidebar during combat for full-width immersive experience
+  const isCombat = gameState === GameState.COMBAT;
+
   return (
     <div className="h-screen bg-black text-gray-300 flex overflow-hidden font-sans">
-      {/* Left Panel */}
-      <div className="hidden lg:flex w-[320px] flex-col border-r border-zinc-900 bg-zinc-950 p-4">
-        {player && playerStats && (
-          <LeftSidebarPanel
-            floor={floor}
-            player={player}
-            playerStats={playerStats}
-            storyArcLabel={getStoryArc(floor).label}
-          />
-        )}
-      </div>
+      {/* Left Panel - Hidden during combat */}
+      {!isCombat && (
+        <div className="hidden lg:flex w-[320px] flex-col border-r border-zinc-900 bg-zinc-950 p-4">
+          {player && playerStats && (
+            <LeftSidebarPanel
+              floor={floor}
+              player={player}
+              playerStats={playerStats}
+              storyArcLabel={getStoryArc(floor).label}
+            />
+          )}
+        </div>
+      )}
 
       {/* Center Panel */}
       <div className="flex-1 flex flex-col relative bg-zinc-950">
         <div className="flex-1 p-6 flex flex-col items-center justify-center relative overflow-y-auto parchment-panel">
-          {gameState === GameState.EXPLORE && (
-            <Exploration roomChoices={roomChoices} onSelectRoom={selectRoom} />
+          {gameState === GameState.EXPLORE && player && playerStats && (
+            <Exploration
+              roomChoices={roomChoices}
+              onSelectRoom={selectRoom}
+              player={player}
+              playerStats={playerStats}
+            />
           )}
 
           {gameState === GameState.COMBAT && player && enemy && playerStats && enemyStats && (
             <Combat
+              ref={combatRef}
               player={player}
               playerStats={playerStats}
               enemy={enemy}
@@ -566,11 +615,6 @@ const App: React.FC = () => {
               getDamageTypeColor={getDamageTypeColor}
             />
           )}
-        </div>
-
-        {/* Logs Footer */}
-        <div className="h-56 bg-black border-t border-zinc-900 relative z-10">
-          <GameLog logs={logs} />
         </div>
       </div>
     </div>

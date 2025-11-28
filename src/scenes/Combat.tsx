@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback, useRef, useImperativeHandle, forwardRef } from 'react';
 import {
   Player,
   Enemy,
@@ -12,6 +12,8 @@ import StatBar from '../components/StatBar';
 import Tooltip from '../components/Tooltip';
 import { SkillCard } from '../components/SkillCard';
 import { CinematicViewscreen } from '../components/CinematicViewscreen';
+import PlayerHUD from '../components/PlayerHUD';
+import FloatingText, { FloatingTextItem, FloatingTextType } from '../components/FloatingText';
 import { Hourglass } from 'lucide-react';
 import { calculateDamage, formatPercent } from '../game/systems/StatSystem';
 import { getElementEffectiveness } from '../game/constants';
@@ -27,6 +29,10 @@ import {
   getRankColor,
 } from '../game/utils/tooltipFormatters';
 
+export interface CombatRef {
+  spawnFloatingText: (target: 'enemy' | 'player', text: string, type: FloatingTextType) => void;
+}
+
 interface CombatProps {
   player: Player;
   playerStats: CharacterStats;
@@ -40,7 +46,7 @@ interface CombatProps {
   getRarityColor: (rarity: string) => string;
 }
 
-const Combat: React.FC<CombatProps> = ({
+const Combat = forwardRef<CombatRef, CombatProps>(({
   player,
   playerStats,
   enemy,
@@ -50,13 +56,46 @@ const Combat: React.FC<CombatProps> = ({
   onPassTurn,
   droppedSkill,
   getDamageTypeColor
-}) => {
-  return (
-    <div className="w-full max-w-6xl z-10 flex flex-col h-full">
+}, ref) => {
+  // Floating text state
+  const [floatingTexts, setFloatingTexts] = useState<FloatingTextItem[]>([]);
+  const enemyRef = useRef<HTMLDivElement>(null);
+  const playerHudRef = useRef<HTMLDivElement>(null);
 
-      {/* CINEMATIC BATTLE HEADER */}
-      <CinematicViewscreen
-        image={enemy.image || '/assets/image_3b2b13.jpg'}
+  // Spawn floating text at target location
+  const spawnFloatingText = useCallback((
+    target: 'enemy' | 'player',
+    text: string,
+    type: FloatingTextType
+  ) => {
+    const targetRef = target === 'enemy' ? enemyRef : playerHudRef;
+    const rect = targetRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const id = `fct-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const x = rect.left + rect.width / 2 + (Math.random() - 0.5) * 60;
+    const y = rect.top + rect.height * (target === 'enemy' ? 0.4 : 0.3);
+
+    setFloatingTexts(prev => [...prev, { id, text, type, position: { x, y } }]);
+  }, []);
+
+  // Remove floating text after animation completes
+  const removeFloatingText = useCallback((id: string) => {
+    setFloatingTexts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  // Expose spawnFloatingText to parent via ref
+  useImperativeHandle(ref, () => ({
+    spawnFloatingText
+  }), [spawnFloatingText]);
+
+  return (
+    <div className="w-full max-w-6xl z-10 flex flex-col h-full mx-auto">
+
+      {/* CINEMATIC BATTLE HEADER - Enemy Area */}
+      <div ref={enemyRef}>
+        <CinematicViewscreen
+          image={enemy.image || '/assets/image_3b2b13.jpg'}
         overlayContent={
           <div className="flex justify-between w-full h-full">
 
@@ -195,6 +234,7 @@ const Combat: React.FC<CombatProps> = ({
           </div>
         }
       />
+      </div>
 
       {/* SKILL INTERFACE AREA */}
       <div className="flex-1 p-6 flex flex-col justify-end">
@@ -321,8 +361,29 @@ const Combat: React.FC<CombatProps> = ({
           </button>
         </div>
       </div>
+
+      {/* PLAYER HUD */}
+      <PlayerHUD
+        ref={playerHudRef}
+        player={player}
+        playerStats={playerStats}
+      />
+
+      {/* FLOATING TEXT OVERLAY */}
+      {floatingTexts.map(ft => (
+        <FloatingText
+          key={ft.id}
+          id={ft.id}
+          value={ft.text}
+          type={ft.type}
+          position={ft.position}
+          onComplete={removeFloatingText}
+        />
+      ))}
     </div>
   );
-};
+});
+
+Combat.displayName = 'Combat';
 
 export default Combat;

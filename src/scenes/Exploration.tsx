@@ -1,14 +1,17 @@
 import React from 'react';
-import { Room } from '../game/types';
+import { Room, Player, CharacterStats } from '../game/types';
 import EnhancedCard from '../components/EnhancedCard';
 import { CinematicViewscreen } from '../components/CinematicViewscreen';
+import PlayerHUD from '../components/PlayerHUD';
 
 interface ExplorationProps {
   roomChoices: Room[];
   onSelectRoom: (room: Room) => void;
+  player: Player;
+  playerStats: CharacterStats;
 }
 
-const Exploration: React.FC<ExplorationProps> = ({ roomChoices, onSelectRoom }) => {
+const Exploration: React.FC<ExplorationProps> = ({ roomChoices, onSelectRoom, player, playerStats }) => {
   return (
     <div className="w-full max-w-6xl z-10 flex flex-col h-full animate-fade-in">
 
@@ -33,6 +36,12 @@ const Exploration: React.FC<ExplorationProps> = ({ roomChoices, onSelectRoom }) 
           <EnhancedCard key={idx} room={room} onClick={() => onSelectRoom(room)} />
         ))}
       </div>
+
+      {/* Player HUD */}
+      <PlayerHUD
+        player={player}
+        playerStats={playerStats}
+      />
     </div>
   );
 };
