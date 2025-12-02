@@ -1,4 +1,4 @@
-import { EnhancedGameEventDefinition, Rarity, RiskLevel } from '../../types';
+import { EnhancedGameEventDefinition, PrimaryStat, Rarity, RiskLevel } from '../../types';
 
 export const ROGUE_ARC_EVENTS: EnhancedGameEventDefinition[] = [
   {
@@ -42,7 +42,7 @@ export const ROGUE_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Observe Secretly',
         description: 'MEDIUM RISK - Gather intelligence',
         riskLevel: RiskLevel.MEDIUM,
-        requirements: { minStat: { stat: 'Calmness', value: 20 } },
+        requirements: { minStat: { stat: PrimaryStat.CALMNESS, value: 20 } },
         outcomes: [
           {
             weight: 80,
@@ -131,7 +131,7 @@ export const ROGUE_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Study the Amplifier',
         description: 'MEDIUM RISK - Learn its secrets',
         riskLevel: RiskLevel.MEDIUM,
-        requirements: { minStat: { stat: 'Intelligence', value: 22 } },
+        requirements: { minStat: { stat: PrimaryStat.INTELLIGENCE, value: 22 } },
         outcomes: [
           {
             weight: 75,

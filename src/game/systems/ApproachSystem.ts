@@ -97,18 +97,18 @@ export function executeApproach(
     successChance: Math.round(successChance),
     roll,
 
-    skipCombat: success && effects.skipCombat,
-    guaranteedFirst: success && effects.guaranteedFirst,
-    initiativeBonus: effects.initiativeBonus || 0,
-    firstHitMultiplier: success ? effects.firstHitMultiplier : 1.0,
-    enemyHpReduction: success ? effects.enemyHpReduction : 0,
+    skipCombat: success && (effects.skipCombat ?? false),
+    guaranteedFirst: success && (effects.guaranteedFirst ?? false),
+    initiativeBonus: effects.initiativeBonus ?? 0,
+    firstHitMultiplier: success ? (effects.firstHitMultiplier ?? 1.0) : 1.0,
+    enemyHpReduction: success ? (effects.enemyHpReduction ?? 0) : 0,
     playerBuffs: success ? playerBuffs : [],
     enemyDebuffs: success ? enemyDebuffs : [],
 
-    chakraCost: effects.chakraCost || 0,
-    hpCost: effects.hpCost || 0,
+    chakraCost: effects.chakraCost ?? 0,
+    hpCost: effects.hpCost ?? 0,
 
-    xpMultiplier: success ? effects.xpMultiplier : 1.0,
+    xpMultiplier: success ? (effects.xpMultiplier ?? 1.0) : 1.0,
 
     description,
   };
@@ -136,12 +136,14 @@ function convertEffectsToBuffs(
     buffs.push({
       id: `approach_${effect.type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       name: getBuffName(effect.type, isPlayerBuff),
-      type: effect.type,
-      targetStat: effect.targetStat,
-      value: effect.value || 0,
       duration: effect.duration,
-      remainingDuration: effect.duration,
-      isDebuff: !isPlayerBuff,
+      effect: {
+        type: effect.type,
+        value: effect.value,
+        duration: effect.duration,
+        targetStat: effect.targetStat,
+        chance: effect.chance,
+      },
       source: 'approach',
     });
   }

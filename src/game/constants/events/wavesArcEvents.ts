@@ -1,4 +1,4 @@
-import { EnhancedGameEventDefinition, Rarity, RiskLevel } from '../../types';
+import { EnhancedGameEventDefinition, PrimaryStat, Rarity, RiskLevel } from '../../types';
 
 export const WAVES_ARC_EVENTS: EnhancedGameEventDefinition[] = [
   {
@@ -44,7 +44,7 @@ export const WAVES_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         description: 'MEDIUM RISK - Expensive but safer',
         riskLevel: RiskLevel.MEDIUM,
         costs: { ryo: 200 },
-        requirements: { minStat: { stat: 'Intelligence', value: 14 } },
+        requirements: { minStat: { stat: PrimaryStat.INTELLIGENCE, value: 14 } },
         outcomes: [
           {
             weight: 70,
@@ -135,7 +135,7 @@ export const WAVES_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Sabotage Quietly',
         description: 'MEDIUM RISK - Destroy supplies',
         riskLevel: RiskLevel.MEDIUM,
-        requirements: { minStat: { stat: 'Dexterity', value: 18 } },
+        requirements: { minStat: { stat: PrimaryStat.DEXTERITY, value: 18 } },
         outcomes: [
           {
             weight: 75,
@@ -205,7 +205,7 @@ export const WAVES_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Negotiate Better Terms',
         description: 'LOW RISK - Skilled negotiation',
         riskLevel: RiskLevel.LOW,
-        requirements: { minStat: { stat: 'Intelligence', value: 16 } },
+        requirements: { minStat: { stat: PrimaryStat.INTELLIGENCE, value: 16 } },
         outcomes: [
           {
             weight: 80,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Item, Skill, Player, SkillTier, Rarity, ItemSlot } from '../game/types';
+import { Item, Skill, Player, SkillTier, Rarity, ItemSlot, DamageType } from '../game/types';
 import { Scroll } from 'lucide-react';
 import Tooltip from '../components/Tooltip';
 import {
@@ -22,7 +22,7 @@ interface LootProps {
   onLearnSkill: (skill: Skill, slotIndex?: number) => void;
   onLeaveAll: () => void;
   getRarityColor: (rarity: Rarity) => string;
-  getDamageTypeColor: (dt: string) => string;
+  getDamageTypeColor: (dt: DamageType) => string;
 }
 
 const Loot: React.FC<LootProps> = ({

@@ -1,4 +1,4 @@
-import { EnhancedGameEventDefinition, Rarity, RiskLevel } from '../../types';
+import { EnhancedGameEventDefinition, PrimaryStat, Rarity, RiskLevel } from '../../types';
 
 export const WAR_ARC_EVENTS: EnhancedGameEventDefinition[] = [
   {
@@ -50,7 +50,7 @@ export const WAR_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Wait and Observe',
         description: 'MEDIUM RISK - Patience tests your nerves',
         riskLevel: RiskLevel.MEDIUM,
-        requirements: { minStat: { stat: 'Calmness', value: 25 } },
+        requirements: { minStat: { stat: PrimaryStat.CALMNESS, value: 25 } },
         outcomes: [
           {
             weight: 80,
@@ -146,7 +146,7 @@ export const WAR_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Contain It Safely',
         description: 'MEDIUM RISK - Scientific approach',
         riskLevel: RiskLevel.MEDIUM,
-        requirements: { minStat: { stat: 'Intelligence', value: 25 } },
+        requirements: { minStat: { stat: PrimaryStat.INTELLIGENCE, value: 25 } },
         outcomes: [
           {
             weight: 70,

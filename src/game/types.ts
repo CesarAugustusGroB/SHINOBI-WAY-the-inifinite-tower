@@ -6,17 +6,12 @@
 export enum GameState {
   MENU,
   CHAR_SELECT,
-  EXPLORE,
-  EXPLORE_MAP,      // Node map exploration view
-  BRANCHING_EXPLORE, // NEW: Branching room exploration view
-  ROOM_ACTIVITY,    // NEW: In a room doing activities
-  MERCHANT,         // NEW: Shopping phase in branching rooms
-  APPROACH_SELECT,  // Choosing combat approach
+  EXPLORE_MAP,      // Legacy node map (kept for compatibility)
+  BRANCHING_EXPLORE, // Primary branching room exploration view
   COMBAT,
   LOOT,
   EVENT,
   GAME_OVER,
-  VICTORY,
   GUIDE
 }
 
@@ -294,9 +289,12 @@ export interface Skill {
   
   // Requirements
   requirements?: SkillRequirements;
-  
+
   // Upgrade tracking
   level?: number;
+
+  // Visual
+  image?: string;
 }
 
 // ============================================================================
@@ -422,6 +420,7 @@ export interface GameEventDefinition {
   title: string;
   description: string;
   choices: EventChoice[];
+  allowedArcs?: string[]; // Story arcs where this event can occur
 }
 
 export interface Room {
@@ -776,6 +775,7 @@ export interface ExplorationNode {
   // State
   isVisited: boolean;
   isCleared: boolean;             // Combat completed or effect resolved
+  isRevealed: boolean;            // Whether node is visible on the map
 }
 
 export interface FloorLayout {

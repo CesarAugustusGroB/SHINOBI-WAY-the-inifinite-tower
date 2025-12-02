@@ -7,6 +7,7 @@ import {
   DamageType,
   CharacterStats,
   Buff,
+  Rarity,
 } from '../game/types';
 import StatBar from '../components/StatBar';
 import Tooltip from '../components/Tooltip';
@@ -43,7 +44,7 @@ interface CombatProps {
   onPassTurn: () => void;
   droppedSkill?: Skill | null;
   getDamageTypeColor: (dt: DamageType) => string;
-  getRarityColor: (rarity: string) => string;
+  getRarityColor: (rarity: Rarity) => string;
 }
 
 const Combat = forwardRef<CombatRef, CombatProps>(({

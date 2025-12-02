@@ -4,7 +4,6 @@ import FloorPanel from './FloorPanel';
 import PrimaryStatsPanel from './PrimaryStatsPanel';
 import DerivedStatsPanel from './DerivedStatsPanel';
 import EquipmentPanel from './EquipmentPanel';
-import WalletPanel from './WalletPanel';
 
 interface LeftSidebarPanelProps {
   floor: number;
@@ -42,9 +41,11 @@ const LeftSidebarPanel: React.FC<LeftSidebarPanelProps> = ({
         equipment={player.equipment}
       />
 
-      <WalletPanel
-        ryo={player.ryo}
-      />
+      {/* Wallet Display */}
+      <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
+        <div className="text-zinc-400 text-xs mb-1">Wallet</div>
+        <div className="text-amber-400 font-bold">{player.ryo} Ryō</div>
+      </div>
     </div>
   );
 };

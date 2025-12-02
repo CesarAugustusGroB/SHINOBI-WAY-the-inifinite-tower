@@ -1,4 +1,4 @@
-import { EnhancedGameEventDefinition, Rarity, RiskLevel } from '../../types';
+import { EnhancedGameEventDefinition, PrimaryStat, Rarity, RiskLevel } from '../../types';
 
 export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
   {
@@ -111,7 +111,7 @@ export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         description: 'MEDIUM RISK - Combat or respect',
         riskLevel: RiskLevel.MEDIUM,
         hintText: 'Direct action has consequences...',
-        requirements: { minStat: { stat: 'Strength', value: 15 } },
+        requirements: { minStat: { stat: PrimaryStat.STRENGTH, value: 15 } },
         outcomes: [
           {
             weight: 60,
@@ -140,7 +140,7 @@ export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Talk Them Down',
         description: 'LOW RISK - Diplomatic approach',
         riskLevel: RiskLevel.LOW,
-        requirements: { minStat: { stat: 'Intelligence', value: 12 } },
+        requirements: { minStat: { stat: PrimaryStat.INTELLIGENCE, value: 12 } },
         outcomes: [
           {
             weight: 80,

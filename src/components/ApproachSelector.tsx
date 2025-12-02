@@ -167,6 +167,7 @@ const ApproachSelector: React.FC<ApproachSelectorProps> = ({
           <button
             onClick={onCancel}
             className="p-2 hover:bg-zinc-800 rounded transition-colors"
+            aria-label="Close approach selector"
           >
             <X className="w-5 h-5 text-zinc-400" />
           </button>

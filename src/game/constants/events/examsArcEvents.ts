@@ -1,4 +1,4 @@
-import { EnhancedGameEventDefinition, Rarity, RiskLevel } from '../../types';
+import { EnhancedGameEventDefinition, PrimaryStat, Rarity, RiskLevel } from '../../types';
 
 export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
   {
@@ -36,7 +36,7 @@ export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Rush and Grab',
         description: 'HIGH RISK - Trust your speed',
         riskLevel: RiskLevel.HIGH,
-        requirements: { minStat: { stat: 'Speed', value: 40 } },
+        requirements: { minStat: { stat: PrimaryStat.SPEED, value: 40 } },
         outcomes: [
           {
             weight: 45,
@@ -127,7 +127,7 @@ export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Negotiate a Truce',
         description: 'MEDIUM RISK - Diplomacy or deception',
         riskLevel: RiskLevel.MEDIUM,
-        requirements: { minStat: { stat: 'Intelligence', value: 15 } },
+        requirements: { minStat: { stat: PrimaryStat.INTELLIGENCE, value: 15 } },
         outcomes: [
           {
             weight: 65,
@@ -219,7 +219,7 @@ export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         label: 'Move Carefully Around',
         description: 'MEDIUM RISK - Stealth approach',
         riskLevel: RiskLevel.MEDIUM,
-        requirements: { minStat: { stat: 'Dexterity', value: 20 } },
+        requirements: { minStat: { stat: PrimaryStat.DEXTERITY, value: 20 } },
         outcomes: [
           {
             weight: 75,
@@ -269,7 +269,7 @@ export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
         description: 'HIGH RISK - Power at a cost',
         riskLevel: RiskLevel.HIGH,
         costs: { ryo: 300 },
-        requirements: { minStat: { stat: 'Spirit', value: 18 } },
+        requirements: { minStat: { stat: PrimaryStat.SPIRIT, value: 18 } },
         outcomes: [
           {
             weight: 100,
