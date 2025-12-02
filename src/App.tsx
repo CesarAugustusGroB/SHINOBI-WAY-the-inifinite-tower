@@ -39,6 +39,7 @@ import CharacterSelect from './scenes/CharacterSelect';
 import Combat from './scenes/Combat';
 import Event from './scenes/Event';
 import Loot from './scenes/Loot';
+import Merchant from './scenes/Merchant';
 import GameOver from './scenes/GameOver';
 import GameGuide from './scenes/GameGuide';
 import LeftSidebarPanel from './components/LeftSidebarPanel';
@@ -59,6 +60,9 @@ const App: React.FC = () => {
   const [droppedSkill, setDroppedSkill] = useState<Skill | null>(null);
   const [activeEvent, setActiveEvent] = useState<any>(null);
   const [difficulty, setDifficulty] = useState<number>(20);
+  const [isProcessingLoot, setIsProcessingLoot] = useState(false);
+  const [merchantItems, setMerchantItems] = useState<Item[]>([]);
+  const [merchantDiscount, setMerchantDiscount] = useState<number>(0);
   const logIdCounter = useRef<number>(0);
 
   // --- Shared Combat/Exploration State ---
@@ -109,7 +113,7 @@ const App: React.FC = () => {
     if (branchingFloor) {
       setBranchingFloor(prevFloor => {
         if (!prevFloor) return prevFloor;
-        const combatRoom = selectedBranchingRoom || getCurrentRoom(prevFloor);
+        const combatRoom = getCurrentRoom(prevFloor);  // Uses currentRoomId set by moveToRoom
         if (!combatRoom) return prevFloor;
 
         let updatedFloor = completeActivity(prevFloor, combatRoom.id, 'combat');
@@ -168,7 +172,7 @@ const App: React.FC = () => {
 
       return updatedPlayer;
     });
-  }, [branchingFloor, selectedBranchingRoom, floor, difficulty, addLog]);
+  }, [branchingFloor, floor, difficulty, addLog]);
 
   // Combat hook - manages enemy, turns, and combat logic
   const {
@@ -304,7 +308,8 @@ const App: React.FC = () => {
         return completeActivity(prevFloor, selectedBranchingRoom.id, 'combat');
       });
 
-      setSelectedBranchingRoom(null);
+      // Return to map - this will clear selectedBranchingRoom properly
+      returnToMap();
       return;
     }
 
@@ -379,12 +384,11 @@ const App: React.FC = () => {
 
       case 'merchant':
         if (currentRoom.activities.merchant) {
+          setMerchantItems(currentRoom.activities.merchant.items);
+          setMerchantDiscount(currentRoom.activities.merchant.discountPercent || 0);
+          setSelectedBranchingRoom(currentRoom);
+          setGameState(GameState.MERCHANT);
           addLog(`A merchant greets you. ${currentRoom.activities.merchant.items.length} items available.`, 'info');
-          // For now, just mark as completed (merchant UI to be added later)
-          const updatedFloorAfterMerchant = completeActivity(updatedFloor, room.id, 'merchant');
-          setBranchingFloor(updatedFloorAfterMerchant);
-          // Return to map - user can re-enter to continue with other activities
-          addLog('The merchant waves goodbye.', 'info');
         }
         break;
 
@@ -561,33 +565,22 @@ const App: React.FC = () => {
     setDroppedItems([]);
     setDroppedSkill(null);
     setEnemy(null);
-
-    // Check if we came from a branching room with remaining activities
-    if (selectedBranchingRoom && branchingFloor) {
-      // Get the updated room from the floor state
-      const currentRoom = branchingFloor.rooms.find(r => r.id === selectedBranchingRoom.id);
-      if (currentRoom) {
-        const nextActivity = getCurrentActivity(currentRoom);
-        if (nextActivity) {
-          // Re-enter the room to trigger the next activity (event, treasure, etc.)
-          handleBranchingRoomEnter(currentRoom);
-          return;
-        }
-      }
-    }
-    // No remaining activities, clear selection and return to map
     setSelectedBranchingRoom(null);
     setGameState(GameState.BRANCHING_EXPLORE);
   };
 
   const equipItem = (item: Item) => {
-    if (!player) return;
+    if (!player || isProcessingLoot) return;
+    setIsProcessingLoot(true);
     setPlayer(prev => {
       if (!prev) return null;
       return equipItemFn(prev, item);
     });
     addLog(`Equipped ${item.name}.`, 'loot');
-    nextFloor();
+    setTimeout(() => {
+      setIsProcessingLoot(false);
+      returnToMap();
+    }, 100);
   };
 
   const learnSkill = (skill: Skill, slotIndex?: number) => {
@@ -620,17 +613,54 @@ const App: React.FC = () => {
       }
     }
     setPlayer({ ...player, skills: newSkills });
-    nextFloor();
+    setDroppedSkill(null);
+    returnToMap();
   };
 
   const sellItem = (item: Item) => {
-    if (!player) return;
+    if (!player || isProcessingLoot) return;
+    setIsProcessingLoot(true);
     setPlayer(prev => {
       if (!prev) return null;
       return sellItemFn(prev, item);
     });
     addLog(`Sold ${item.name} for ${Math.floor(item.value * 0.6)} Ryō.`, 'loot');
-    nextFloor();
+    setTimeout(() => {
+      setIsProcessingLoot(false);
+      returnToMap();
+    }, 100);
+  };
+
+  const buyItem = (item: Item) => {
+    if (!player || isProcessingLoot) return;
+
+    const price = Math.floor(item.value * (1 - merchantDiscount / 100));
+    if (player.ryo < price) {
+      addLog(`Not enough Ryo! Need ${price}.`, 'danger');
+      return;
+    }
+
+    setIsProcessingLoot(true);
+    setPlayer(prev => {
+      if (!prev) return null;
+      const afterBuy = { ...prev, ryo: prev.ryo - price };
+      return equipItemFn(afterBuy, item);
+    });
+    addLog(`Bought and equipped ${item.name} for ${price} Ryō.`, 'loot');
+    setMerchantItems(prev => prev.filter(i => i.id !== item.id));
+    setTimeout(() => setIsProcessingLoot(false), 100);
+  };
+
+  const leaveMerchant = () => {
+    if (branchingFloor && selectedBranchingRoom) {
+      const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'merchant');
+      setBranchingFloor(updatedFloor);
+    }
+    setMerchantItems([]);
+    setMerchantDiscount(0);
+    setSelectedBranchingRoom(null);
+    setGameState(GameState.BRANCHING_EXPLORE);
+    addLog('The merchant waves goodbye.', 'info');
   };
 
   const getRarityColor = (r: Rarity) => {
@@ -753,6 +783,21 @@ const App: React.FC = () => {
               onLeaveAll={returnToMap}
               getRarityColor={getRarityColor}
               getDamageTypeColor={getDamageTypeColor}
+              isProcessing={isProcessingLoot}
+            />
+          )}
+
+          {gameState === GameState.MERCHANT && (
+            <Merchant
+              merchantItems={merchantItems}
+              discountPercent={merchantDiscount}
+              player={player}
+              playerStats={playerStats}
+              onBuyItem={buyItem}
+              onLeave={leaveMerchant}
+              getRarityColor={getRarityColor}
+              getDamageTypeColor={getDamageTypeColor}
+              isProcessing={isProcessingLoot}
             />
           )}
         </div>

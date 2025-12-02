@@ -207,13 +207,15 @@ export function useCombat({
       // Check for victory/defeat
       if (result.enemyDefeated) {
         handleVictory();
+        setTurnState('PLAYER'); // Stop enemy turn effect from re-running
+        return;
       } else if (result.playerDefeated) {
         setGameState(GameState.GAME_OVER);
       } else {
         setTurnState('ENEMY_TURN');
       }
     },
-    [player, enemy, playerStats, enemyStats, combatState, addLog, setPlayer, handleVictory, setGameState]
+    [player, enemy, playerStats, enemyStats, combatState, addLog, setPlayer, handleVictory, setGameState, setTurnState]
   );
 
   /**
@@ -333,6 +335,8 @@ export function useCombat({
 
         if (result.enemyDefeated) {
           handleVictory();
+          setTurnState('PLAYER'); // Stop the effect from re-running
+          return;
         } else if (result.playerDefeated) {
           setGameState(GameState.GAME_OVER);
         } else {
@@ -342,7 +346,7 @@ export function useCombat({
 
       return () => clearTimeout(timer);
     }
-  }, [turnState, player, enemy, playerStats, enemyStats, combatState, addLog, setPlayer, handleVictory, setGameState]);
+  }, [turnState, player, enemy, playerStats, enemyStats, combatState, addLog, setPlayer, handleVictory, setGameState, setTurnState]);
 
   return {
     enemy,

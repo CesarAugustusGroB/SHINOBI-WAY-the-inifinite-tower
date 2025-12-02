@@ -75,9 +75,17 @@ const BranchingExplorationMap: React.FC<BranchingExplorationMapProps> = ({
   };
 
   return (
-    <div className={`w-full max-w-5xl h-full flex flex-col bg-gradient-to-b ${getArcBackground()} rounded-lg border border-zinc-800 overflow-hidden`}>
+    <div 
+      className={`w-full max-w-5xl h-full flex flex-col bg-gradient-to-b ${getArcBackground()} rounded-lg border border-zinc-800 overflow-hidden`}
+      style={{
+        backgroundImage: 'url(/assets/background_map_exploring.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
       {/* Header */}
-      <div className="p-4 border-b border-zinc-800">
+      <div className="p-4 border-b border-zinc-800 bg-black/60 backdrop-blur-sm">
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-xl font-serif text-zinc-200 tracking-[0.2em] uppercase">
@@ -161,7 +169,7 @@ const BranchingExplorationMap: React.FC<BranchingExplorationMapProps> = ({
 
       {/* Selected Room Panel */}
       {selectedRoom && (
-        <div className="border-t border-zinc-800 p-4 bg-black/50">
+        <div className="border-t border-zinc-800 p-4 bg-black/70 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-bold text-zinc-200">

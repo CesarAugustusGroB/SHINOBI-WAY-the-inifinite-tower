@@ -409,61 +409,84 @@ export function generateBranchingFloor(
 ): BranchingFloor {
   const arc = getStoryArc(floor);
   const rooms: BranchingRoom[] = [];
+  const isFirstFloor = floor === 1;
 
-  // Tier 0: Start room (1 room) - depth 0
-  const startRoom = createRoom(0, 'CENTER', null, floor, difficulty, arc.name, BranchingRoomType.START, 0);
-  startRoom.hasGeneratedChildren = true; // Start room already has children generated
-  rooms.push(startRoom);
+  // Tier 0: Start room (Gateway) - ONLY on floor 1
+  let startRoom: BranchingRoom | null = null;
+  if (isFirstFloor) {
+    startRoom = createRoom(0, 'CENTER', null, floor, difficulty, arc.name, BranchingRoomType.START, 0);
+    startRoom.hasGeneratedChildren = true;
+    rooms.push(startRoom);
+  }
 
-  // Tier 1: Two rooms branching from start - depth 1
-  const tier1Left = createRoom(1, 'LEFT', startRoom.id, floor, difficulty, arc.name, undefined, 1);
-  const tier1Right = createRoom(1, 'RIGHT', startRoom.id, floor, difficulty, arc.name, undefined, 1);
+  // Tier 1: Two rooms branching from start - depth 1 (or depth 0 if no start room)
+  const tier1Depth = isFirstFloor ? 1 : 0;
+  const tier1Left = createRoom(1, 'LEFT', startRoom?.id ?? null, floor, difficulty, arc.name, undefined, tier1Depth);
+  const tier1Right = createRoom(1, 'RIGHT', startRoom?.id ?? null, floor, difficulty, arc.name, undefined, tier1Depth);
 
-  // Mark tier 1 rooms as accessible since start room is pre-cleared
+  // Mark tier 1 rooms as accessible
   tier1Left.isAccessible = true;
   tier1Right.isAccessible = true;
-  tier1Left.hasGeneratedChildren = true; // Tier 1 already has children (tier 2)
+  tier1Left.hasGeneratedChildren = true;
   tier1Right.hasGeneratedChildren = true;
+
+  // On floors 2+, tier 1 rooms are the starting point (no parent, player chooses one)
+  if (!isFirstFloor) {
+    tier1Left.isCurrent = false;
+    tier1Right.isCurrent = false;
+  }
 
   rooms.push(tier1Left, tier1Right);
 
-  // Connect tier 0 to tier 1
-  startRoom.childIds = [tier1Left.id, tier1Right.id];
+  // Connect tier 0 to tier 1 (only if start room exists)
+  if (startRoom) {
+    startRoom.childIds = [tier1Left.id, tier1Right.id];
+  }
 
-  // Tier 2: Four rooms (2 from each tier 1 room) - depth 2
+  // Tier 2: Four rooms (2 from each tier 1 room)
+  const tier2Depth = isFirstFloor ? 2 : 1;
   const tier2Rooms: BranchingRoom[] = [];
 
   // Left branch children
-  const tier2LeftOuter = createRoom(2, 'LEFT_OUTER', tier1Left.id, floor, difficulty, arc.name, undefined, 2);
-  const tier2LeftInner = createRoom(2, 'LEFT_INNER', tier1Left.id, floor, difficulty, arc.name, undefined, 2);
+  const tier2LeftOuter = createRoom(2, 'LEFT_OUTER', tier1Left.id, floor, difficulty, arc.name, undefined, tier2Depth);
+  const tier2LeftInner = createRoom(2, 'LEFT_INNER', tier1Left.id, floor, difficulty, arc.name, undefined, tier2Depth);
   tier2Rooms.push(tier2LeftOuter, tier2LeftInner);
   tier1Left.childIds = [tier2LeftOuter.id, tier2LeftInner.id];
 
   // Right branch children
-  const tier2RightInner = createRoom(2, 'RIGHT_INNER', tier1Right.id, floor, difficulty, arc.name, undefined, 2);
-  const tier2RightOuter = createRoom(2, 'RIGHT_OUTER', tier1Right.id, floor, difficulty, arc.name, undefined, 2);
+  const tier2RightInner = createRoom(2, 'RIGHT_INNER', tier1Right.id, floor, difficulty, arc.name, undefined, tier2Depth);
+  const tier2RightOuter = createRoom(2, 'RIGHT_OUTER', tier1Right.id, floor, difficulty, arc.name, undefined, tier2Depth);
   tier2Rooms.push(tier2RightInner, tier2RightOuter);
   tier1Right.childIds = [tier2RightInner.id, tier2RightOuter.id];
 
-  // Tier 2 rooms have NOT generated their children yet (hasGeneratedChildren = false by default)
   rooms.push(...tier2Rooms);
 
-  // NOTE: Exit room is NOT assigned at generation time
-  // It will be dynamically assigned based on probability as player explores
+  // Determine starting room and cleared count
+  const currentRoomId = isFirstFloor ? startRoom!.id : tier1Left.id;
+  const clearedRooms = isFirstFloor ? 1 : 0;
 
-  return {
+  let generatedFloor: BranchingFloor = {
     id: `floor-${floor}-${Date.now()}`,
     floor,
     arc: arc.name,
     biome: arc.biome,
     rooms,
-    currentRoomId: startRoom.id,
-    exitRoomId: null, // No exit yet - will be generated dynamically
+    currentRoomId,
+    exitRoomId: null,
     totalRooms: rooms.length,
-    clearedRooms: 1, // Start room is cleared
-    roomsVisited: 1, // Player starts at 1 room visited
-    difficulty, // Store difficulty for dynamic room generation
+    clearedRooms,
+    roomsVisited: isFirstFloor ? 1 : 0,
+    difficulty,
   };
+
+  // On Floor 2+, player starts at tier1, so we need to pre-generate tier3 rooms
+  // (normally ensureGrandchildrenExist is called when moving to a room, but
+  // since player starts here, we need to do it during generation)
+  if (!isFirstFloor) {
+    generatedFloor = ensureGrandchildrenExist(generatedFloor, currentRoomId);
+  }
+
+  return generatedFloor;
 }
 
 // ============================================================================

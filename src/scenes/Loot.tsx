@@ -23,6 +23,7 @@ interface LootProps {
   onLeaveAll: () => void;
   getRarityColor: (rarity: Rarity) => string;
   getDamageTypeColor: (dt: DamageType) => string;
+  isProcessing?: boolean;
 }
 
 const Loot: React.FC<LootProps> = ({
@@ -35,11 +36,13 @@ const Loot: React.FC<LootProps> = ({
   onLearnSkill,
   onLeaveAll,
   getRarityColor,
-  getDamageTypeColor
+  getDamageTypeColor,
+  isProcessing = false
 }) => {
   return (
     <div className="w-full max-w-6xl z-10">
-      <h2 className="text-2xl text-center mb-10 text-zinc-500 font-serif tracking-[0.5em] uppercase">Spoils of War</h2>
+      <h2 className="text-2xl text-center mb-2 text-zinc-500 font-serif tracking-[0.5em] uppercase">Spoils of War</h2>
+      <p className="text-center text-zinc-600 text-sm mb-10">Choose one reward</p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         {droppedItems.map(item => {
           // Calculate stat comparison with currently equipped item
@@ -128,15 +131,17 @@ const Loot: React.FC<LootProps> = ({
                 <div className="grid grid-cols-2 gap-3 mt-auto pt-3">
                   <button
                     type="button"
-                    onClick={() => onEquipItem(item)}
-                    className="py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[10px] font-bold text-zinc-300 uppercase"
+                    disabled={isProcessing}
+                    onClick={(e) => { e.stopPropagation(); onEquipItem(item); }}
+                    className="py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[10px] font-bold text-zinc-300 uppercase disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Equip
                   </button>
                   <button
                     type="button"
-                    onClick={() => onSellItem(item)}
-                    className="py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[10px] font-bold text-zinc-500 hover:text-yellow-500 uppercase"
+                    disabled={isProcessing}
+                    onClick={(e) => { e.stopPropagation(); onSellItem(item); }}
+                    className="py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[10px] font-bold text-zinc-500 hover:text-yellow-500 uppercase disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Sell (+{Math.floor(item.value * 0.6)})
                   </button>
@@ -221,11 +226,11 @@ const Loot: React.FC<LootProps> = ({
 
             <div className="mt-auto pt-3">
               {player && player.skills.some(s => s.id === droppedSkill.id) ? (
-                <button type="button" onClick={() => onLearnSkill(droppedSkill)} className="w-full py-2 bg-green-900/20 border border-green-900 text-[10px] font-bold text-green-200 uppercase">
+                <button type="button" disabled={isProcessing} onClick={() => onLearnSkill(droppedSkill)} className="w-full py-2 bg-green-900/20 border border-green-900 text-[10px] font-bold text-green-200 uppercase disabled:opacity-50 disabled:cursor-not-allowed">
                   Upgrade
                 </button>
               ) : player && player.skills.length < 4 ? (
-                <button type="button" onClick={() => onLearnSkill(droppedSkill)} className="w-full py-2 bg-blue-900/20 border border-blue-900 text-[10px] font-bold text-blue-200 uppercase">
+                <button type="button" disabled={isProcessing} onClick={() => onLearnSkill(droppedSkill)} className="w-full py-2 bg-blue-900/20 border border-blue-900 text-[10px] font-bold text-blue-200 uppercase disabled:opacity-50 disabled:cursor-not-allowed">
                   Learn
                 </button>
               ) : (
@@ -234,8 +239,9 @@ const Loot: React.FC<LootProps> = ({
                     <button
                       type="button"
                       key={idx}
+                      disabled={isProcessing}
                       onClick={() => onLearnSkill(droppedSkill, idx)}
-                      className="py-1 bg-zinc-900 border border-zinc-800 text-[8px] text-zinc-400 hover:text-red-400 uppercase"
+                      className="py-1 bg-zinc-900 border border-zinc-800 text-[8px] text-zinc-400 hover:text-red-400 uppercase disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Replace {s.name}
                     </button>

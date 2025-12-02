@@ -10,6 +10,7 @@ export enum GameState {
   BRANCHING_EXPLORE, // Primary branching room exploration view
   COMBAT,
   LOOT,
+  MERCHANT,
   EVENT,
   GAME_OVER,
   GUIDE
