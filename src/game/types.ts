@@ -7,6 +7,11 @@ export enum GameState {
   MENU,
   CHAR_SELECT,
   EXPLORE,
+  EXPLORE_MAP,      // Node map exploration view
+  BRANCHING_EXPLORE, // NEW: Branching room exploration view
+  ROOM_ACTIVITY,    // NEW: In a room doing activities
+  MERCHANT,         // NEW: Shopping phase in branching rooms
+  APPROACH_SELECT,  // Choosing combat approach
   COMBAT,
   LOOT,
   EVENT,
@@ -557,3 +562,534 @@ export const STAT_FORMULAS = {
   INIT_BASE: 10,
   INIT_PER_SPEED: 1,
 } as const;
+
+// ============================================================================
+// EXPLORATION SYSTEM - Node-Based Floor Navigation
+// ============================================================================
+
+export enum NodeType {
+  // Core types
+  START = 'START',
+  EXIT = 'EXIT',
+  COMBAT = 'COMBAT',
+  ELITE = 'ELITE',
+  BOSS = 'BOSS',
+  REST = 'REST',
+  EVENT = 'EVENT',
+
+  // New exploration types
+  MYSTERY = 'MYSTERY',       // "???" until revealed
+  HIDDEN = 'HIDDEN',         // Invisible without high stats
+  TRAP = 'TRAP',             // DEX check to avoid damage
+  SHRINE = 'SHRINE',         // Stat-gated blessings
+  TRAINING = 'TRAINING',     // Permanent stat boost (costs HP/Chakra)
+  TRIAL = 'TRIAL',           // Stat challenge for major reward
+  ANOMALY = 'ANOMALY',       // Random effect, Spirit reveals nature
+  SENSEI = 'SENSEI',         // Skill teaching (INT requirement)
+  AMBUSH_POINT = 'AMBUSH_POINT', // Player ambushes enemies here
+  CACHE = 'CACHE'            // Guaranteed loot room
+}
+
+export enum TerrainType {
+  // Academy Biome
+  OPEN_GROUND = 'OPEN_GROUND',
+  ROOFTOPS = 'ROOFTOPS',
+  TRAINING_FIELD = 'TRAINING_FIELD',
+  ALLEYWAY = 'ALLEYWAY',
+
+  // Waves Biome
+  FOG_BANK = 'FOG_BANK',
+  BRIDGE = 'BRIDGE',
+  WATER_SURFACE = 'WATER_SURFACE',
+  SHORELINE = 'SHORELINE',
+
+  // Forest of Death Biome
+  DENSE_FOLIAGE = 'DENSE_FOLIAGE',
+  TREE_CANOPY = 'TREE_CANOPY',
+  SWAMP = 'SWAMP',
+  GIANT_ROOTS = 'GIANT_ROOTS',
+
+  // Valley of the End Biome
+  WATERFALL = 'WATERFALL',
+  CLIFF_EDGE = 'CLIFF_EDGE',
+  STONE_PILLARS = 'STONE_PILLARS',
+  RAPIDS = 'RAPIDS',
+
+  // War Arc Biome
+  ROOT_NETWORK = 'ROOT_NETWORK',
+  CORRUPTED_ZONE = 'CORRUPTED_ZONE',
+  CHAKRA_NEXUS = 'CHAKRA_NEXUS',
+  VOID_SPACE = 'VOID_SPACE'
+}
+
+export enum ApproachType {
+  FRONTAL_ASSAULT = 'FRONTAL_ASSAULT',   // Direct combat, no modifiers
+  STEALTH_AMBUSH = 'STEALTH_AMBUSH',     // Sneak attack, first hit 2.5x
+  GENJUTSU_SETUP = 'GENJUTSU_SETUP',     // Mental trap, enemy confused
+  ENVIRONMENTAL_TRAP = 'ENVIRONMENTAL',   // Use terrain, enemy loses HP
+  SHADOW_BYPASS = 'SHADOW_BYPASS'        // Skip combat entirely (rare)
+}
+
+export type NodeVisibility = 'VISIBLE' | 'OBSCURED' | 'HIDDEN';
+
+export type PathDifficulty = 'SAFE' | 'NORMAL' | 'RISKY' | 'DANGEROUS';
+
+// ============================================================================
+// TERRAIN DEFINITIONS
+// ============================================================================
+
+export interface TerrainEffects {
+  // Exploration effects
+  stealthModifier: number;        // +/- to stealth approach chance
+  visibilityRange: number;        // How many nodes ahead player can see (1-3)
+  hiddenRoomBonus: number;        // % bonus to finding hidden rooms
+  movementCost: number;           // Multiplier (1.0 = normal, 1.5 = slow)
+
+  // Combat effects
+  initiativeModifier: number;     // +/- to initiative
+  evasionModifier: number;        // +/- to evasion (as decimal, e.g., 0.10 = +10%)
+  elementAmplify?: ElementType;   // Element boosted by 25%
+  elementAmplifyPercent?: number; // Custom amplify amount
+
+  // Hazards (applied each turn in combat)
+  hazard?: {
+    type: 'DAMAGE' | 'CHAKRA_DRAIN' | 'POISON' | 'FALL';
+    value: number;
+    chance: number;              // 0-1 probability per turn
+    affectsPlayer: boolean;
+    affectsEnemy: boolean;
+  };
+}
+
+export interface TerrainDefinition {
+  id: TerrainType;
+  name: string;
+  description: string;
+  biome: string;
+  effects: TerrainEffects;
+}
+
+// ============================================================================
+// APPROACH DEFINITIONS
+// ============================================================================
+
+export interface ApproachRequirements {
+  minStat?: { stat: PrimaryStat; value: number };
+  requiredSkill?: string;         // Skill ID required
+  allowedTerrains?: TerrainType[]; // Only available on these terrains
+}
+
+export interface ApproachSuccessCalc {
+  baseChance: number;             // Starting success rate
+  scalingStat: PrimaryStat;       // Which stat increases success
+  scalingFactor: number;          // % added per stat point
+  terrainBonus: boolean;          // Whether terrain stealth modifier applies
+  maxChance: number;              // Cap (usually 95)
+}
+
+export interface ApproachEffects {
+  // Turn order
+  initiativeBonus: number;
+  guaranteedFirst: boolean;
+
+  // First hit bonus
+  firstHitMultiplier: number;     // 2.5 for stealth ambush
+
+  // Buffs/Debuffs
+  playerBuffs: EffectDefinition[];
+  enemyDebuffs: EffectDefinition[];
+
+  // Special
+  skipCombat: boolean;            // For bypass
+  enemyHpReduction: number;       // % HP removed pre-fight (0-1)
+
+  // Costs
+  chakraCost: number;
+  hpCost: number;
+
+  // XP modifier
+  xpMultiplier: number;           // 1.0 = 100%, 1.15 = 115%
+}
+
+export interface ApproachOption {
+  type: ApproachType;
+  name: string;
+  description: string;
+
+  requirements: ApproachRequirements;
+  successCalc: ApproachSuccessCalc;
+
+  // Effects on success
+  successEffects: ApproachEffects;
+
+  // Effects on failure (reverts to frontal-like)
+  failureEffects?: Partial<ApproachEffects>;
+}
+
+// ============================================================================
+// FLOOR LAYOUT & NODES
+// ============================================================================
+
+export interface NodePosition {
+  x: number;  // 0-100 normalized position
+  y: number;  // 0-100 normalized position
+}
+
+export interface Connection {
+  fromId: string;
+  toId: string;
+  difficulty: PathDifficulty;
+}
+
+export interface ExplorationNode {
+  id: string;
+  type: NodeType;
+  terrain: TerrainType;
+  visibility: NodeVisibility;
+  position: NodePosition;
+  connections: string[];          // IDs of connected nodes
+
+  // Content (varies by type)
+  enemy?: Enemy;
+  event?: GameEventDefinition;
+
+  // For MYSTERY nodes
+  revealedType?: NodeType;        // True type once revealed
+  intelligenceToReveal?: number;  // INT needed to scout remotely
+
+  // For HIDDEN nodes
+  detectionThreshold?: number;    // Stat threshold to detect
+
+  // For SHRINE nodes
+  blessings?: ShrineBlessing[];
+
+  // For TRAINING nodes
+  trainingOptions?: TrainingOption[];
+
+  // For TRIAL nodes
+  trial?: TrialDefinition;
+
+  // For ANOMALY nodes
+  anomalyRevealed?: boolean;
+  trueNature?: 'BENEFICIAL' | 'NEUTRAL' | 'HARMFUL';
+
+  // State
+  isVisited: boolean;
+  isCleared: boolean;             // Combat completed or effect resolved
+}
+
+export interface FloorLayout {
+  floor: number;
+  arc: string;
+  biome: string;
+
+  nodes: ExplorationNode[];
+  connections: Connection[];
+
+  entryNodeId: string;
+  exitNodeId: string;
+
+  // Metadata
+  hiddenNodeCount: number;
+  totalCombatNodes: number;
+}
+
+// ============================================================================
+// NEW ROOM TYPE CONTENT
+// ============================================================================
+
+export interface ShrineBlessing {
+  id: string;
+  name: string;
+  description: string;
+
+  requirement?: { stat: PrimaryStat; value: number };
+
+  effect: {
+    permanentStatBonus?: Partial<PrimaryAttributes>;
+    tempBuff?: Buff;
+    healPercent?: number;
+    chakraRestorePercent?: number;
+  };
+
+  cost?: {
+    hp?: number;
+    chakra?: number;
+    ryo?: number;
+  };
+}
+
+export interface TrainingOption {
+  id: string;
+  name: string;
+  targetStat: PrimaryStat;
+
+  // Training intensity
+  intensity: 'LIGHT' | 'MODERATE' | 'INTENSE' | 'EXTREME';
+
+  // Requirements
+  willpowerRequired: number;
+
+  // Costs
+  hpCost: number;
+  chakraCost: number;
+
+  // Reward
+  statGain: number;               // Permanent stat increase
+}
+
+export interface TrialDefinition {
+  id: string;
+  name: string;
+  description: string;
+
+  // Challenge type
+  challengeType: 'ENDURANCE' | 'PRECISION' | 'WILLPOWER' | 'SPEED' | 'WISDOM';
+  primaryStat: PrimaryStat;
+  secondaryStat?: PrimaryStat;
+
+  // Thresholds
+  threshold: number;              // Pass/fail line
+
+  // Rewards
+  passReward: {
+    exp?: number;
+    statBonus?: Partial<PrimaryAttributes>;
+    skill?: Skill;
+    item?: Item;
+  };
+
+  failPenalty: {
+    hpLoss?: number;
+    debuff?: Buff;
+  };
+}
+
+// ============================================================================
+// EXPLORATION STATE
+// ============================================================================
+
+export interface ExplorationState {
+  floorLayout: FloorLayout;
+  currentNodeId: string;
+  visitedNodes: string[];
+  revealedNodes: string[];
+  discoveredHiddenNodes: string[];
+
+  // Current context
+  currentTerrain: TerrainType;
+
+  // Approach selection
+  selectedApproach: ApproachType | null;
+  approachResult: 'SUCCESS' | 'FAILURE' | null;
+
+  // Discovery tracking
+  secretsFound: number;
+  loreDiscovered: string[];
+}
+
+// ============================================================================
+// COMBAT SETUP (Terrain + Approach modifiers)
+// ============================================================================
+
+export interface CombatSetup {
+  terrain: TerrainType;
+  terrainEffects: TerrainEffects;
+
+  approach: ApproachType;
+  approachSuccess: boolean;
+
+  // Calculated modifiers for combat
+  playerModifiers: {
+    initiativeBonus: number;
+    firstHitMultiplier: number;
+    evasionBonus: number;
+    precompatBuffs: Buff[];
+  };
+
+  enemyModifiers: {
+    hpReductionPercent: number;
+    initialDebuffs: Buff[];
+  };
+
+  // Environment
+  activeHazards: TerrainEffects['hazard'][];
+  elementAmplification?: { element: ElementType; percent: number };
+
+  // XP/Loot modifiers
+  xpMultiplier: number;
+  lootMultiplier: number;
+  wasHiddenRoom: boolean;
+}
+
+// ============================================================================
+// BRANCHING ROOM EXPLORATION SYSTEM
+// ============================================================================
+
+export enum BranchingRoomType {
+  START = 'START',           // Entry room (always cleared)
+  VILLAGE = 'VILLAGE',       // Settlement with merchant/NPCs
+  OUTPOST = 'OUTPOST',       // Military post with combat + weapon merchant
+  SHRINE = 'SHRINE',         // Sacred place with blessings
+  CAMP = 'CAMP',             // Resting spot with training
+  RUINS = 'RUINS',           // Ancient location with treasure/traps
+  BRIDGE = 'BRIDGE',         // Chokepoint with toll/guardian
+  BOSS_GATE = 'BOSS_GATE',   // Exit room with semi-boss
+  FOREST = 'FOREST',         // Wild area with ambush chance
+  CAVE = 'CAVE',             // Underground with hidden treasure
+  BATTLEFIELD = 'BATTLEFIELD' // Combat-focused area
+}
+
+export enum CombatModifierType {
+  NONE = 'NONE',
+  AMBUSH = 'AMBUSH',             // Enemy goes first
+  PREPARED = 'PREPARED',         // Player gets +20% damage first turn
+  SANCTUARY = 'SANCTUARY',       // Player healed 20% before fight
+  CORRUPTED = 'CORRUPTED',       // Both take poison damage per turn
+  TERRAIN_SWAMP = 'TERRAIN_SWAMP',     // -10 Speed for all
+  TERRAIN_FOREST = 'TERRAIN_FOREST',   // +15% evasion
+  TERRAIN_CLIFF = 'TERRAIN_CLIFF'      // Miss = 10% fall damage
+}
+
+export type RoomTier = 0 | 1 | 2;
+export type RoomPosition = 'LEFT' | 'RIGHT' | 'CENTER' | 'LEFT_OUTER' | 'LEFT_INNER' | 'RIGHT_INNER' | 'RIGHT_OUTER';
+
+// Activity interfaces for multi-activity rooms
+export interface CombatActivity {
+  enemy: Enemy;
+  modifiers: CombatModifierType[];
+  completed: boolean;
+}
+
+export interface MerchantActivity {
+  items: Item[];
+  discountPercent?: number;
+  completed: boolean;
+}
+
+export interface EventActivity {
+  definition: GameEventDefinition;
+  completed: boolean;
+}
+
+export interface RestActivity {
+  healPercent: number;
+  chakraRestorePercent: number;
+  completed: boolean;
+}
+
+export interface TrainingActivity {
+  stat: PrimaryStat;
+  cost: { hp?: number; chakra?: number; ryo?: number };
+  gain: number;
+  completed: boolean;
+}
+
+export interface TreasureActivity {
+  items: Item[];
+  ryo: number;
+  collected: boolean;
+}
+
+export interface RoomActivities {
+  combat?: CombatActivity;
+  merchant?: MerchantActivity;
+  event?: EventActivity;
+  rest?: RestActivity;
+  training?: TrainingActivity;
+  treasure?: TreasureActivity;
+}
+
+// Order in which activities are processed
+export const ACTIVITY_ORDER: (keyof RoomActivities)[] = [
+  'combat',     // Always first if present
+  'merchant',   // Shop opens after combat
+  'event',      // Story/dialogue
+  'rest',       // Healing
+  'training',   // Stat boost
+  'treasure'    // Loot last
+];
+
+export interface RoomRevealRequirement {
+  skill?: string;          // Skill ID required to reveal
+  item?: string;           // Item ID required
+  stat?: { name: PrimaryStat; value: number }; // Stat threshold
+}
+
+export interface BranchingRoom {
+  id: string;
+  tier: RoomTier;
+  position: RoomPosition;
+  parentId: string | null;
+  childIds: string[];
+
+  // Display
+  type: BranchingRoomType;
+  name: string;
+  description: string;
+  terrain: TerrainType;
+  backgroundImage?: string;
+  icon?: string;
+
+  // Activities (sequential)
+  activities: RoomActivities;
+  currentActivityIndex: number;
+
+  // State
+  isVisible: boolean;
+  isAccessible: boolean;
+  isCleared: boolean;
+  isExit: boolean;
+  isCurrent: boolean;
+
+  // Dynamic generation tracking
+  depth: number;                    // Absolute depth from floor start (0, 1, 2, 3...)
+  hasGeneratedChildren: boolean;    // Track if children have been created
+
+  // Hidden room requirements (for future)
+  revealRequirement?: RoomRevealRequirement;
+}
+
+export interface BranchingFloor {
+  id: string;
+  floor: number;
+  arc: string;
+  biome: string;
+
+  rooms: BranchingRoom[];
+  currentRoomId: string;
+  exitRoomId: string | null;  // null until exit room is generated
+
+  // Metadata
+  totalRooms: number;
+  clearedRooms: number;
+
+  // For dynamic exit generation
+  roomsVisited: number;       // Track total rooms visited for exit probability
+  difficulty: number;         // Store difficulty for generating new rooms
+}
+
+// Room type configuration for generation
+export interface RoomTypeConfig {
+  type: BranchingRoomType;
+  name: string;
+  icon: string;
+  description: string;
+
+  // What activities this room type can have
+  hasCombat: boolean | 'optional' | 'required';
+  hasMerchant: boolean;
+  hasEvent: boolean;
+  hasRest: boolean;
+  hasTraining: boolean;
+  hasTreasure: boolean;
+
+  // Appearance weights by tier
+  tier0Weight: number;
+  tier1Weight: number;
+  tier2Weight: number;
+
+  // Combat configuration
+  combatModifiers?: CombatModifierType[];
+  isExitEligible?: boolean;
+}

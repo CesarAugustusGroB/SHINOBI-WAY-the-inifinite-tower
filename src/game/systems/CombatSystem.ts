@@ -5,7 +5,9 @@ import {
   EffectType,
   Buff,
   CharacterStats,
-  DamageResult
+  DamageResult,
+  TerrainDefinition,
+  ElementType,
 } from '../types';
 import {
   calculateDamage,
@@ -13,6 +15,7 @@ import {
   resistStatus,
   calculateDotDamage
 } from './StatSystem';
+import { CombatModifiers } from './ApproachSystem';
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
@@ -38,30 +41,30 @@ const applyMitigation = (
   const messages: string[] = [];
 
   // 1. Check Invulnerability (Blocks all damage)
-  if (currentBuffs.some(b => b.effect.type === EffectType.INVULNERABILITY)) {
+  if (currentBuffs.some(b => b?.effect?.type === EffectType.INVULNERABILITY)) {
     return { finalDamage: 0, reflectedDamage: 0, updatedBuffs: currentBuffs, messages: [`${targetName} is Invulnerable!`] };
   }
 
   // 2. Check Curse (Damage Amplification)
-  const curse = currentBuffs.find(b => b.effect.type === EffectType.CURSE);
-  if (curse && curse.effect.value) {
+  const curse = currentBuffs.find(b => b?.effect?.type === EffectType.CURSE);
+  if (curse?.effect?.value) {
     const bonusDmg = Math.floor(damage * curse.effect.value);
     damage += bonusDmg;
     messages.push(`${targetName} takes extra damage from Curse!`);
   }
 
   // 3. Check Reflection (Thorns)
-  const reflect = currentBuffs.find(b => b.effect.type === EffectType.REFLECTION);
-  if (reflect && reflect.effect.value) {
+  const reflect = currentBuffs.find(b => b?.effect?.type === EffectType.REFLECTION);
+  if (reflect?.effect?.value) {
     reflected = Math.floor(damage * reflect.effect.value);
     if (reflected > 0) messages.push(`${targetName} reflects ${reflected} damage!`);
   }
 
   // 4. Check Shields (Damage Absorption)
-  const shieldIndex = currentBuffs.findIndex(b => b.effect.type === EffectType.SHIELD);
+  const shieldIndex = currentBuffs.findIndex(b => b?.effect?.type === EffectType.SHIELD);
   if (shieldIndex !== -1 && damage > 0) {
     const shieldBuff = { ...currentBuffs[shieldIndex] };
-    const shieldVal = shieldBuff.effect.value || 0;
+    const shieldVal = shieldBuff?.effect?.value || 0;
 
     if (shieldVal >= damage) {
       // Shield absorbs all damage
@@ -79,6 +82,164 @@ const applyMitigation = (
 
   return { finalDamage: damage, reflectedDamage: reflected, updatedBuffs: currentBuffs, messages };
 };
+
+// ============================================================================
+// COMBAT STATE WITH MODIFIERS
+// Tracks approach bonuses and terrain effects for the current combat
+// ============================================================================
+
+export interface CombatState {
+  isFirstTurn: boolean;
+  firstHitMultiplier: number;
+  playerGoesFirst: boolean;
+  playerInitiativeBonus: number;
+  xpMultiplier: number;
+  terrain: TerrainDefinition | null;
+  approachApplied: boolean;
+}
+
+/**
+ * Create initial combat state with approach modifiers
+ */
+export function createCombatState(
+  modifiers?: CombatModifiers,
+  terrain?: TerrainDefinition
+): CombatState {
+  return {
+    isFirstTurn: true,
+    firstHitMultiplier: modifiers?.firstHitMultiplier || 1.0,
+    playerGoesFirst: modifiers?.playerGoesFirst || false,
+    playerInitiativeBonus: modifiers?.playerInitiativeBonus || 0,
+    xpMultiplier: modifiers?.xpMultiplier || 1.0,
+    terrain: terrain || null,
+    approachApplied: false,
+  };
+}
+
+/**
+ * Apply approach buffs/debuffs at combat start
+ */
+export function applyApproachEffects(
+  player: Player,
+  enemy: Enemy,
+  modifiers: CombatModifiers
+): { player: Player; enemy: Enemy; logs: string[] } {
+  const logs: string[] = [];
+  let updatedPlayer = { ...player };
+  let updatedEnemy = { ...enemy };
+
+  // Apply player buffs from approach
+  if (modifiers.playerBuffs && modifiers.playerBuffs.length > 0) {
+    updatedPlayer.activeBuffs = [...updatedPlayer.activeBuffs, ...modifiers.playerBuffs];
+    logs.push('Your approach grants combat advantages!');
+  }
+
+  // Apply enemy debuffs from approach
+  if (modifiers.enemyDebuffs && modifiers.enemyDebuffs.length > 0) {
+    updatedEnemy.activeBuffs = [...updatedEnemy.activeBuffs, ...modifiers.enemyDebuffs];
+    logs.push(`${enemy.name} is affected by your approach!`);
+  }
+
+  return { player: updatedPlayer, enemy: updatedEnemy, logs };
+}
+
+/**
+ * Calculate terrain-modified evasion
+ */
+export function getTerrainEvasionBonus(terrain: TerrainDefinition | null): number {
+  if (!terrain) return 0;
+  return terrain.effects.evasionModifier || 0;
+}
+
+/**
+ * Calculate terrain-modified initiative
+ */
+export function getTerrainInitiativeBonus(terrain: TerrainDefinition | null): number {
+  if (!terrain) return 0;
+  return terrain.effects.initiativeModifier || 0;
+}
+
+/**
+ * Check if terrain amplifies a specific element
+ */
+export function getTerrainElementAmplification(
+  terrain: TerrainDefinition | null,
+  attackerElement: ElementType
+): number {
+  if (!terrain || !terrain.effects.elementAmplify) return 1.0;
+
+  if (terrain.effects.elementAmplify === attackerElement) {
+    // Return amplification as multiplier (e.g., 25% = 1.25)
+    return 1 + ((terrain.effects.elementAmplifyPercent || 25) / 100);
+  }
+
+  return 1.0;
+}
+
+/**
+ * Apply terrain hazard damage at end of turn
+ */
+export function applyTerrainHazard(
+  target: Player | Enemy,
+  terrain: TerrainDefinition | null,
+  targetName: string
+): { newHp: number; log: string | null } {
+  if (!terrain || !terrain.effects.hazard) {
+    return { newHp: target.currentHp, log: null };
+  }
+
+  const hazard = terrain.effects.hazard;
+
+  // Hazard has a chance to trigger (default 30%)
+  if (Math.random() > (hazard.chance || 0.3)) {
+    return { newHp: target.currentHp, log: null };
+  }
+
+  const damage = hazard.value;
+  const newHp = Math.max(1, target.currentHp - damage);
+
+  const hazardDescriptions: Record<string, string> = {
+    BURN: 'scorched by flames',
+    DROWN: 'pulled under by currents',
+    POISON: 'affected by toxic fumes',
+    LIGHTNING: 'struck by static discharge',
+    FALLING: 'hit by falling debris',
+  };
+
+  const description = hazardDescriptions[hazard.type] || 'damaged by the environment';
+
+  return {
+    newHp,
+    log: `${targetName} was ${description} for ${damage} damage!`,
+  };
+}
+
+/**
+ * Determine turn order based on initiative and approach bonuses
+ */
+export function determineTurnOrder(
+  playerStats: CharacterStats,
+  enemyStats: CharacterStats,
+  combatState: CombatState
+): 'player' | 'enemy' {
+  // Approach guarantees first turn
+  if (combatState.playerGoesFirst && combatState.isFirstTurn) {
+    return 'player';
+  }
+
+  // Calculate initiative
+  const playerInit = playerStats.derived.initiative +
+    combatState.playerInitiativeBonus +
+    getTerrainInitiativeBonus(combatState.terrain);
+
+  const enemyInit = enemyStats.derived.initiative;
+
+  // Higher initiative goes first, with small random factor
+  const playerRoll = playerInit + (Math.random() * 10);
+  const enemyRoll = enemyInit + (Math.random() * 10);
+
+  return playerRoll >= enemyRoll ? 'player' : 'enemy';
+}
 
 export interface CombatResult {
   damageDealt: number;
@@ -99,7 +260,8 @@ export const useSkill = (
   playerStats: CharacterStats,
   enemy: Enemy,
   enemyStats: CharacterStats,
-  skill: Skill
+  skill: Skill,
+  combatState?: CombatState
 ): CombatResult | null => {
   // Resource check
   if (player.currentChakra < skill.chakraCost || player.currentHp <= skill.hpCost) {
@@ -118,7 +280,7 @@ export const useSkill = (
 
   if (skill.currentCooldown > 0) return null;
 
-  const isStunned = player.activeBuffs.some(b => b.effect.type === EffectType.STUN);
+  const isStunned = player.activeBuffs.some(b => b?.effect?.type === EffectType.STUN);
   if (isStunned) {
     return {
       damageDealt: 0,
@@ -158,8 +320,25 @@ export const useSkill = (
   } else if (damageResult.isEvaded) {
     logMsg = `You used ${skill.name} but ${enemy.name} EVADED!`;
   } else {
+    // Apply first hit multiplier from approach if on first turn
+    let modifiedDamage = damageResult.finalDamage;
+    let firstHitApplied = false;
+
+    if (combatState?.isFirstTurn && combatState.firstHitMultiplier > 1.0) {
+      modifiedDamage = Math.floor(modifiedDamage * combatState.firstHitMultiplier);
+      firstHitApplied = true;
+    }
+
+    // Apply terrain element amplification
+    if (combatState?.terrain && player.element) {
+      const terrainAmp = getTerrainElementAmplification(combatState.terrain, player.element);
+      if (terrainAmp > 1.0) {
+        modifiedDamage = Math.floor(modifiedDamage * terrainAmp);
+      }
+    }
+
     // Apply Mitigation Logic
-    const mitigation = applyMitigation(enemy.activeBuffs, damageResult.finalDamage, enemy.name);
+    const mitigation = applyMitigation(enemy.activeBuffs, modifiedDamage, enemy.name);
     finalDamageToEnemy = mitigation.finalDamage;
     newEnemyBuffs = mitigation.updatedBuffs;
     
@@ -173,6 +352,7 @@ export const useSkill = (
 
     // Construct Log Message
     logMsg = `Used ${skill.name} for ${finalDamageToEnemy} dmg`;
+    if (firstHitApplied) logMsg += " AMBUSH!";
     if (mitigation.messages.length > 0) {
       logMsg += ` [${mitigation.messages.join(', ')}]`;
     }
@@ -243,7 +423,8 @@ export const processEnemyTurn = (
   player: Player,
   playerStats: CharacterStats,
   enemy: Enemy,
-  enemyStats: CharacterStats
+  enemyStats: CharacterStats,
+  combatState?: CombatState
 ): EnemyTurnResult => {
   let updatedPlayer = { ...player };
   let updatedEnemy = { ...enemy };
@@ -251,6 +432,7 @@ export const processEnemyTurn = (
 
   // 1. Process DoTs & REGEN on ENEMY
   updatedEnemy.activeBuffs.forEach(buff => {
+    if (!buff?.effect) return; // Skip malformed buffs
     // Damage Over Time
     if ([EffectType.DOT, EffectType.BLEED, EffectType.BURN, EffectType.POISON].includes(buff.effect.type) && buff.effect.value) {
       const dotDmg = calculateDotDamage(buff.effect.value, buff.effect.damageType, buff.effect.damageProperty, enemyStats.derived);
@@ -264,19 +446,20 @@ export const processEnemyTurn = (
       logs.push(`${enemy.name} regenerated ${healAmt} HP.`);
     }
   });
-  updatedEnemy.activeBuffs = updatedEnemy.activeBuffs.filter(b => b.duration > 1 || b.duration === -1).map(b => b.duration === -1 ? b : { ...b, duration: b.duration - 1 });
+  updatedEnemy.activeBuffs = updatedEnemy.activeBuffs.filter(b => b?.duration > 1 || b?.duration === -1).map(b => b.duration === -1 ? b : { ...b, duration: b.duration - 1 });
 
   // 2. Process DoTs & REGEN on PLAYER
   updatedPlayer.activeBuffs.forEach(buff => {
+    if (!buff?.effect) return; // Skip malformed buffs
     // Damage Over Time
     if ([EffectType.DOT, EffectType.BLEED, EffectType.BURN, EffectType.POISON].includes(buff.effect.type) && buff.effect.value) {
       const dotDmg = calculateDotDamage(buff.effect.value, buff.effect.damageType, buff.effect.damageProperty, playerStats.derived);
-      
+
       // Mitigate DoT with Shield
       const mitigation = applyMitigation(updatedPlayer.activeBuffs, dotDmg, "You");
       updatedPlayer.activeBuffs = mitigation.updatedBuffs;
       updatedPlayer.currentHp -= mitigation.finalDamage;
-      
+
       if (mitigation.finalDamage > 0) logs.push(`You took ${mitigation.finalDamage} ${buff.name} damage!`);
       else logs.push(`Your shield absorbed the ${buff.name}!`);
     }
@@ -287,7 +470,7 @@ export const processEnemyTurn = (
       logs.push(`You regenerated ${healAmt} HP.`);
     }
   });
-  updatedPlayer.activeBuffs = updatedPlayer.activeBuffs.filter(b => b.duration > 1 || b.duration === -1).map(b => b.duration === -1 ? b : { ...b, duration: b.duration - 1 });
+  updatedPlayer.activeBuffs = updatedPlayer.activeBuffs.filter(b => b?.duration > 1 || b?.duration === -1).map(b => b.duration === -1 ? b : { ...b, duration: b.duration - 1 });
 
   // Check deaths from DoT
   if (updatedEnemy.currentHp <= 0) {
@@ -322,8 +505,8 @@ export const processEnemyTurn = (
   }
 
   // Enemy action
-  const isStunned = updatedEnemy.activeBuffs.some(b => b.effect.type === EffectType.STUN);
-  const isConfused = updatedEnemy.activeBuffs.some(b => b.effect.type === EffectType.CONFUSION);
+  const isStunned = updatedEnemy.activeBuffs.some(b => b?.effect?.type === EffectType.STUN);
+  const isConfused = updatedEnemy.activeBuffs.some(b => b?.effect?.type === EffectType.CONFUSION);
 
   if (isStunned) {
     logs.push(`${enemy.name} is stunned!`);
@@ -419,6 +602,55 @@ export const processEnemyTurn = (
   // Cooldowns & regen
   updatedPlayer.skills = updatedPlayer.skills.map(s => ({ ...s, currentCooldown: Math.max(0, s.currentCooldown - 1) }));
   updatedPlayer.currentChakra = Math.min(playerStats.derived.maxChakra, updatedPlayer.currentChakra + playerStats.derived.chakraRegen);
+
+  // Apply terrain hazards at end of turn
+  if (combatState?.terrain) {
+    // Player hazard
+    const playerHazard = applyTerrainHazard(updatedPlayer, combatState.terrain, 'You');
+    if (playerHazard.log) {
+      updatedPlayer.currentHp = playerHazard.newHp;
+      logs.push(playerHazard.log);
+    }
+
+    // Enemy hazard
+    const enemyHazard = applyTerrainHazard(updatedEnemy, combatState.terrain, enemy.name);
+    if (enemyHazard.log) {
+      updatedEnemy.currentHp = enemyHazard.newHp;
+      logs.push(enemyHazard.log);
+    }
+
+    // Check for deaths from hazards
+    if (updatedEnemy.currentHp <= 0) {
+      return {
+        newPlayerHp: updatedPlayer.currentHp,
+        newPlayerBuffs: updatedPlayer.activeBuffs,
+        newEnemyHp: updatedEnemy.currentHp,
+        newEnemyBuffs: updatedEnemy.activeBuffs,
+        logMessages: logs,
+        playerDefeated: false,
+        enemyDefeated: true,
+        playerSkills: updatedPlayer.skills
+      };
+    }
+
+    if (updatedPlayer.currentHp <= 0) {
+      const gutsResult = checkGuts(updatedPlayer.currentHp, 0, playerStats.derived.gutsChance);
+      if (!gutsResult.survived) {
+        return {
+          newPlayerHp: updatedPlayer.currentHp,
+          newPlayerBuffs: updatedPlayer.activeBuffs,
+          newEnemyHp: updatedEnemy.currentHp,
+          newEnemyBuffs: updatedEnemy.activeBuffs,
+          logMessages: logs,
+          playerDefeated: true,
+          enemyDefeated: false,
+          playerSkills: updatedPlayer.skills
+        };
+      }
+      updatedPlayer.currentHp = 1;
+      logs.push("GUTS! You survived the hazard!");
+    }
+  }
 
   return {
     newPlayerHp: updatedPlayer.currentHp,

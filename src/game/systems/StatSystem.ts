@@ -164,7 +164,13 @@ export function applyBuffsToPrimaryStats(
 ): PrimaryAttributes {
   const modified = { ...baseStats };
 
+  // Safely handle undefined or malformed buffs
+  if (!buffs || !Array.isArray(buffs)) return modified;
+
   buffs.forEach(buff => {
+    // Skip undefined or malformed buffs
+    if (!buff || !buff.effect) return;
+
     if (buff.effect.type === EffectType.BUFF || buff.effect.type === EffectType.DEBUFF) {
       const targetStat = buff.effect.targetStat;
       const value = buff.effect.value || 0;

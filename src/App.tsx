@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
-  GameState, Player, Clan, Skill, Enemy, Room, Item, Rarity, DamageType, EffectType, Buff
+  GameState, Player, Clan, Skill, Enemy, Room, Item, Rarity, DamageType, EffectType, Buff,
+  FloorLayout, ExplorationNode, NodeType, ApproachType, TerrainDefinition,
+  BranchingFloor, BranchingRoom, BranchingRoomType, CombatModifierType
 } from './game/types';
 import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS, getElementEffectiveness } from './game/constants';
 import {
@@ -12,8 +14,39 @@ import {
 } from './game/systems/StatSystem';
 import { getStoryArc, generateEnemy } from './game/systems/EnemySystem';
 import { generateItem, generateSkillLoot, equipItem as equipItemFn, sellItem as sellItemFn } from './game/systems/LootSystem';
-import { processEnemyTurn, useSkill as useSkillCombat } from './game/systems/CombatSystem';
+import {
+  processEnemyTurn,
+  useSkill as useSkillCombat,
+  CombatState,
+  createCombatState,
+  applyApproachEffects
+} from './game/systems/CombatSystem';
 import { generateRooms } from './game/systems/RoomSystem';
+import { generateFloorLayout, clearNode, moveToNode } from './game/systems/FloorSystem';
+import {
+  executeApproach,
+  applyApproachCosts,
+  applyEnemyHpReduction,
+  getCombatModifiers,
+  ApproachResult
+} from './game/systems/ApproachSystem';
+import {
+  attemptDiscovery,
+  applyDiscoveryResults,
+  attemptMysteryReveal,
+  applyMysteryReveal,
+  updateNodeVisibility
+} from './game/systems/DiscoverySystem';
+import { TERRAIN_DEFINITIONS } from './game/constants/terrain';
+import {
+  generateBranchingFloor,
+  moveToRoom,
+  getCurrentActivity,
+  completeActivity,
+  isFloorComplete,
+  getCurrentRoom,
+  getCombatSetup
+} from './game/systems/BranchingFloorSystem';
 import MainMenu from './scenes/MainMenu';
 import CharacterSelect from './scenes/CharacterSelect';
 import Exploration from './scenes/Exploration';
@@ -23,6 +56,10 @@ import Loot from './scenes/Loot';
 import GameOver from './scenes/GameOver';
 import GameGuide from './scenes/GameGuide';
 import LeftSidebarPanel from './components/LeftSidebarPanel';
+import ExplorationMap from './components/ExplorationMap';
+import ApproachSelector from './components/ApproachSelector';
+import BranchingExplorationMap from './components/BranchingExplorationMap';
+import PlayerHUD from './components/PlayerHUD';
 
 // Import the parchment background styles
 import './App.css';
@@ -43,6 +80,19 @@ const App: React.FC = () => {
   const [difficulty, setDifficulty] = useState<number>(20);
   const [turnState, setTurnState] = useState<'PLAYER' | 'ENEMY_TURN'>('PLAYER');
   const logIdCounter = useRef<number>(0);
+
+  // --- New Exploration Map State ---
+  const [floorLayout, setFloorLayout] = useState<FloorLayout | null>(null);
+  const [selectedNode, setSelectedNode] = useState<ExplorationNode | null>(null);
+  const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
+  const [combatState, setCombatState] = useState<CombatState | null>(null);
+  const [approachResult, setApproachResult] = useState<ApproachResult | null>(null);
+  const [showApproachSelector, setShowApproachSelector] = useState(false);
+
+  // --- Branching Exploration State ---
+  const [branchingFloor, setBranchingFloor] = useState<BranchingFloor | null>(null);
+  const [selectedBranchingRoom, setSelectedBranchingRoom] = useState<BranchingRoom | null>(null);
+  const [useBranchingExploration, setUseBranchingExploration] = useState(true); // Toggle between systems
 
   // Combat ref for floating text
   const combatRef = useRef<CombatRef>(null);
@@ -127,9 +177,32 @@ const App: React.FC = () => {
     setActiveEvent(null);
     setTurnState('PLAYER');
     addLog(`Lineage chosen: ${clan}. The Tower awaits.`, 'info');
+
+    // Initialize floor layout for new exploration system
+    const layout = generateFloorLayout(1, difficulty, newPlayer, derived.maxHp);
+    // Mark entry node as visited so it's visible, then clear it so player can move
+    const visitedLayout = moveToNode(layout, layout.entryNodeId);
+    const initializedLayout = clearNode(visitedLayout, layout.entryNodeId);
+    setFloorLayout(initializedLayout);
+    setCurrentNodeId(layout.entryNodeId);
+    setSelectedNode(null);
+    setShowApproachSelector(false);
+    setCombatState(null);
+    setApproachResult(null);
+
+    // Also keep legacy room choices for backward compatibility
     const rooms = generateRooms(1, difficulty, newPlayer);
     setRoomChoices(rooms);
-    setGameState(GameState.EXPLORE);
+
+    // Initialize branching floor for new exploration system
+    if (useBranchingExploration) {
+      const newBranchingFloor = generateBranchingFloor(1, difficulty, newPlayer);
+      setBranchingFloor(newBranchingFloor);
+      setSelectedBranchingRoom(null);
+      setGameState(GameState.BRANCHING_EXPLORE);
+    } else {
+      setGameState(GameState.EXPLORE_MAP);
+    }
   };
 
   const selectRoom = (room: Room) => {
@@ -148,6 +221,490 @@ const App: React.FC = () => {
       addLog(`Engaged: ${room.enemy.name}`, 'danger');
       if (room.type === 'AMBUSH') addLog("DANGER! An S-Rank Rogue blocks your path!", 'danger');
     }
+  };
+
+  // ============================================================================
+  // NEW EXPLORATION MAP HANDLERS
+  // ============================================================================
+
+  // Handle selecting a node on the map (just shows details)
+  const handleNodeSelect = (nodeId: string) => {
+    if (!floorLayout) return;
+    const node = floorLayout.nodes.find(n => n.id === nodeId);
+    setSelectedNode(node || null);
+  };
+
+  // Helper to handle revealed mystery nodes without recursion
+  // This uses the passed layout to avoid stale closure state
+  const handleRevealedMysteryNode = (revealedNode: ExplorationNode, currentLayout: FloorLayout, nodeId: string) => {
+    if (!player || !playerStats) return;
+
+    const revealedType = revealedNode.revealedType;
+
+    switch (revealedType) {
+      case NodeType.COMBAT:
+      case NodeType.ELITE:
+      case NodeType.BOSS:
+      case NodeType.AMBUSH_POINT:
+        if (revealedNode.enemy) {
+          setSelectedNode(revealedNode);
+          setShowApproachSelector(true);
+        }
+        break;
+
+      case NodeType.REST:
+        setPlayer({
+          ...player,
+          currentHp: playerStats.derived.maxHp,
+          currentChakra: playerStats.derived.maxChakra
+        });
+        addLog('The mystery reveals a safe haven. HP & Chakra fully restored.', 'gain');
+        setFloorLayout(clearNode(currentLayout, nodeId));
+        break;
+
+      case NodeType.EVENT:
+        if (revealedNode.event) {
+          setActiveEvent(revealedNode.event);
+          setGameState(GameState.EVENT);
+        }
+        break;
+
+      case NodeType.CACHE:
+        const item = generateItem(floor, difficulty);
+        setDroppedItems([item]);
+        setDroppedSkill(null);
+        addLog('The mystery reveals a hidden cache!', 'loot');
+        setFloorLayout(clearNode(currentLayout, nodeId));
+        setGameState(GameState.LOOT);
+        break;
+
+      case NodeType.TRAP:
+        const trapDamage = Math.floor(playerStats.derived.maxHp * 0.15);
+        setPlayer(p => p ? { ...p, currentHp: Math.max(1, p.currentHp - trapDamage) } : null);
+        addLog(`The mystery reveals a trap! Lost ${trapDamage} HP.`, 'danger');
+        setFloorLayout(clearNode(currentLayout, nodeId));
+        break;
+
+      case NodeType.SHRINE:
+        if (revealedNode.blessings && revealedNode.blessings.length > 0) {
+          const blessing = revealedNode.blessings[0];
+          addLog(`The mystery reveals a shrine! ${blessing.name} blessing granted.`, 'gain');
+          setFloorLayout(clearNode(currentLayout, nodeId));
+        }
+        break;
+
+      default:
+        addLog('The chamber reveals its secrets...', 'info');
+        setFloorLayout(clearNode(currentLayout, nodeId));
+    }
+  };
+
+  // Handle entering a node
+  const handleNodeEnter = (nodeId: string) => {
+    if (!floorLayout || !player || !playerStats) return;
+
+    const node = floorLayout.nodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    // Check if accessible (adjacent to current node OR is current node for boss floors)
+    const currentNode = floorLayout.nodes.find(n => n.id === currentNodeId);
+    const isCurrentNode = nodeId === currentNodeId;
+    const isAdjacent = currentNode?.connections.includes(nodeId);
+
+    if (!currentNode || (!isCurrentNode && !isAdjacent)) {
+      addLog('You cannot reach that chamber from here.', 'danger');
+      return;
+    }
+
+    // Must clear current node before moving to adjacent nodes (unless it's the same node)
+    if (!isCurrentNode && !currentNode.isCleared) {
+      addLog('You must complete this chamber before moving on.', 'danger');
+      return;
+    }
+
+    // Move to the node
+    const updatedLayout = moveToNode(floorLayout, nodeId);
+    setFloorLayout(updatedLayout);
+    setCurrentNodeId(nodeId);
+
+    // Attempt discoveries when entering a new node
+    const discoveries = attemptDiscovery(nodeId, updatedLayout, playerStats);
+    if (discoveries.length > 0) {
+      const layoutWithDiscoveries = applyDiscoveryResults(updatedLayout, discoveries);
+      setFloorLayout(layoutWithDiscoveries);
+      discoveries.forEach(d => {
+        if (d.discovered) {
+          addLog(d.description, 'gain');
+        }
+      });
+    }
+
+    // Update visibility
+    const layoutWithVisibility = updateNodeVisibility(
+      discoveries.length > 0 ? applyDiscoveryResults(updatedLayout, discoveries) : updatedLayout,
+      nodeId,
+      playerStats
+    );
+    setFloorLayout(layoutWithVisibility);
+
+    // Handle node type
+    const displayType = node.revealedType || node.type;
+
+    switch (displayType) {
+      case NodeType.START:
+        addLog('You stand at the entrance.', 'info');
+        // Auto-clear START node so player can move
+        if (!node.isCleared) {
+          const clearedStart = clearNode(layoutWithVisibility, nodeId);
+          setFloorLayout(clearedStart);
+        }
+        break;
+
+      case NodeType.EXIT:
+        addLog('You ascend to the next floor!', 'gain');
+        nextFloor();
+        break;
+
+      case NodeType.COMBAT:
+      case NodeType.ELITE:
+      case NodeType.BOSS:
+      case NodeType.AMBUSH_POINT:
+        if (node.enemy) {
+          setSelectedNode(node);
+          setShowApproachSelector(true);
+        }
+        break;
+
+      case NodeType.REST:
+        // Guard against double-healing if already cleared
+        if (!node.isCleared) {
+          setPlayer({
+            ...player,
+            currentHp: playerStats.derived.maxHp,
+            currentChakra: playerStats.derived.maxChakra
+          });
+          addLog('You found a safe haven. HP & Chakra fully restored.', 'gain');
+          // Mark node as cleared
+          const clearedLayout = clearNode(layoutWithVisibility, nodeId);
+          setFloorLayout(clearedLayout);
+        } else {
+          addLog('You have already rested here.', 'info');
+        }
+        break;
+
+      case NodeType.EVENT:
+        if (node.event) {
+          setActiveEvent(node.event);
+          setGameState(GameState.EVENT);
+        }
+        break;
+
+      case NodeType.SHRINE:
+        if (node.blessings && node.blessings.length > 0) {
+          // For now, apply first blessing
+          const blessing = node.blessings[0];
+          addLog(`The shrine grants you a blessing: ${blessing.name}`, 'gain');
+          // Mark as cleared
+          const clearedShrine = clearNode(layoutWithVisibility, nodeId);
+          setFloorLayout(clearedShrine);
+        }
+        break;
+
+      case NodeType.CACHE:
+        // Generate loot and clear node
+        const item = generateItem(floor, difficulty);
+        setDroppedItems([item]);
+        setDroppedSkill(null);
+        addLog('You found a hidden cache!', 'loot');
+        // Clear node before going to loot
+        const clearedCache = clearNode(layoutWithVisibility, nodeId);
+        setFloorLayout(clearedCache);
+        setGameState(GameState.LOOT);
+        break;
+
+      case NodeType.TRAP:
+        // Apply trap damage (reduced if detected earlier)
+        const trapDamage = Math.floor(playerStats.derived.maxHp * 0.15);
+        setPlayer(p => p ? { ...p, currentHp: Math.max(1, p.currentHp - trapDamage) } : null);
+        addLog(`You triggered a trap! Lost ${trapDamage} HP.`, 'danger');
+        const clearedTrap = clearNode(layoutWithVisibility, nodeId);
+        setFloorLayout(clearedTrap);
+        break;
+
+      case NodeType.MYSTERY:
+        // Try to reveal what it actually is
+        const revealResult = attemptMysteryReveal(node, playerStats);
+        if (revealResult.revealed) {
+          const revealedLayout = applyMysteryReveal(layoutWithVisibility, revealResult);
+          setFloorLayout(revealedLayout);
+          addLog(revealResult.description, 'info');
+          // Handle the revealed type directly (avoid stale state from recursive call)
+          const revealedNode = { ...node, revealedType: revealResult.actualType };
+          handleRevealedMysteryNode(revealedNode, revealedLayout, nodeId);
+        } else {
+          addLog('The chamber remains mysterious. Proceed with caution...', 'info');
+          // Clear mystery node so player can move on
+          const clearedMystery = clearNode(layoutWithVisibility, nodeId);
+          setFloorLayout(clearedMystery);
+        }
+        break;
+
+      default:
+        addLog('You enter the chamber...', 'info');
+    }
+  };
+
+  // Handle approach selection for combat
+  const handleApproachSelect = (approach: ApproachType) => {
+    if (!player || !playerStats || !selectedNode || !selectedNode.enemy) return;
+
+    const terrain = TERRAIN_DEFINITIONS[selectedNode.terrain];
+    const result = executeApproach(
+      approach,
+      player,
+      playerStats,
+      selectedNode.enemy,
+      terrain
+    );
+
+    setApproachResult(result);
+    addLog(result.description, result.success ? 'gain' : 'info');
+
+    // Apply costs
+    const playerAfterCosts = applyApproachCosts(player, result);
+    setPlayer(playerAfterCosts);
+
+    if (result.skipCombat) {
+      // Successfully bypassed combat
+      addLog('You slip past undetected!', 'gain');
+      setShowApproachSelector(false);
+      if (floorLayout && currentNodeId) {
+        const clearedLayout = clearNode(floorLayout, currentNodeId);
+        setFloorLayout(clearedLayout);
+      }
+      return;
+    }
+
+    // Set up enemy with any HP reduction from approach
+    let combatEnemy = selectedNode.enemy;
+    if (result.enemyHpReduction > 0) {
+      combatEnemy = applyEnemyHpReduction(combatEnemy, result);
+      addLog(`Your approach dealt ${Math.floor(selectedNode.enemy.currentHp * result.enemyHpReduction)} damage!`, 'combat');
+    }
+
+    // Apply approach effects to both combatants
+    const modifiers = getCombatModifiers(result);
+    const { player: preparedPlayer, enemy: preparedEnemy, logs: effectLogs } = applyApproachEffects(
+      playerAfterCosts,
+      combatEnemy,
+      modifiers
+    );
+    effectLogs.forEach(log => addLog(log, 'info'));
+
+    // Create combat state with modifiers
+    const newCombatState = createCombatState(modifiers, terrain);
+    setCombatState(newCombatState);
+
+    // Set up combat
+    setPlayer(preparedPlayer);
+    setEnemy(preparedEnemy);
+    setTurnState('PLAYER');
+    setShowApproachSelector(false);
+    setGameState(GameState.COMBAT);
+    addLog(`Engaged: ${combatEnemy.name}`, 'danger');
+  };
+
+  // Cancel approach selection
+  const handleApproachCancel = () => {
+    setShowApproachSelector(false);
+    setSelectedNode(null);
+    setSelectedBranchingRoom(null);
+  };
+
+  // Handle approach selection for BRANCHING exploration combat
+  const handleBranchingApproachSelect = (approach: ApproachType) => {
+    if (!player || !playerStats || !selectedBranchingRoom || !branchingFloor) return;
+
+    const combat = selectedBranchingRoom.activities.combat;
+    if (!combat || !combat.enemy) return;
+
+    const terrain = TERRAIN_DEFINITIONS[selectedBranchingRoom.terrain];
+    const result = executeApproach(
+      approach,
+      player,
+      playerStats,
+      combat.enemy,
+      terrain
+    );
+
+    setApproachResult(result);
+    addLog(result.description, result.success ? 'gain' : 'info');
+
+    // Apply costs
+    const playerAfterCosts = applyApproachCosts(player, result);
+    setPlayer(playerAfterCosts);
+
+    if (result.skipCombat) {
+      // Successfully bypassed combat - mark as completed
+      addLog('You slip past undetected!', 'gain');
+      setShowApproachSelector(false);
+      completeBranchingCombat();
+      setSelectedBranchingRoom(null);
+      return;
+    }
+
+    // Set up enemy with any HP reduction from approach
+    let combatEnemy = combat.enemy;
+    if (result.enemyHpReduction > 0) {
+      combatEnemy = applyEnemyHpReduction(combatEnemy, result);
+      addLog(`Your approach dealt ${Math.floor(combat.enemy.currentHp * result.enemyHpReduction)} damage!`, 'combat');
+    }
+
+    // Apply approach effects to both combatants
+    const modifiers = getCombatModifiers(result);
+    const { player: preparedPlayer, enemy: preparedEnemy, logs: effectLogs } = applyApproachEffects(
+      playerAfterCosts,
+      combatEnemy,
+      modifiers
+    );
+    effectLogs.forEach(log => addLog(log, 'info'));
+
+    // Create combat state with modifiers
+    const newCombatState = createCombatState(modifiers, terrain);
+    setCombatState(newCombatState);
+
+    // Set up combat
+    setPlayer(preparedPlayer);
+    setEnemy(preparedEnemy);
+    setTurnState('PLAYER');
+    setShowApproachSelector(false);
+    setGameState(GameState.COMBAT);
+    addLog(`Engaged: ${combatEnemy.name}`, 'danger');
+  };
+
+  // ============================================================================
+  // BRANCHING EXPLORATION HANDLERS
+  // ============================================================================
+
+  // Handle selecting a room in branching exploration
+  const handleBranchingRoomSelect = (room: BranchingRoom) => {
+    setSelectedBranchingRoom(room);
+  };
+
+  // Handle entering a room in branching exploration
+  const handleBranchingRoomEnter = (room: BranchingRoom) => {
+    if (!branchingFloor || !player || !playerStats) return;
+
+    // Move to the room
+    const updatedFloor = moveToRoom(branchingFloor, room.id);
+    setBranchingFloor(updatedFloor);
+
+    // Get the current activity for the room
+    const currentRoom = updatedFloor.rooms.find(r => r.id === room.id);
+    if (!currentRoom) return;
+
+    const activity = getCurrentActivity(currentRoom);
+
+    if (!activity) {
+      // Room is already cleared or has no activities
+      addLog(`You enter ${currentRoom.name}. Nothing remains here.`, 'info');
+      return;
+    }
+
+    // Handle the current activity
+    switch (activity) {
+      case 'combat':
+        if (currentRoom.activities.combat) {
+          // Show approach selector for combat
+          setSelectedBranchingRoom(currentRoom);
+          setShowApproachSelector(true);
+          addLog(`Enemy spotted: ${currentRoom.activities.combat.enemy.name}. Choose your approach!`, 'info');
+        }
+        break;
+
+      case 'merchant':
+        if (currentRoom.activities.merchant) {
+          addLog(`A merchant greets you. ${currentRoom.activities.merchant.items.length} items available.`, 'info');
+          // For now, just mark as completed (merchant UI to be added later)
+          const updatedFloorAfterMerchant = completeActivity(updatedFloor, room.id, 'merchant');
+          setBranchingFloor(updatedFloorAfterMerchant);
+          // Return to map - user can re-enter to continue with other activities
+          addLog('The merchant waves goodbye.', 'info');
+        }
+        break;
+
+      case 'event':
+        if (currentRoom.activities.event) {
+          setActiveEvent(currentRoom.activities.event.definition);
+          setGameState(GameState.EVENT);
+        }
+        break;
+
+      case 'rest':
+        if (currentRoom.activities.rest) {
+          const restData = currentRoom.activities.rest;
+          const hpHeal = Math.floor(playerStats.derived.maxHp * (restData.healPercent / 100));
+          const chakraHeal = Math.floor(playerStats.derived.maxChakra * (restData.chakraRestorePercent / 100));
+
+          setPlayer(p => p ? {
+            ...p,
+            currentHp: Math.min(playerStats.derived.maxHp, p.currentHp + hpHeal),
+            currentChakra: Math.min(playerStats.derived.maxChakra, p.currentChakra + chakraHeal)
+          } : null);
+
+          addLog(`You rest and recover. +${hpHeal} HP, +${chakraHeal} Chakra.`, 'gain');
+
+          const updatedFloorAfterRest = completeActivity(updatedFloor, room.id, 'rest');
+          setBranchingFloor(updatedFloorAfterRest);
+        }
+        break;
+
+      case 'training':
+        if (currentRoom.activities.training) {
+          const training = currentRoom.activities.training;
+          // For now just give the stat gain
+          addLog(`You train ${training.stat}. +${training.gain} permanently!`, 'gain');
+          const updatedFloorAfterTraining = completeActivity(updatedFloor, room.id, 'training');
+          setBranchingFloor(updatedFloorAfterTraining);
+        }
+        break;
+
+      case 'treasure':
+        if (currentRoom.activities.treasure) {
+          const treasure = currentRoom.activities.treasure;
+          setDroppedItems(treasure.items);
+          setDroppedSkill(null);
+          if (treasure.ryo > 0) {
+            setPlayer(p => p ? { ...p, ryo: p.ryo + treasure.ryo } : null);
+            addLog(`Found treasure! +${treasure.ryo} Ryo.`, 'loot');
+          }
+          const updatedFloorAfterTreasure = completeActivity(updatedFloor, room.id, 'treasure');
+          setBranchingFloor(updatedFloorAfterTreasure);
+          setGameState(GameState.LOOT);
+        }
+        break;
+    }
+  };
+
+  // Complete combat activity in branching room
+  const completeBranchingCombat = () => {
+    setBranchingFloor(prevFloor => {
+      if (!prevFloor) return prevFloor;
+
+      const currentRoom = getCurrentRoom(prevFloor);
+      if (!currentRoom) return prevFloor;
+
+      // Mark combat as completed
+      const updatedFloor = completeActivity(prevFloor, currentRoom.id, 'combat');
+
+      // Check if room is cleared and it's the exit
+      const updatedRoom = updatedFloor.rooms.find(r => r.id === currentRoom.id);
+      if (updatedRoom?.isCleared && updatedRoom.isExit) {
+        addLog('You cleared the exit! Proceed to the next floor?', 'gain');
+      }
+
+      return updatedFloor;
+    });
   };
 
   const handleEventChoice = (choice: any) => {
@@ -196,7 +753,8 @@ const App: React.FC = () => {
         break;
       case 'FIGHT_GHOST':
         // Generate a ghost enemy and start combat
-        const ghostEnemy = generateEnemy(floor, difficulty, 'Vengeful Spirit', 'ASSASSIN', false);
+        const ghostEnemy = generateEnemy(floor, 'ELITE', difficulty);
+        ghostEnemy.name = 'Vengeful Spirit';
         setEnemy(ghostEnemy);
         setTurnState('PLAYER');
         setGameState(GameState.COMBAT);
@@ -209,14 +767,38 @@ const App: React.FC = () => {
         break;
       case 'CHALLENGE_GUARDIAN':
         // Generate a guardian enemy (stronger than normal)
-        const guardian = generateEnemy(floor + 2, difficulty, 'Guardian', 'TANK', false);
+        const guardian = generateEnemy(floor + 2, 'ELITE', difficulty + 10);
+        guardian.name = 'Guardian';
+        guardian.tier = 'Guardian';
         setEnemy(guardian);
         setTurnState('PLAYER');
         setGameState(GameState.COMBAT);
         text = "The guardian accepts your challenge!"; type = 'danger'; next = false;
         break;
     }
-    if (next) { addLog(text, type); nextFloor(); }
+    if (next) {
+      addLog(text, type);
+
+      // Handle event completion based on exploration mode
+      if (useBranchingExploration && branchingFloor) {
+        // Mark event as completed in branching floor
+        const currentRoom = getCurrentRoom(branchingFloor);
+        if (currentRoom) {
+          const updatedFloor = completeActivity(branchingFloor, currentRoom.id, 'event');
+          setBranchingFloor(updatedFloor);
+        }
+        setActiveEvent(null);
+        setGameState(GameState.BRANCHING_EXPLORE);
+      } else {
+        // Legacy exploration system
+        if (floorLayout && currentNodeId) {
+          const clearedEvent = clearNode(floorLayout, currentNodeId);
+          setFloorLayout(clearedEvent);
+        }
+        setActiveEvent(null);
+        setGameState(GameState.EXPLORE_MAP);
+      }
+    }
   };
 
   const nextFloor = () => {
@@ -233,13 +815,48 @@ const App: React.FC = () => {
         currentHp: Math.min(stats.derived.maxHp, p.currentHp + stats.derived.hpRegen)
       };
 
-      // Generate rooms with updated player
+      // Generate new floor layout (legacy system)
+      const layout = generateFloorLayout(nextFloorNum, difficulty, updatedPlayer, stats.derived.maxHp);
+      const visitedLayout = moveToNode(layout, layout.entryNodeId);
+      const initializedLayout = clearNode(visitedLayout, layout.entryNodeId);
+      setFloorLayout(initializedLayout);
+      setCurrentNodeId(layout.entryNodeId);
+      setSelectedNode(null);
+      setShowApproachSelector(false);
+      setCombatState(null);
+      setApproachResult(null);
+
+      // Also keep legacy room choices for backward compatibility
       const rooms = generateRooms(nextFloorNum, difficulty, updatedPlayer, stats.derived.maxHp);
       setRoomChoices(rooms);
 
+      // Generate new branching floor
+      if (useBranchingExploration) {
+        const newBranchingFloor = generateBranchingFloor(nextFloorNum, difficulty, updatedPlayer);
+        setBranchingFloor(newBranchingFloor);
+        setSelectedBranchingRoom(null);
+      }
+
       return updatedPlayer;
     });
-    setGameState(GameState.EXPLORE);
+
+    if (useBranchingExploration) {
+      setGameState(GameState.BRANCHING_EXPLORE);
+    } else {
+      setGameState(GameState.EXPLORE_MAP);
+    }
+  };
+
+  // Return to exploration map after loot/events (without advancing floor)
+  const returnToMap = () => {
+    setDroppedItems([]);
+    setDroppedSkill(null);
+    setEnemy(null);
+    if (useBranchingExploration) {
+      setGameState(GameState.BRANCHING_EXPLORE);
+    } else {
+      setGameState(GameState.EXPLORE_MAP);
+    }
   };
 
   const useSkill = (skill: Skill) => {
@@ -289,10 +906,15 @@ const App: React.FC = () => {
       return;
     }
 
-    // Use CombatSystem for regular skills
-    const result = useSkillCombat(player, playerStats, enemy, enemyStats, skill);
+    // Use CombatSystem for regular skills, passing combat state for first hit multiplier
+    const result = useSkillCombat(player, playerStats, enemy, enemyStats, skill, combatState || undefined);
 
     if (!result) return;
+
+    // Mark first turn as complete if applicable
+    if (combatState?.isFirstTurn) {
+      setCombatState(prev => prev ? { ...prev, isFirstTurn: false } : null);
+    }
 
     // Apply result to game state
     addLog(result.logMessage, result.logType);
@@ -332,7 +954,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (turnState === 'ENEMY_TURN' && player && enemy && playerStats && enemyStats) {
       const timer = setTimeout(() => {
-        const result = processEnemyTurn(player, playerStats, enemy, enemyStats);
+        const result = processEnemyTurn(player, playerStats, enemy, enemyStats, combatState || undefined);
         result.logMessages.forEach(msg => {
           addLog(msg, msg.includes('GUTS') ? 'gain' : msg.includes('took') ? 'combat' : 'danger');
         });
@@ -383,6 +1005,21 @@ const App: React.FC = () => {
   const handleVictory = () => {
     addLog("Enemy Defeated!", 'gain');
     setEnemy(null);
+
+    // Clear the current node on the floor layout (legacy system)
+    if (floorLayout && currentNodeId && !useBranchingExploration) {
+      const clearedLayout = clearNode(floorLayout, currentNodeId);
+      setFloorLayout(clearedLayout);
+    }
+
+    // Complete combat activity in branching floor
+    if (useBranchingExploration && branchingFloor) {
+      completeBranchingCombat();
+    }
+
+    // Apply XP multiplier from approach
+    const xpMultiplier = combatState?.xpMultiplier || 1.0;
+
     setPlayer(prev => {
       if (!prev) return null;
       const isBoss = enemy?.isBoss;
@@ -392,10 +1029,10 @@ const App: React.FC = () => {
 
       const baseExp = 25 + (floor * 5);
       const tierBonus = isGuardian ? 300 : enemyTier === 'Jonin' ? 20 : enemyTier === 'Kage Level' ? 200 : isAmbush ? 100 : 0;
-      const expGain = baseExp + tierBonus;
+      const expGain = Math.floor((baseExp + tierBonus) * xpMultiplier);
 
       let updatedPlayer = { ...prev, exp: prev.exp + expGain };
-      addLog(`Gained ${expGain} Experience.`, 'info');
+      addLog(`Gained ${expGain} Experience${xpMultiplier > 1 ? ` (${Math.round((xpMultiplier - 1) * 100)}% bonus!)` : ''}.`, 'info');
       updatedPlayer = checkLevelUp(updatedPlayer);
 
       const ryoGain = (floor * 15) + Math.floor(Math.random() * 25);
@@ -415,6 +1052,10 @@ const App: React.FC = () => {
 
       return updatedPlayer;
     });
+
+    // Reset combat state
+    setCombatState(null);
+    setApproachResult(null);
   };
 
   const equipItem = (item: Item) => {
@@ -553,6 +1194,35 @@ const App: React.FC = () => {
             />
           )}
 
+          {gameState === GameState.EXPLORE_MAP && player && playerStats && floorLayout && currentNodeId && (
+            <ExplorationMap
+              layout={floorLayout}
+              currentNodeId={currentNodeId}
+              player={player}
+              playerStats={playerStats}
+              onNodeSelect={handleNodeSelect}
+              onNodeEnter={handleNodeEnter}
+            />
+          )}
+
+          {gameState === GameState.BRANCHING_EXPLORE && player && playerStats && branchingFloor && (
+            <div className="w-full h-full flex flex-col">
+              <BranchingExplorationMap
+                branchingFloor={branchingFloor}
+                player={player}
+                playerStats={playerStats}
+                onRoomSelect={handleBranchingRoomSelect}
+                onRoomEnter={handleBranchingRoomEnter}
+              />
+              <PlayerHUD
+                player={player}
+                playerStats={playerStats}
+                floor={floor}
+                biome={branchingFloor.biome}
+              />
+            </div>
+          )}
+
           {gameState === GameState.COMBAT && player && enemy && playerStats && enemyStats && (
             <Combat
               ref={combatRef}
@@ -584,13 +1254,47 @@ const App: React.FC = () => {
               onEquipItem={equipItem}
               onSellItem={sellItem}
               onLearnSkill={learnSkill}
-              onLeaveAll={nextFloor}
+              onLeaveAll={returnToMap}
               getRarityColor={getRarityColor}
               getDamageTypeColor={getDamageTypeColor}
             />
           )}
         </div>
       </div>
+
+      {/* Approach Selector Modal */}
+      {/* Approach Selector for old exploration system */}
+      {showApproachSelector && selectedNode && player && playerStats && !selectedBranchingRoom && (
+        <ApproachSelector
+          node={selectedNode}
+          terrain={TERRAIN_DEFINITIONS[selectedNode.terrain]}
+          player={player}
+          playerStats={playerStats}
+          onSelectApproach={handleApproachSelect}
+          onCancel={handleApproachCancel}
+        />
+      )}
+
+      {/* Approach Selector for branching exploration system */}
+      {showApproachSelector && selectedBranchingRoom && selectedBranchingRoom.activities.combat && player && playerStats && (
+        <ApproachSelector
+          node={{
+            id: selectedBranchingRoom.id,
+            type: selectedBranchingRoom.activities.combat.enemy.tier === 'Guardian' ? 'BOSS' as any :
+                  selectedBranchingRoom.activities.combat.enemy.tier === 'Jonin' ? 'ELITE' as any : 'COMBAT' as any,
+            terrain: selectedBranchingRoom.terrain,
+            visibility: 'VISIBLE' as any,
+            position: { x: 0, y: 0 },
+            connections: [],
+            enemy: selectedBranchingRoom.activities.combat.enemy,
+          }}
+          terrain={TERRAIN_DEFINITIONS[selectedBranchingRoom.terrain]}
+          player={player}
+          playerStats={playerStats}
+          onSelectApproach={handleBranchingApproachSelect}
+          onCancel={handleApproachCancel}
+        />
+      )}
     </div>
   );
 };

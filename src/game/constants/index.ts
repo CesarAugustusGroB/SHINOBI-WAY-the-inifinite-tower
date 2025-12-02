@@ -9,6 +9,10 @@ import { EXAMS_ARC_EVENTS } from './events/examsArcEvents';
 import { ROGUE_ARC_EVENTS } from './events/rogueArcEvents';
 import { WAR_ARC_EVENTS } from './events/warArcEvents';
 
+// Exploration System Exports
+export * from './terrain';
+export * from './approaches';
+
 export const MAX_LOGS = 50;
 
 // ============================================================================
