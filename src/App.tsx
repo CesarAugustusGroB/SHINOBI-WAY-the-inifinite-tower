@@ -1,22 +1,17 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
-  GameState, Player, Clan, Skill, Enemy, Item, Rarity, DamageType, EffectType, Buff,
-  ApproachType, TerrainDefinition,
-  BranchingFloor, BranchingRoom
+  GameState, Player, Clan, Skill, Enemy, Item, Rarity, DamageType,
+  ApproachType, BranchingRoom
 } from './game/types';
-import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS, getElementEffectiveness } from './game/constants';
+import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS } from './game/constants';
 import {
   calculateDerivedStats,
   getPlayerFullStats,
-  getEnemyFullStats,
-  canLearnSkill,
-  calculateDamage
+  canLearnSkill
 } from './game/systems/StatSystem';
-import { getStoryArc, generateEnemy } from './game/systems/EnemySystem';
+import { generateEnemy } from './game/systems/EnemySystem';
 import { generateItem, generateSkillLoot, equipItem as equipItemFn, sellItem as sellItemFn } from './game/systems/LootSystem';
 import {
-  processEnemyTurn,
-  useSkill as useSkillCombat,
   CombatState,
   createCombatState,
   applyApproachEffects
@@ -25,8 +20,7 @@ import {
   executeApproach,
   applyApproachCosts,
   applyEnemyHpReduction,
-  getCombatModifiers,
-  ApproachResult
+  getCombatModifiers
 } from './game/systems/ApproachSystem';
 import { TERRAIN_DEFINITIONS } from './game/constants/terrain';
 import {
@@ -34,13 +28,15 @@ import {
   moveToRoom,
   getCurrentActivity,
   completeActivity,
-  isFloorComplete,
-  getCurrentRoom,
-  getCombatSetup
+  getCurrentRoom
 } from './game/systems/BranchingFloorSystem';
+import { useCombat } from './hooks/useCombat';
+import { useCombatExplorationState } from './hooks/useCombatExplorationState';
+import { GameProvider, GameContextValue } from './contexts/GameContext';
+import { LIMITS } from './game/config';
 import MainMenu from './scenes/MainMenu';
 import CharacterSelect from './scenes/CharacterSelect';
-import Combat, { CombatRef } from './scenes/Combat';
+import Combat from './scenes/Combat';
 import Event from './scenes/Event';
 import Loot from './scenes/Loot';
 import GameOver from './scenes/GameOver';
@@ -53,40 +49,39 @@ import PlayerHUD from './components/PlayerHUD';
 // Import the parchment background styles
 import './App.css';
 
-const generateId = () => Math.random().toString(36).substring(2, 9);
-
 const App: React.FC = () => {
   // --- Core State ---
   const [gameState, setGameState] = useState<GameState>(GameState.MENU);
   const [floor, setFloor] = useState(1);
   const [logs, setLogs] = useState<any[]>([]);
   const [player, setPlayer] = useState<Player | null>(null);
-  const [enemy, setEnemy] = useState<Enemy | null>(null);
   const [droppedItems, setDroppedItems] = useState<Item[]>([]);
   const [droppedSkill, setDroppedSkill] = useState<Skill | null>(null);
   const [activeEvent, setActiveEvent] = useState<any>(null);
   const [difficulty, setDifficulty] = useState<number>(20);
-  const [turnState, setTurnState] = useState<'PLAYER' | 'ENEMY_TURN'>('PLAYER');
   const logIdCounter = useRef<number>(0);
 
-  // --- Combat State ---
-  const [combatState, setCombatState] = useState<CombatState | null>(null);
-  const [approachResult, setApproachResult] = useState<ApproachResult | null>(null);
-  const [showApproachSelector, setShowApproachSelector] = useState(false);
-
-  // --- Branching Exploration State ---
-  const [branchingFloor, setBranchingFloor] = useState<BranchingFloor | null>(null);
-  const [selectedBranchingRoom, setSelectedBranchingRoom] = useState<BranchingRoom | null>(null)
-
-  // Combat ref for floating text
-  const combatRef = useRef<CombatRef>(null);
+  // --- Shared Combat/Exploration State ---
+  // This hook owns state needed by both useCombat and useExploration
+  const {
+    combatState,
+    setCombatState,
+    approachResult,
+    setApproachResult,
+    branchingFloor,
+    setBranchingFloor,
+    selectedBranchingRoom,
+    setSelectedBranchingRoom,
+    showApproachSelector,
+    setShowApproachSelector,
+  } = useCombatExplorationState();
 
   const addLog = useCallback((text: string, type: any = 'info', details?: string) => {
     setLogs(prev => {
       logIdCounter.current += 1;
       const newEntry: any = { id: logIdCounter.current, text, type, details };
       const newLogs = [...prev, newEntry];
-      if (newLogs.length > 50) newLogs.shift();
+      if (newLogs.length > LIMITS.MAX_LOG_ENTRIES) newLogs.shift();
       return newLogs;
     });
   }, []);
@@ -96,10 +91,107 @@ const App: React.FC = () => {
     return getPlayerFullStats(player);
   }, [player]);
 
-  const enemyStats = useMemo(() => {
-    if (!enemy) return null;
-    return getEnemyFullStats(enemy);
-  }, [enemy]);
+  // Create game context value for child components
+  const gameContextValue = useMemo((): GameContextValue => ({
+    player,
+    playerStats,
+    floor,
+    difficulty,
+    logs,
+    addLog,
+  }), [player, playerStats, floor, difficulty, logs, addLog]);
+
+  // Victory handler for combat hook
+  const handleCombatVictory = useCallback((defeatedEnemy: Enemy, combatStateAtVictory: CombatState | null) => {
+    addLog("Enemy Defeated!", 'gain');
+
+    // Complete combat activity in branching floor
+    if (branchingFloor) {
+      setBranchingFloor(prevFloor => {
+        if (!prevFloor) return prevFloor;
+        const combatRoom = selectedBranchingRoom || getCurrentRoom(prevFloor);
+        if (!combatRoom) return prevFloor;
+
+        let updatedFloor = completeActivity(prevFloor, combatRoom.id, 'combat');
+        if (updatedFloor.currentRoomId !== combatRoom.id) {
+          updatedFloor = {
+            ...updatedFloor,
+            currentRoomId: combatRoom.id,
+            rooms: updatedFloor.rooms.map(room => ({
+              ...room,
+              isCurrent: room.id === combatRoom.id,
+            })),
+          };
+        }
+
+        const updatedRoom = updatedFloor.rooms.find(r => r.id === combatRoom.id);
+        if (updatedRoom?.isCleared && updatedRoom.isExit) {
+          addLog('You cleared the exit! Proceed to the next floor?', 'gain');
+        }
+
+        return updatedFloor;
+      });
+    }
+
+    // Apply XP multiplier from approach
+    const xpMultiplier = combatStateAtVictory?.xpMultiplier || 1.0;
+
+    setPlayer(prev => {
+      if (!prev) return null;
+      const isBoss = defeatedEnemy?.isBoss;
+      const isAmbush = defeatedEnemy?.tier.includes('S-Rank');
+      const isGuardian = defeatedEnemy?.tier === 'Guardian';
+      const enemyTier = defeatedEnemy?.tier || 'Chunin';
+
+      const baseExp = 25 + (floor * 5);
+      const tierBonus = isGuardian ? 300 : enemyTier === 'Jonin' ? 20 : enemyTier === 'Kage Level' ? 200 : isAmbush ? 100 : 0;
+      const expGain = Math.floor((baseExp + tierBonus) * xpMultiplier);
+
+      let updatedPlayer = { ...prev, exp: prev.exp + expGain };
+      addLog(`Gained ${expGain} Experience${xpMultiplier > 1 ? ` (${Math.round((xpMultiplier - 1) * 100)}% bonus!)` : ''}.`, 'info');
+      updatedPlayer = checkLevelUp(updatedPlayer);
+
+      const ryoGain = (floor * 15) + Math.floor(Math.random() * 25);
+      updatedPlayer.ryo += ryoGain;
+
+      let rarityBonus = undefined;
+      if (isBoss) rarityBonus = Rarity.EPIC;
+      if (isAmbush || isGuardian) rarityBonus = Rarity.LEGENDARY;
+
+      const item1 = generateItem(floor, difficulty, rarityBonus);
+      const item2 = generateItem(floor, difficulty);
+      const skill = generateSkillLoot(enemyTier, floor);
+
+      setDroppedItems([item1, item2]);
+      setDroppedSkill(skill);
+      setGameState(GameState.LOOT);
+
+      return updatedPlayer;
+    });
+  }, [branchingFloor, selectedBranchingRoom, floor, difficulty, addLog]);
+
+  // Combat hook - manages enemy, turns, and combat logic
+  const {
+    enemy,
+    enemyStats,
+    turnState,
+    combatRef,
+    setEnemy,
+    setTurnState,
+    useSkill,
+  } = useCombat({
+    player,
+    playerStats,
+    addLog,
+    setPlayer,
+    setGameState,
+    onVictory: handleCombatVictory,
+    // Pass shared state from useCombatExplorationState
+    combatState,
+    setCombatState,
+    approachResult,
+    setApproachResult,
+  });
 
   const checkLevelUp = (p: Player): Player => {
     let currentPlayer = { ...p };
@@ -205,7 +297,13 @@ const App: React.FC = () => {
       // Successfully bypassed combat - mark as completed
       addLog('You slip past undetected!', 'gain');
       setShowApproachSelector(false);
-      completeBranchingCombat();
+
+      // Mark combat as completed in branching floor
+      setBranchingFloor(prevFloor => {
+        if (!prevFloor || !selectedBranchingRoom) return prevFloor;
+        return completeActivity(prevFloor, selectedBranchingRoom.id, 'combat');
+      });
+
       setSelectedBranchingRoom(null);
       return;
     }
@@ -341,42 +439,6 @@ const App: React.FC = () => {
         }
         break;
     }
-  };
-
-  // Complete combat activity in branching room
-  const completeBranchingCombat = () => {
-    setBranchingFloor(prevFloor => {
-      if (!prevFloor) return prevFloor;
-
-      // Use selectedBranchingRoom as it's set when combat was initiated
-      // This is more reliable than getCurrentRoom(prevFloor) due to async state updates
-      const combatRoom = selectedBranchingRoom || getCurrentRoom(prevFloor);
-      if (!combatRoom) return prevFloor;
-
-      // Mark combat as completed
-      let updatedFloor = completeActivity(prevFloor, combatRoom.id, 'combat');
-
-      // CRITICAL: Ensure currentRoomId is set to the combat room
-      // This fixes the bug where player appears at start after combat
-      if (updatedFloor.currentRoomId !== combatRoom.id) {
-        updatedFloor = {
-          ...updatedFloor,
-          currentRoomId: combatRoom.id,
-          rooms: updatedFloor.rooms.map(room => ({
-            ...room,
-            isCurrent: room.id === combatRoom.id,
-          })),
-        };
-      }
-
-      // Check if room is cleared and it's the exit
-      const updatedRoom = updatedFloor.rooms.find(r => r.id === combatRoom.id);
-      if (updatedRoom?.isCleared && updatedRoom.isExit) {
-        addLog('You cleared the exit! Proceed to the next floor?', 'gain');
-      }
-
-      return updatedFloor;
-    });
   };
 
   const handleEventChoice = (choice: any) => {
@@ -518,199 +580,6 @@ const App: React.FC = () => {
     setGameState(GameState.BRANCHING_EXPLORE);
   };
 
-  const useSkill = (skill: Skill) => {
-    if (!player || !enemy || !playerStats || !enemyStats) return;
-
-    // Handle toggle skills
-    if (skill.isToggle) {
-      const isActive = skill.isActive || false;
-
-      // Check chakra cost for activation
-      if (!isActive && player.currentChakra < skill.chakraCost) {
-        addLog("Insufficient Chakra to activate!", 'danger');
-        return;
-      }
-
-      setPlayer(prev => {
-        if (!prev) return null;
-        let newBuffs = [...prev.activeBuffs];
-        let newSkills = prev.skills.map(s => s.id === skill.id ? { ...s, isActive: !isActive } : s);
-        let newChakra = prev.currentChakra;
-
-        if (isActive) {
-          // Deactivate: Remove all buffs from this skill
-          newBuffs = newBuffs.filter(b => b.source !== skill.name);
-          addLog(`${skill.name} Deactivated.`, 'info');
-        } else {
-          // Activate: Apply effects and pay initial cost
-          newChakra -= skill.chakraCost;
-          if (skill.effects) {
-            skill.effects.forEach(eff => {
-              const buff: Buff = {
-                id: Math.random().toString(36).substring(2, 9),
-                name: eff.type,
-                duration: eff.duration,
-                effect: eff,
-                source: skill.name
-              };
-              newBuffs.push(buff);
-            });
-          }
-          addLog(`${skill.name} Activated!`, 'gain');
-        }
-
-        return { ...prev, skills: newSkills, activeBuffs: newBuffs, currentChakra: newChakra };
-      });
-      setTurnState('ENEMY_TURN');
-      return;
-    }
-
-    // Use CombatSystem for regular skills, passing combat state for first hit multiplier
-    const result = useSkillCombat(player, playerStats, enemy, enemyStats, skill, combatState || undefined);
-
-    if (!result) return;
-
-    // Mark first turn as complete if applicable
-    if (combatState?.isFirstTurn) {
-      setCombatState(prev => prev ? { ...prev, isFirstTurn: false } : null);
-    }
-
-    // Apply result to game state
-    addLog(result.logMessage, result.logType);
-
-    // Spawn floating combat text
-    if (result.damageDealt > 0) {
-      const isCrit = result.logMessage.includes('CRITICAL');
-      combatRef.current?.spawnFloatingText('enemy', result.damageDealt.toString(), isCrit ? 'crit' : 'damage');
-    } else if (result.logMessage.includes('MISSED') || result.logMessage.includes('EVADED')) {
-      combatRef.current?.spawnFloatingText('enemy', 'MISS', 'miss');
-    }
-
-    setPlayer(prev => prev ? {
-      ...prev,
-      currentHp: result.newPlayerHp,
-      currentChakra: result.newPlayerChakra,
-      activeBuffs: result.newPlayerBuffs,
-      skills: result.skillsUpdate || prev.skills
-    } : null);
-
-    setEnemy(prev => prev ? {
-      ...prev,
-      currentHp: result.newEnemyHp,
-      activeBuffs: result.newEnemyBuffs
-    } : null);
-
-    // Check for victory/defeat
-    if (result.enemyDefeated) {
-      handleVictory();
-    } else if (result.playerDefeated) {
-      setGameState(GameState.GAME_OVER);
-    } else {
-      setTurnState('ENEMY_TURN');
-    }
-  };
-
-  useEffect(() => {
-    if (turnState === 'ENEMY_TURN' && player && enemy && playerStats && enemyStats) {
-      const timer = setTimeout(() => {
-        const result = processEnemyTurn(player, playerStats, enemy, enemyStats, combatState || undefined);
-        result.logMessages.forEach(msg => {
-          addLog(msg, msg.includes('GUTS') ? 'gain' : msg.includes('took') ? 'combat' : 'danger');
-        });
-
-        // Calculate damage dealt to player for floating text
-        const playerDamageTaken = player.currentHp - result.newPlayerHp;
-        if (playerDamageTaken > 0) {
-          // Check if it was a crit from log messages
-          const isCrit = result.logMessages.some(m => m.includes('Crit'));
-          combatRef.current?.spawnFloatingText('player', playerDamageTaken.toString(), isCrit ? 'crit' : 'damage');
-        } else if (result.logMessages.some(m => m.includes('MISSED') || m.includes('EVADED'))) {
-          combatRef.current?.spawnFloatingText('player', 'MISS', 'miss');
-        }
-
-        // Check if enemy took DoT damage for floating text
-        const enemyDamageTaken = enemy.currentHp - result.newEnemyHp;
-        if (enemyDamageTaken > 0) {
-          combatRef.current?.spawnFloatingText('enemy', enemyDamageTaken.toString(), 'damage');
-        }
-
-        // Check for player healing (regen)
-        if (result.logMessages.some(m => m.includes('regenerated'))) {
-          const healMatch = result.logMessages.find(m => m.includes('You regenerated'));
-          if (healMatch) {
-            const healAmount = healMatch.match(/(\d+)/)?.[1];
-            if (healAmount) {
-              combatRef.current?.spawnFloatingText('player', healAmount, 'heal');
-            }
-          }
-        }
-
-        setPlayer(prev => prev ? { ...prev, currentHp: result.newPlayerHp, activeBuffs: result.newPlayerBuffs, skills: result.playerSkills } : null);
-        setEnemy(prev => prev ? { ...prev, currentHp: result.newEnemyHp, activeBuffs: result.newEnemyBuffs } : null);
-
-        if (result.enemyDefeated) {
-          handleVictory();
-        } else if (result.playerDefeated) {
-          setGameState(GameState.GAME_OVER);
-        } else {
-          setTurnState('PLAYER');
-        }
-      }, 800);
-
-      return () => clearTimeout(timer);
-    }
-  }, [turnState, player, enemy, playerStats, enemyStats]);
-
-  const handleVictory = () => {
-    addLog("Enemy Defeated!", 'gain');
-    setEnemy(null);
-
-    // Complete combat activity in branching floor
-    if (branchingFloor) {
-      completeBranchingCombat();
-    }
-
-    // Apply XP multiplier from approach
-    const xpMultiplier = combatState?.xpMultiplier || 1.0;
-
-    setPlayer(prev => {
-      if (!prev) return null;
-      const isBoss = enemy?.isBoss;
-      const isAmbush = enemy?.tier.includes('S-Rank');
-      const isGuardian = enemy?.tier === 'Guardian';
-      const enemyTier = enemy?.tier || 'Chunin';
-
-      const baseExp = 25 + (floor * 5);
-      const tierBonus = isGuardian ? 300 : enemyTier === 'Jonin' ? 20 : enemyTier === 'Kage Level' ? 200 : isAmbush ? 100 : 0;
-      const expGain = Math.floor((baseExp + tierBonus) * xpMultiplier);
-
-      let updatedPlayer = { ...prev, exp: prev.exp + expGain };
-      addLog(`Gained ${expGain} Experience${xpMultiplier > 1 ? ` (${Math.round((xpMultiplier - 1) * 100)}% bonus!)` : ''}.`, 'info');
-      updatedPlayer = checkLevelUp(updatedPlayer);
-
-      const ryoGain = (floor * 15) + Math.floor(Math.random() * 25);
-      updatedPlayer.ryo += ryoGain;
-
-      let rarityBonus = undefined;
-      if (isBoss) rarityBonus = Rarity.EPIC;
-      if (isAmbush || isGuardian) rarityBonus = Rarity.LEGENDARY;
-
-      const item1 = generateItem(floor, difficulty, rarityBonus);
-      const item2 = generateItem(floor, difficulty);
-      const skill = generateSkillLoot(enemyTier, floor);
-
-      setDroppedItems([item1, item2]);
-      setDroppedSkill(skill);
-      setGameState(GameState.LOOT);
-
-      return updatedPlayer;
-    });
-
-    // Reset combat state
-    setCombatState(null);
-    setApproachResult(null);
-  };
-
   const equipItem = (item: Item) => {
     if (!player) return;
     setPlayer(prev => {
@@ -820,18 +689,12 @@ const App: React.FC = () => {
   const isCombat = gameState === GameState.COMBAT;
 
   return (
+    <GameProvider value={gameContextValue}>
     <div className="h-screen bg-black text-gray-300 flex overflow-hidden font-sans">
       {/* Left Panel - Hidden during combat */}
       {!isCombat && (
         <div className="hidden lg:flex w-[320px] flex-col border-r border-zinc-900 bg-zinc-950 p-4">
-          {player && playerStats && (
-            <LeftSidebarPanel
-              floor={floor}
-              player={player}
-              playerStats={playerStats}
-              storyArcLabel={getStoryArc(floor).label}
-            />
-          )}
+          <LeftSidebarPanel />
         </div>
       )}
 
@@ -919,6 +782,7 @@ const App: React.FC = () => {
         />
       )}
     </div>
+    </GameProvider>
   );
 };
 
