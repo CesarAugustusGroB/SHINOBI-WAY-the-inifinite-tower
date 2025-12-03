@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   GameState, Player, Clan, Skill, Enemy, Item, Rarity, DamageType,
-  ApproachType, BranchingRoom
+  ApproachType, BranchingRoom, PrimaryStat, TrainingActivity, TrainingIntensity
 } from './game/types';
 import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS } from './game/constants';
 import {
@@ -40,6 +40,7 @@ import Combat from './scenes/Combat';
 import Event from './scenes/Event';
 import Loot from './scenes/Loot';
 import Merchant from './scenes/Merchant';
+import Training from './scenes/Training';
 import GameOver from './scenes/GameOver';
 import GameGuide from './scenes/GameGuide';
 import LeftSidebarPanel from './components/LeftSidebarPanel';
@@ -63,6 +64,7 @@ const App: React.FC = () => {
   const [isProcessingLoot, setIsProcessingLoot] = useState(false);
   const [merchantItems, setMerchantItems] = useState<Item[]>([]);
   const [merchantDiscount, setMerchantDiscount] = useState<number>(0);
+  const [trainingData, setTrainingData] = useState<TrainingActivity | null>(null);
   const logIdCounter = useRef<number>(0);
 
   // --- Shared Combat/Exploration State ---
@@ -419,12 +421,11 @@ const App: React.FC = () => {
         break;
 
       case 'training':
-        if (currentRoom.activities.training) {
-          const training = currentRoom.activities.training;
-          // For now just give the stat gain
-          addLog(`You train ${training.stat}. +${training.gain} permanently!`, 'gain');
-          const updatedFloorAfterTraining = completeActivity(updatedFloor, room.id, 'training');
-          setBranchingFloor(updatedFloorAfterTraining);
+        if (currentRoom.activities.training && !currentRoom.activities.training.completed) {
+          setTrainingData(currentRoom.activities.training);
+          setSelectedBranchingRoom(currentRoom);
+          setGameState(GameState.TRAINING);
+          addLog('You arrive at a training area. Choose your training regimen.', 'info');
         }
         break;
 
@@ -663,6 +664,54 @@ const App: React.FC = () => {
     addLog('The merchant waves goodbye.', 'info');
   };
 
+  const handleTrainingComplete = (stat: PrimaryStat, intensity: TrainingIntensity) => {
+    if (!trainingData || !player || !selectedBranchingRoom || !branchingFloor) return;
+
+    const option = trainingData.options.find(o => o.stat === stat);
+    if (!option) return;
+
+    const { cost, gain } = option.intensities[intensity];
+
+    // Get stat key for primaryStats object
+    const statKey = stat.toLowerCase() as keyof typeof player.primaryStats;
+
+    // Deduct costs and apply stat gain
+    setPlayer(p => {
+      if (!p) return null;
+      return {
+        ...p,
+        currentHp: p.currentHp - cost.hp,
+        currentChakra: p.currentChakra - cost.chakra,
+        primaryStats: {
+          ...p.primaryStats,
+          [statKey]: p.primaryStats[statKey] + gain
+        }
+      };
+    });
+
+    const intensityLabel = intensity.charAt(0).toUpperCase() + intensity.slice(1);
+    addLog(`${intensityLabel} training complete! ${stat} +${gain}`, 'gain');
+
+    // Mark training as complete and return to map
+    const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'training');
+    setBranchingFloor(updatedFloor);
+    setTrainingData(null);
+    setSelectedBranchingRoom(null);
+    setGameState(GameState.BRANCHING_EXPLORE);
+  };
+
+  const handleTrainingSkip = () => {
+    // Mark training as complete without training
+    if (branchingFloor && selectedBranchingRoom) {
+      const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'training');
+      setBranchingFloor(updatedFloor);
+    }
+    setTrainingData(null);
+    setSelectedBranchingRoom(null);
+    setGameState(GameState.BRANCHING_EXPLORE);
+    addLog('You decide to skip training for now.', 'info');
+  };
+
   const getRarityColor = (r: Rarity) => {
     switch (r) {
       case Rarity.LEGENDARY: return 'text-orange-400';
@@ -798,6 +847,16 @@ const App: React.FC = () => {
               getRarityColor={getRarityColor}
               getDamageTypeColor={getDamageTypeColor}
               isProcessing={isProcessingLoot}
+            />
+          )}
+
+          {gameState === GameState.TRAINING && trainingData && player && playerStats && (
+            <Training
+              training={trainingData}
+              player={player}
+              playerStats={playerStats}
+              onTrain={handleTrainingComplete}
+              onSkip={handleTrainingSkip}
             />
           )}
         </div>

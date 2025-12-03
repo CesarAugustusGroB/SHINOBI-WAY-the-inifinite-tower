@@ -170,23 +170,48 @@ function generateActivities(
     };
   }
 
-  // Training
+  // Training - Multiple stat options with intensity levels
   if (config.hasTraining) {
-    const stats: PrimaryStat[] = [
-      PrimaryStat.STRENGTH,
-      PrimaryStat.SPEED,
+    // All 9 primary stats available for training
+    const allStats: PrimaryStat[] = [
       PrimaryStat.WILLPOWER,
+      PrimaryStat.CHAKRA,
+      PrimaryStat.STRENGTH,
       PrimaryStat.SPIRIT,
+      PrimaryStat.INTELLIGENCE,
+      PrimaryStat.CALMNESS,
+      PrimaryStat.SPEED,
+      PrimaryStat.ACCURACY,
+      PrimaryStat.DEXTERITY,
     ];
-    const stat = stats[Math.floor(Math.random() * stats.length)];
+
+    // Shuffle and pick 3 random stats
+    const shuffled = [...allStats].sort(() => Math.random() - 0.5);
+    const selectedStats = shuffled.slice(0, 3);
+
+    // Base costs and gains scale with floor
+    const baseHpCost = 10 + floor * 2;
+    const baseChakraCost = 5 + floor;
+    const baseGain = 1 + Math.floor(floor / 10);
 
     activities.training = {
-      stat,
-      cost: {
-        hp: 15 + floor * 2,
-        chakra: 10 + floor,
-      },
-      gain: 1 + Math.floor(floor / 15),
+      options: selectedStats.map(stat => ({
+        stat,
+        intensities: {
+          light: {
+            cost: { hp: baseHpCost, chakra: baseChakraCost },
+            gain: baseGain,
+          },
+          medium: {
+            cost: { hp: baseHpCost * 2, chakra: baseChakraCost * 2 },
+            gain: baseGain * 2,
+          },
+          intense: {
+            cost: { hp: baseHpCost * 3, chakra: baseChakraCost * 3 },
+            gain: baseGain * 3,
+          },
+        },
+      })),
       completed: false,
     };
   }

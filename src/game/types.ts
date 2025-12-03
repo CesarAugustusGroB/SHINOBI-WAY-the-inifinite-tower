@@ -12,6 +12,7 @@ export enum GameState {
   LOOT,
   MERCHANT,
   EVENT,
+  TRAINING,         // Training scene for stat upgrades
   GAME_OVER,
   GUIDE
 }
@@ -979,11 +980,27 @@ export interface RestActivity {
   completed: boolean;
 }
 
-export interface TrainingActivity {
-  stat: PrimaryStat;
-  cost: { hp?: number; chakra?: number; ryo?: number };
+export type TrainingIntensity = 'light' | 'medium' | 'intense';
+
+export interface TrainingIntensityData {
+  cost: { hp: number; chakra: number };
   gain: number;
+}
+
+export interface TrainingStatOption {
+  stat: PrimaryStat;
+  intensities: {
+    light: TrainingIntensityData;
+    medium: TrainingIntensityData;
+    intense: TrainingIntensityData;
+  };
+}
+
+export interface TrainingActivity {
+  options: TrainingStatOption[];  // Multiple stats to choose from
   completed: boolean;
+  selectedStat?: PrimaryStat;     // Track what was chosen
+  selectedIntensity?: TrainingIntensity;
 }
 
 export interface TreasureActivity {
