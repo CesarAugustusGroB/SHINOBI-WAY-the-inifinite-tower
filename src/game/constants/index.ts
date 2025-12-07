@@ -979,16 +979,6 @@ export const CLAN_START_SKILL: Record<Clan, Skill> = {
 };
 
 // ============================================================================
-// ITEM NAME BASES
-// ============================================================================
-export const BASE_ITEM_NAMES = {
-  [ItemSlot.WEAPON]: ['Kunai', 'Katana', 'Shuriken', 'War Fan', 'Kama', 'Tanto', 'Samehada (Replica)', 'Executioner Blade', 'Chakra Blades', 'Kusanagi'],
-  [ItemSlot.HEAD]: ['Forehead Protector', 'ANBU Mask', 'Hood', 'Straw Hat', 'Kabuto', 'Hokage Hat (Replica)', 'Rebreather', 'Spirit Mask', 'Visor'],
-  [ItemSlot.BODY]: ['Flak Jacket', 'Chainmail', 'Kimono', 'Akatsuki Cloak (Tatters)', 'Battle Armor', 'Weighted Clothes', 'Sage Robe'],
-  [ItemSlot.ACCESSORY]: ['Ninja Scroll', 'Makimono', 'Soldier Pill Case', 'Family Crest', 'Charm', 'Bell', 'Necklace', 'Prayer Beads', 'Ring']
-};
-
-// ============================================================================
 // BOSS DEFINITIONS
 // ============================================================================
 export const BOSS_NAMES = {

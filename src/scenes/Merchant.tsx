@@ -1,5 +1,5 @@
 import React from 'react';
-import { Item, Player, Rarity, ItemSlot, DamageType } from '../game/types';
+import { Item, Player, Rarity, EquipmentSlot, DamageType, SLOT_MAPPING } from '../game/types';
 import { Coins } from 'lucide-react';
 import Tooltip from '../components/Tooltip';
 import { formatStatName } from '../game/utils/tooltipFormatters';
@@ -55,7 +55,9 @@ const Merchant: React.FC<MerchantProps> = ({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           {merchantItems.map(item => {
-            const equippedItem = player?.equipment[item.type as ItemSlot];
+            // Map legacy ItemSlot to EquipmentSlot, or use SLOT_1 for items without type
+            const targetSlot = item.type ? SLOT_MAPPING[item.type] : EquipmentSlot.SLOT_1;
+            const equippedItem = player?.equipment[targetSlot];
             const statComparisons: Record<string, { value: number; delta: number }> = {};
             const price = getPrice(item);
             const affordable = canAfford(item);
@@ -90,6 +92,13 @@ const Merchant: React.FC<MerchantProps> = ({
                     </div>
                     {item.description && (
                       <div className="text-xs text-zinc-400 italic">{item.description}</div>
+                    )}
+
+                    {/* Passive effect display for artifacts */}
+                    {!item.isComponent && item.passive && (
+                      <div className="text-[10px] text-purple-400 bg-purple-500/10 rounded px-1 py-0.5">
+                        Passive: {item.description}
+                      </div>
                     )}
 
                     <div className="border-t border-zinc-700 pt-2 space-y-1">

@@ -194,12 +194,97 @@ export enum SkillTier {
   FORBIDDEN = 'Forbidden'
 }
 
+// Legacy ItemSlot - kept for migration compatibility
 export enum ItemSlot {
   WEAPON = 'Weapon',
   HEAD = 'Head',
   BODY = 'Body',
   ACCESSORY = 'Accessory'
 }
+
+// ============================================================================
+// SYNTHESIS SYSTEM - TFT-Style Component Crafting
+// ============================================================================
+
+// 4 Generic equipment slots (replaces typed slots)
+export enum EquipmentSlot {
+  SLOT_1 = 'Slot1',
+  SLOT_2 = 'Slot2',
+  SLOT_3 = 'Slot3',
+  SLOT_4 = 'Slot4',
+}
+
+// Map legacy ItemSlot to EquipmentSlot for backwards compatibility
+export const SLOT_MAPPING: Record<ItemSlot, EquipmentSlot> = {
+  [ItemSlot.WEAPON]: EquipmentSlot.SLOT_1,
+  [ItemSlot.HEAD]: EquipmentSlot.SLOT_2,
+  [ItemSlot.BODY]: EquipmentSlot.SLOT_3,
+  [ItemSlot.ACCESSORY]: EquipmentSlot.SLOT_4,
+};
+
+// Component identifiers - Naruto-themed crafting materials
+export enum ComponentId {
+  NINJA_STEEL = 'ninja_steel',           // +Strength (forged metal)
+  SPIRIT_TAG = 'spirit_tag',             // +Spirit (ofuda/paper tags)
+  CHAKRA_PILL = 'chakra_pill',           // +Chakra (soldier pills)
+  IRON_SAND = 'iron_sand',               // +Willpower (Kazekage's sand)
+  ANBU_MASK = 'anbu_mask',               // +Calmness (emotional control)
+  TRAINING_WEIGHTS = 'training_weights', // +Dexterity (Rock Lee style)
+  SWIFT_SANDALS = 'swift_sandals',       // +Speed (shinobi footwear)
+  TACTICAL_SCROLL = 'tactical_scroll',   // +Intelligence (strategy guides)
+  HASHIRAMA_CELL = 'hashirama_cell',     // Special - Kekkei Genkai synthesis
+}
+
+// Passive effect types for synthesized artifacts
+export enum PassiveEffectType {
+  // Damage over Time
+  BLEED = 'bleed',
+  BURN = 'burn',
+  POISON = 'poison',
+
+  // Resource manipulation
+  CHAKRA_DRAIN = 'chakra_drain',
+  CHAKRA_RESTORE = 'chakra_restore',
+  LIFESTEAL = 'lifesteal',
+
+  // Defensive
+  REFLECT = 'reflect',
+  SHIELD_ON_START = 'shield_on_start',
+  INVULNERABLE_FIRST_TURN = 'invulnerable_first_turn',
+  DAMAGE_REDUCTION = 'damage_reduction',
+  REGEN = 'regen',
+  GUTS = 'guts',
+
+  // Offensive
+  PIERCE_DEFENSE = 'pierce_defense',
+  CONVERT_TO_ELEMENTAL = 'convert_to_elemental',
+  EXECUTE_THRESHOLD = 'execute_threshold',
+  COUNTER_ATTACK = 'counter_attack',
+
+  // Utility
+  FREE_FIRST_SKILL = 'free_first_skill',
+  COOLDOWN_RESET_ON_KILL = 'cooldown_reset_on_kill',
+  SEAL_CHANCE = 'seal_chance',
+
+  // Kekkei Genkai (Hashirama Cell combinations)
+  ALL_ELEMENTS = 'all_elements',
+  CLAN_TRAIT_UCHIHA = 'clan_trait_uchiha',
+  CLAN_TRAIT_UZUMAKI = 'clan_trait_uzumaki',
+  CLAN_TRAIT_HYUGA = 'clan_trait_hyuga',
+  CLAN_TRAIT_NARA = 'clan_trait_nara',
+}
+
+// Passive effect definition for artifacts
+export interface PassiveEffect {
+  type: PassiveEffectType;
+  value?: number;          // e.g., 25 for 25% chance, 5 for 5% HP
+  duration?: number;       // For DoTs/buffs in turns
+  triggerCondition?: 'on_hit' | 'on_kill' | 'on_crit' | 'combat_start' | 'turn_start' | 'below_half_hp';
+}
+
+// Synthesis system constants
+export const MAX_BAG_SLOTS = 8;
+export const DISASSEMBLE_RETURN_RATE = 0.5; // 50% value return when breaking artifacts
 
 // ============================================================================
 // EFFECTS & BUFFS
@@ -330,12 +415,19 @@ export interface ItemStatBonus {
 export interface Item {
   id: string;
   name: string;
-  type: ItemSlot;
+  type?: ItemSlot;           // Legacy: typed slot (optional for components/artifacts)
   rarity: Rarity;
   stats: ItemStatBonus;
   value: number;
   description?: string;
   requirements?: SkillRequirements;
+
+  // Synthesis system fields
+  isComponent: boolean;                    // true = basic component, false = artifact/legacy item
+  componentId?: ComponentId;               // Only for components
+  recipe?: [ComponentId, ComponentId];     // Only for artifacts - the components used to craft
+  passive?: PassiveEffect;                 // Only for artifacts - special effect
+  icon?: string;                           // Emoji or icon identifier for display
 }
 
 // ============================================================================
@@ -358,10 +450,13 @@ export interface Player {
   element: ElementType;
   ryo: number;
 
-  // Loadout
-  equipment: Record<ItemSlot, Item | null>;
+  // Loadout - 4 generic equipment slots (synthesis system)
+  equipment: Record<EquipmentSlot, Item | null>;
   skills: Skill[];
   activeBuffs: Buff[];
+
+  // Synthesis system - component inventory
+  componentBag: Item[];  // Max MAX_BAG_SLOTS (8) components for crafting
 }
 
 export interface Enemy {

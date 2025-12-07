@@ -1,4 +1,4 @@
-import { Player, Clan } from '../types';
+import { Player, Clan, EquipmentSlot } from '../types';
 import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS } from '../constants';
 import { calculateDerivedStats, getPlayerFullStats } from '../systems/StatSystem';
 
@@ -20,9 +20,15 @@ export const createPlayer = (clan: Clan): Player => {
     currentChakra: derived.maxChakra,
     element: clan === Clan.UCHIHA ? 'Fire' : clan === Clan.UZUMAKI ? 'Wind' : 'Physical' as any,
     ryo: 100,
-    equipment: { WEAPON: null, HEAD: null, BODY: null, ACCESSORY: null } as any,
+    equipment: {
+      [EquipmentSlot.SLOT_1]: null,
+      [EquipmentSlot.SLOT_2]: null,
+      [EquipmentSlot.SLOT_3]: null,
+      [EquipmentSlot.SLOT_4]: null,
+    },
     skills: [SKILLS.BASIC_ATTACK, SKILLS.SHURIKEN, { ...startSkill, level: 1 }],
-    activeBuffs: []
+    activeBuffs: [],
+    componentBag: [], // Empty component bag for synthesis system
   };
 };
 

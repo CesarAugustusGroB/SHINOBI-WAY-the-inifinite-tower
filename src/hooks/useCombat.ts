@@ -54,6 +54,9 @@ export interface UseCombatReturn {
     terrain: any
   ) => void;
   resetCombat: () => void;
+  autoCombatEnabled: boolean;
+  setAutoCombatEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  autoPassTimeRemaining: number | null;
 }
 
 /**
@@ -79,6 +82,8 @@ export function useCombat({
   // Combat-only state (not shared with exploration)
   const [enemy, setEnemy] = useState<Enemy | null>(null);
   const [turnState, setTurnState] = useState<TurnState>('PLAYER');
+  const [autoCombatEnabled, setAutoCombatEnabled] = useState(false);
+  const [autoPassTimeRemaining, setAutoPassTimeRemaining] = useState<number | null>(null);
 
   const combatRef = useRef<CombatRef>(null);
 
@@ -261,6 +266,37 @@ export function useCombat({
     setTurnState('PLAYER');
   }, []);
 
+  // Auto-pass effect: When enabled and it's player's turn, count down and auto-pass
+  useEffect(() => {
+    if (!autoCombatEnabled || turnState !== 'PLAYER' || !enemy) {
+      setAutoPassTimeRemaining(null);
+      return;
+    }
+
+    // Start countdown
+    setAutoPassTimeRemaining(TIMING.AUTO_PASS_DELAY);
+    const startTime = Date.now();
+
+    // Update countdown every 100ms for smooth display
+    const countdownInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, TIMING.AUTO_PASS_DELAY - elapsed);
+      setAutoPassTimeRemaining(remaining);
+    }, 100);
+
+    // Auto-pass after delay
+    const autoPassTimer = setTimeout(() => {
+      addLog('Auto-pass: Focusing on defense...', 'info');
+      setTurnState('ENEMY_TURN');
+    }, TIMING.AUTO_PASS_DELAY);
+
+    return () => {
+      clearTimeout(autoPassTimer);
+      clearInterval(countdownInterval);
+      setAutoPassTimeRemaining(null);
+    };
+  }, [autoCombatEnabled, turnState, enemy, addLog, setTurnState]);
+
   // Enemy turn effect
   useEffect(() => {
     if (turnState === 'ENEMY_TURN' && player && enemy && playerStats && enemyStats) {
@@ -358,5 +394,8 @@ export function useCombat({
     useSkill,
     startCombat,
     resetCombat,
+    autoCombatEnabled,
+    setAutoCombatEnabled,
+    autoPassTimeRemaining,
   };
 }

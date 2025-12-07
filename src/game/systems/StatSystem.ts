@@ -12,6 +12,7 @@ import {
   ItemStatBonus,
   Item,
   ItemSlot,
+  EquipmentSlot,
   Buff,
   EffectType,
   PrimaryStat,
@@ -115,7 +116,7 @@ export function calculateDerivedStats(
 // EQUIPMENT BONUS AGGREGATOR
 // Combines all equipped items into a single bonus object
 // ============================================================================
-export function aggregateEquipmentBonuses(equipment: Record<ItemSlot, Item | null>): ItemStatBonus {
+export function aggregateEquipmentBonuses(equipment: Record<EquipmentSlot, Item | null>): ItemStatBonus {
   const bonuses: ItemStatBonus = {};
 
   Object.values(equipment).forEach(item => {

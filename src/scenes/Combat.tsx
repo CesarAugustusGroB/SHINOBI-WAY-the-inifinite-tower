@@ -15,7 +15,7 @@ import { SkillCard } from '../components/SkillCard';
 import { CinematicViewscreen } from '../components/CinematicViewscreen';
 import PlayerHUD from '../components/PlayerHUD';
 import FloatingText, { FloatingTextItem, FloatingTextType } from '../components/FloatingText';
-import { Hourglass } from 'lucide-react';
+import { Hourglass, Zap, ZapOff } from 'lucide-react';
 import { calculateDamage, formatPercent } from '../game/systems/StatSystem';
 import { getElementEffectiveness } from '../game/constants';
 import {
@@ -45,6 +45,9 @@ interface CombatProps {
   droppedSkill?: Skill | null;
   getDamageTypeColor: (dt: DamageType) => string;
   getRarityColor: (rarity: Rarity) => string;
+  autoCombatEnabled?: boolean;
+  onToggleAutoCombat?: () => void;
+  autoPassTimeRemaining?: number | null;
 }
 
 const Combat = forwardRef<CombatRef, CombatProps>(({
@@ -56,7 +59,10 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
   onUseSkill,
   onPassTurn,
   droppedSkill,
-  getDamageTypeColor
+  getDamageTypeColor,
+  autoCombatEnabled = false,
+  onToggleAutoCombat,
+  autoPassTimeRemaining,
 }, ref) => {
   // Floating text state
   const [floatingTexts, setFloatingTexts] = useState<FloatingTextItem[]>([]);
@@ -344,7 +350,30 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
         </div>
 
         {/* Turn Control */}
-        <div className="mt-6 flex justify-end border-t border-zinc-800/50 pt-4">
+        <div className="mt-6 flex justify-between items-center border-t border-zinc-800/50 pt-4">
+          {/* Auto-Combat Toggle */}
+          <button
+            type="button"
+            onClick={onToggleAutoCombat}
+            className={`flex items-center gap-2 px-4 py-2 border transition-all duration-200 ${
+              autoCombatEnabled
+                ? 'border-amber-600/50 text-amber-400 bg-amber-950/30 hover:bg-amber-950/50'
+                : 'border-zinc-700 text-zinc-500 hover:border-zinc-600 hover:text-zinc-400 hover:bg-zinc-900/30'
+            }`}
+            title={autoCombatEnabled ? 'Auto-pass enabled - Click to disable' : 'Enable auto-pass for faster pacing'}
+          >
+            {autoCombatEnabled ? <Zap size={14} /> : <ZapOff size={14} />}
+            <span className="text-[10px] font-bold uppercase tracking-wider">
+              Auto
+            </span>
+            {autoCombatEnabled && autoPassTimeRemaining != null && turnState === 'PLAYER' && (
+              <span className="text-[10px] font-mono text-amber-500">
+                {(autoPassTimeRemaining / 1000).toFixed(1)}s
+              </span>
+            )}
+          </button>
+
+          {/* Pass Turn Button */}
           <button
             type="button"
             onClick={onPassTurn}

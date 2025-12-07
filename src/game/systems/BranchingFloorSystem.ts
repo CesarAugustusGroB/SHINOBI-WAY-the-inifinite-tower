@@ -20,7 +20,7 @@ import {
   ACTIVITY_ORDER,
 } from '../types';
 import { generateEnemy, getStoryArc } from './EnemySystem';
-import { generateItem } from './LootSystem';
+import { generateLoot, generateRandomArtifact } from './LootSystem';
 import {
   ROOM_TYPE_CONFIGS,
   getRandomRoomName,
@@ -134,7 +134,7 @@ function generateActivities(
     const itemCount = 2 + Math.floor(Math.random() * 3);
     const items: Item[] = [];
     for (let i = 0; i < itemCount; i++) {
-      items.push(generateItem(floor, difficulty));
+      items.push(generateLoot(floor, difficulty));
     }
 
     activities.merchant = {
@@ -221,7 +221,12 @@ function generateActivities(
     const itemCount = 1 + Math.floor(Math.random() * 2);
     const items: Item[] = [];
     for (let i = 0; i < itemCount; i++) {
-      items.push(generateItem(floor, difficulty + 10)); // Slightly better items in treasure
+      // Treasure rooms have a chance for artifacts
+      if (Math.random() < 0.3) {
+        items.push(generateRandomArtifact(floor, difficulty + 10));
+      } else {
+        items.push(generateLoot(floor, difficulty + 10));
+      }
     }
 
     activities.treasure = {
@@ -358,7 +363,7 @@ export function generateChildrenForRoom(
           completed: false,
         },
         treasure: {
-          items: [generateItem(floor, difficulty + 20)],
+          items: [generateRandomArtifact(floor, difficulty + 20)],
           ryo: 100 + floor * 15,
           collected: false,
         },

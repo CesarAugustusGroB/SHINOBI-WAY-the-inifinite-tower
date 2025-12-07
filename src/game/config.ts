@@ -8,6 +8,7 @@ export const TIMING = {
   ENEMY_TURN_DELAY: 800,
   FLOATING_TEXT_DURATION: 1500,
   COMBAT_ANIMATION_DELAY: 300,
+  AUTO_PASS_DELAY: 2500, // Delay before auto-passing turn when auto-combat is enabled
 } as const;
 
 // Game balance constants

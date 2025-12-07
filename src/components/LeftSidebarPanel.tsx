@@ -1,18 +1,36 @@
 import React from 'react';
 import { useGame } from '../contexts/GameContext';
 import { getStoryArc } from '../game/systems/EnemySystem';
+import { Item, EquipmentSlot } from '../game/types';
 import FloorPanel from './FloorPanel';
 import PrimaryStatsPanel from './PrimaryStatsPanel';
 import DerivedStatsPanel from './DerivedStatsPanel';
 import EquipmentPanel from './EquipmentPanel';
+import ComponentBag from './ComponentBag';
 
 interface LeftSidebarPanelProps {
   // Props are now optional - uses context if not provided
   storyArcLabel?: string;
+  // Synthesis system props
+  selectedComponent?: Item | null;
+  onSelectComponent?: (item: Item) => void;
+  onSellComponent?: (item: Item) => void;
+  onSynthesize?: (compA: Item, compB: Item) => void;
+  // Equipment panel action props
+  onSellEquipped?: (slot: EquipmentSlot, item: Item) => void;
+  onUnequipToBag?: (slot: EquipmentSlot, item: Item) => void;
+  onDisassembleEquipped?: (slot: EquipmentSlot, item: Item) => void;
 }
 
 const LeftSidebarPanel: React.FC<LeftSidebarPanelProps> = ({
-  storyArcLabel
+  storyArcLabel,
+  selectedComponent,
+  onSelectComponent,
+  onSellComponent,
+  onSynthesize,
+  onSellEquipped,
+  onUnequipToBag,
+  onDisassembleEquipped,
 }) => {
   const { player, playerStats, floor } = useGame();
 
@@ -39,7 +57,21 @@ const LeftSidebarPanel: React.FC<LeftSidebarPanelProps> = ({
 
       <EquipmentPanel
         equipment={player.equipment}
+        onSellEquipped={onSellEquipped}
+        onUnequip={onUnequipToBag}
+        onDisassemble={onDisassembleEquipped}
       />
+
+      {/* Component Bag - only show when player has components or handlers are available */}
+      {onSelectComponent && onSellComponent && (
+        <ComponentBag
+          components={player.componentBag}
+          onSelectComponent={onSelectComponent}
+          onSellComponent={onSellComponent}
+          selectedComponent={selectedComponent || null}
+          onSynthesize={onSynthesize}
+        />
+      )}
 
       {/* Wallet Display */}
       <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">

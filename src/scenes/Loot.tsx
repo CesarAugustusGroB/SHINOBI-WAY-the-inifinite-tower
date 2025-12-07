@@ -1,6 +1,6 @@
 import React from 'react';
-import { Item, Skill, Player, SkillTier, Rarity, ItemSlot, DamageType } from '../game/types';
-import { Scroll } from 'lucide-react';
+import { Item, Skill, Player, SkillTier, Rarity, EquipmentSlot, DamageType, MAX_BAG_SLOTS, SLOT_MAPPING } from '../game/types';
+import { Scroll, Package } from 'lucide-react';
 import Tooltip from '../components/Tooltip';
 import {
   formatStatName,
@@ -11,6 +11,7 @@ import {
   getEffectIcon,
   formatEffectDescription,
 } from '../game/utils/tooltipFormatters';
+import { getRecipesUsingComponent } from '../game/constants/synthesis';
 
 interface LootProps {
   droppedItems: Item[];
@@ -19,6 +20,7 @@ interface LootProps {
   playerStats: any;
   onEquipItem: (item: Item) => void;
   onSellItem: (item: Item) => void;
+  onStoreToBag?: (item: Item) => void; // New: Store component in bag
   onLearnSkill: (skill: Skill, slotIndex?: number) => void;
   onLeaveAll: () => void;
   getRarityColor: (rarity: Rarity) => string;
@@ -33,12 +35,16 @@ const Loot: React.FC<LootProps> = ({
   playerStats,
   onEquipItem,
   onSellItem,
+  onStoreToBag,
   onLearnSkill,
   onLeaveAll,
   getRarityColor,
   getDamageTypeColor,
   isProcessing = false
 }) => {
+  // Check if bag has space
+  const bagHasSpace = player ? player.componentBag.length < MAX_BAG_SLOTS : false;
+  const bagSlotCount = player?.componentBag.length || 0;
   return (
     <div className="w-full max-w-6xl z-10">
       <h2 className="text-2xl text-center mb-2 text-zinc-500 font-serif tracking-[0.5em] uppercase">Spoils of War</h2>
@@ -46,7 +52,9 @@ const Loot: React.FC<LootProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         {droppedItems.map(item => {
           // Calculate stat comparison with currently equipped item
-          const equippedItem = player?.equipment[item.type as ItemSlot];
+          // Map legacy ItemSlot to EquipmentSlot, or find first empty slot for items without type
+          const targetSlot = item.type ? SLOT_MAPPING[item.type] : EquipmentSlot.SLOT_1;
+          const equippedItem = player?.equipment[targetSlot];
           const statComparisons: Record<string, { value: number; delta: number }> = {};
 
           Object.entries(item.stats).forEach(([key, val]) => {
@@ -103,16 +111,36 @@ const Loot: React.FC<LootProps> = ({
                   </div>
 
                   <div className="border-t border-zinc-700 pt-2 text-[10px] text-yellow-600">
-                    Sell Value: {Math.floor(item.value * 0.6)} Ryo
+                    Sell: {Math.floor(item.value * 0.6)} Ryō (60%)
                   </div>
                 </div>
               }
             >
-              <div className="bg-black border border-zinc-800 p-6 flex flex-col gap-4 cursor-help">
+              <div className={`bg-black border p-6 flex flex-col gap-4 cursor-help ${item.isComponent ? 'border-amber-900/30' : 'border-zinc-800'}`}>
                 <div>
-                  <h3 className={`font-bold text-lg mb-1 ${getRarityColor(item.rarity)}`}>{item.name}</h3>
-                  <p className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">{item.type} • {item.rarity}</p>
+                  <h3 className={`font-bold text-lg mb-1 ${getRarityColor(item.rarity)}`}>
+                    {item.icon && <span className="mr-2">{item.icon}</span>}
+                    {item.name}
+                  </h3>
+                  <p className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">
+                    {item.isComponent ? 'Component' : (item.type || 'Artifact')} • {item.rarity}
+                  </p>
                 </div>
+
+                {/* Component description */}
+                {item.isComponent && item.description && (
+                  <p className="text-[10px] text-zinc-500 italic">{item.description}</p>
+                )}
+
+                {/* Artifact passive preview */}
+                {!item.isComponent && item.passive && (
+                  <div className="bg-purple-500/10 border border-purple-500/30 rounded p-2">
+                    <p className="text-[10px] text-purple-300">
+                      Passive: {item.description}
+                    </p>
+                  </div>
+                )}
+
                 <div className="space-y-1 text-xs font-mono text-zinc-500">
                   {Object.entries(item.stats).map(([key, val]) => (
                     <div key={key} className="flex justify-between uppercase">
@@ -128,7 +156,16 @@ const Loot: React.FC<LootProps> = ({
                     </div>
                   ))}
                 </div>
-                <div className="grid grid-cols-2 gap-3 mt-auto pt-3">
+
+                {/* Component synthesis hint */}
+                {item.isComponent && item.componentId && (
+                  <div className="text-[9px] text-amber-400/70 border-t border-zinc-800 pt-2">
+                    Can be combined into {getRecipesUsingComponent(item.componentId).length} artifacts
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div className={`grid gap-3 mt-auto pt-3 ${item.isComponent && onStoreToBag ? 'grid-cols-3' : 'grid-cols-2'}`}>
                   <button
                     type="button"
                     disabled={isProcessing}
@@ -137,6 +174,23 @@ const Loot: React.FC<LootProps> = ({
                   >
                     Equip
                   </button>
+                  {/* Store in Bag button for components */}
+                  {item.isComponent && onStoreToBag && (
+                    <button
+                      type="button"
+                      disabled={isProcessing || !bagHasSpace}
+                      onClick={(e) => { e.stopPropagation(); onStoreToBag(item); }}
+                      className={`py-2 border text-[10px] font-bold uppercase disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 ${
+                        bagHasSpace
+                          ? 'bg-amber-900/20 hover:bg-amber-900/40 border-amber-900 text-amber-300'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-600'
+                      }`}
+                      title={bagHasSpace ? `Store in bag (${bagSlotCount}/${MAX_BAG_SLOTS})` : 'Bag is full'}
+                    >
+                      <Package size={12} />
+                      {bagSlotCount}/{MAX_BAG_SLOTS}
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={isProcessing}

@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   GameState, Player, Clan, Skill, Enemy, Item, Rarity, DamageType,
-  ApproachType, BranchingRoom, PrimaryStat, TrainingActivity, TrainingIntensity
+  ApproachType, BranchingRoom, PrimaryStat, TrainingActivity, TrainingIntensity,
+  EquipmentSlot, MAX_BAG_SLOTS
 } from './game/types';
 import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS } from './game/constants';
 import {
@@ -10,7 +11,16 @@ import {
   canLearnSkill
 } from './game/systems/StatSystem';
 import { generateEnemy } from './game/systems/EnemySystem';
-import { generateItem, generateSkillLoot, equipItem as equipItemFn, sellItem as sellItemFn } from './game/systems/LootSystem';
+import {
+  generateLoot,
+  generateRandomArtifact,
+  generateSkillLoot,
+  equipItem as equipItemFn,
+  sellItem as sellItemFn,
+  addToBag,
+  synthesize,
+  disassemble
+} from './game/systems/LootSystem';
 import {
   CombatState,
   createCombatState,
@@ -65,6 +75,7 @@ const App: React.FC = () => {
   const [merchantItems, setMerchantItems] = useState<Item[]>([]);
   const [merchantDiscount, setMerchantDiscount] = useState<number>(0);
   const [trainingData, setTrainingData] = useState<TrainingActivity | null>(null);
+  const [selectedComponent, setSelectedComponent] = useState<Item | null>(null);
   const logIdCounter = useRef<number>(0);
 
   // --- Shared Combat/Exploration State ---
@@ -160,12 +171,11 @@ const App: React.FC = () => {
       const ryoGain = (floor * 15) + Math.floor(Math.random() * 25);
       updatedPlayer.ryo += ryoGain;
 
-      let rarityBonus = undefined;
-      if (isBoss) rarityBonus = Rarity.EPIC;
-      if (isAmbush || isGuardian) rarityBonus = Rarity.LEGENDARY;
+      // Boss/elite drops get guaranteed artifacts, regular drops get components
+      const isBossOrElite = isBoss || isAmbush || isGuardian;
 
-      const item1 = generateItem(floor, difficulty, rarityBonus);
-      const item2 = generateItem(floor, difficulty);
+      const item1 = isBossOrElite ? generateRandomArtifact(floor, difficulty) : generateLoot(floor, difficulty);
+      const item2 = generateLoot(floor, difficulty);
       const skill = generateSkillLoot(enemyTier, floor);
 
       setDroppedItems([item1, item2]);
@@ -185,6 +195,9 @@ const App: React.FC = () => {
     setEnemy,
     setTurnState,
     useSkill,
+    autoCombatEnabled,
+    setAutoCombatEnabled,
+    autoPassTimeRemaining,
   } = useCombat({
     player,
     playerStats,
@@ -245,9 +258,15 @@ const App: React.FC = () => {
       currentChakra: derived.maxChakra,
       element: clan === Clan.UCHIHA ? 'Fire' : clan === Clan.UZUMAKI ? 'Wind' : 'Physical' as any,
       ryo: 100,
-      equipment: { WEAPON: null, HEAD: null, BODY: null, ACCESSORY: null } as any,
+      equipment: {
+        [EquipmentSlot.SLOT_1]: null,
+        [EquipmentSlot.SLOT_2]: null,
+        [EquipmentSlot.SLOT_3]: null,
+        [EquipmentSlot.SLOT_4]: null,
+      },
       skills: [SKILLS.BASIC_ATTACK, SKILLS.SHURIKEN, { ...startSkill, level: 1 }],
-      activeBuffs: []
+      activeBuffs: [],
+      componentBag: [],
     };
 
     setPlayer(newPlayer);
@@ -480,7 +499,7 @@ const App: React.FC = () => {
         break;
       case 'TRADE':
         if (player.ryo >= (choice.value || 150)) {
-          const item = generateItem(floor, difficulty, Rarity.RARE);
+          const item = generateRandomArtifact(floor, difficulty);
           setPlayer(p => p ? ({ ...p, ryo: p.ryo - (choice.value || 150) }) : null);
           setDroppedItems([item]);
           setDroppedSkill(null);
@@ -632,6 +651,109 @@ const App: React.FC = () => {
     }, 100);
   };
 
+  // Store component in bag instead of equipping
+  const storeToBag = (item: Item) => {
+    if (!player || isProcessingLoot) return;
+
+    const result = addToBag(player, item);
+    if (!result) {
+      addLog('Component bag is full!', 'danger');
+      return;
+    }
+
+    setIsProcessingLoot(true);
+    setPlayer(result);
+    addLog(`Stored ${item.name} in component bag.`, 'loot');
+    setTimeout(() => {
+      setIsProcessingLoot(false);
+      returnToMap();
+    }, 100);
+  };
+
+  // Sell component from bag
+  const sellComponent = (item: Item) => {
+    if (!player) return;
+    const value = Math.floor(item.value * 0.6);
+    setPlayer(prev => prev ? {
+      ...prev,
+      ryo: prev.ryo + value,
+      componentBag: prev.componentBag.filter(c => c.id !== item.id)
+    } : null);
+    addLog(`Sold ${item.name} for ${value} Ryō.`, 'loot');
+    setSelectedComponent(null);
+  };
+
+  // Synthesize two components into an artifact
+  const handleSynthesize = (compA: Item, compB: Item) => {
+    if (!player) return;
+
+    const artifact = synthesize(compA, compB);
+    if (!artifact) {
+      addLog('These components cannot be combined.', 'danger');
+      return;
+    }
+
+    // Remove both components from bag
+    const updatedBag = player.componentBag.filter(c => c.id !== compA.id && c.id !== compB.id);
+
+    // Equip the artifact
+    const playerWithArtifact = equipItemFn({ ...player, componentBag: updatedBag }, artifact);
+    setPlayer(playerWithArtifact);
+    addLog(`Synthesized ${artifact.name}!`, 'gain');
+    setSelectedComponent(null);
+  };
+
+  // Sell equipped item directly from equipment panel
+  const sellEquipped = (slot: EquipmentSlot, item: Item) => {
+    if (!player) return;
+    const value = Math.floor(item.value * 0.6);
+    setPlayer(prev => prev ? {
+      ...prev,
+      ryo: prev.ryo + value,
+      equipment: { ...prev.equipment, [slot]: null }
+    } : null);
+    addLog(`Sold ${item.name} for ${value} Ryō.`, 'loot');
+  };
+
+  // Unequip component to bag
+  const unequipToBag = (slot: EquipmentSlot, item: Item) => {
+    if (!player || !item.isComponent) return;
+    if (player.componentBag.length >= MAX_BAG_SLOTS) {
+      addLog('Component bag is full!', 'danger');
+      return;
+    }
+    setPlayer(prev => prev ? {
+      ...prev,
+      equipment: { ...prev.equipment, [slot]: null },
+      componentBag: [...prev.componentBag, item]
+    } : null);
+    addLog(`Moved ${item.name} to bag.`, 'info');
+  };
+
+  // Disassemble artifact into components
+  const handleDisassembleEquipped = (slot: EquipmentSlot, item: Item) => {
+    if (!player || item.isComponent || !item.recipe) return;
+
+    const components = disassemble(item);
+    if (!components) {
+      addLog('Cannot disassemble this item.', 'danger');
+      return;
+    }
+
+    // Check bag space for 2 components
+    if (player.componentBag.length + 2 > MAX_BAG_SLOTS) {
+      addLog('Not enough bag space for components!', 'danger');
+      return;
+    }
+
+    setPlayer(prev => prev ? {
+      ...prev,
+      equipment: { ...prev.equipment, [slot]: null },
+      componentBag: [...prev.componentBag, ...components]
+    } : null);
+    addLog(`Disassembled ${item.name} into ${components[0].name} + ${components[1].name}!`, 'loot');
+  };
+
   const buyItem = (item: Item) => {
     if (!player || isProcessingLoot) return;
 
@@ -773,7 +895,15 @@ const App: React.FC = () => {
       {/* Left Panel - Hidden during combat */}
       {!isCombat && (
         <div className="hidden lg:flex w-[320px] flex-col border-r border-zinc-900 bg-zinc-950 p-4">
-          <LeftSidebarPanel />
+          <LeftSidebarPanel
+            selectedComponent={selectedComponent}
+            onSelectComponent={setSelectedComponent}
+            onSellComponent={sellComponent}
+            onSynthesize={handleSynthesize}
+            onSellEquipped={sellEquipped}
+            onUnequipToBag={unequipToBag}
+            onDisassembleEquipped={handleDisassembleEquipped}
+          />
         </div>
       )}
 
@@ -813,6 +943,9 @@ const App: React.FC = () => {
               }}
               getDamageTypeColor={getDamageTypeColor}
               getRarityColor={getRarityColor}
+              autoCombatEnabled={autoCombatEnabled}
+              onToggleAutoCombat={() => setAutoCombatEnabled(prev => !prev)}
+              autoPassTimeRemaining={autoPassTimeRemaining}
             />
           )}
 
@@ -828,6 +961,7 @@ const App: React.FC = () => {
               playerStats={playerStats}
               onEquipItem={equipItem}
               onSellItem={sellItem}
+              onStoreToBag={storeToBag}
               onLearnSkill={learnSkill}
               onLeaveAll={returnToMap}
               getRarityColor={getRarityColor}
