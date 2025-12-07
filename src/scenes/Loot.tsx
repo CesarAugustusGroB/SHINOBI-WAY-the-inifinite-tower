@@ -165,7 +165,7 @@ const Loot: React.FC<LootProps> = ({
                 )}
 
                 {/* Action buttons */}
-                <div className={`grid gap-3 mt-auto pt-3 ${item.isComponent && onStoreToBag ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                <div className={`grid gap-3 mt-auto pt-3 ${onStoreToBag ? 'grid-cols-3' : 'grid-cols-2'}`}>
                   <button
                     type="button"
                     disabled={isProcessing}
@@ -174,8 +174,8 @@ const Loot: React.FC<LootProps> = ({
                   >
                     Equip
                   </button>
-                  {/* Store in Bag button for components */}
-                  {item.isComponent && onStoreToBag && (
+                  {/* Store in Bag button for all items */}
+                  {onStoreToBag && (
                     <button
                       type="button"
                       disabled={isProcessing || !bagHasSpace}

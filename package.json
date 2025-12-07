@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "simulate": "npx tsx src/simulation/index.ts",
+    "simulate:quick": "npx tsx src/simulation/index.ts --quick"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
@@ -19,6 +21,7 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.0",
+    "tsx": "^4.19.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }

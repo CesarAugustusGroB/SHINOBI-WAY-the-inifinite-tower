@@ -748,19 +748,19 @@ const App: React.FC = () => {
     }, 100);
   };
 
-  // Store component in bag instead of equipping
+  // Store item in bag instead of equipping
   const storeToBag = (item: Item) => {
     if (!player || isProcessingLoot) return;
 
     const result = addToBag(player, item);
     if (!result) {
-      addLog('Component bag is full!', 'danger');
+      addLog('Bag is full!', 'danger');
       return;
     }
 
     setIsProcessingLoot(true);
     setPlayer(result);
-    addLog(`Stored ${item.name} in component bag.`, 'loot');
+    addLog(`Stored ${item.name} in bag.`, 'loot');
     setTimeout(() => {
       setIsProcessingLoot(false);
       returnToMap();
@@ -790,12 +790,12 @@ const App: React.FC = () => {
       return;
     }
 
-    // Remove both components from bag
-    const updatedBag = player.componentBag.filter(c => c.id !== compA.id && c.id !== compB.id);
+    // Remove both components from bag and add the artifact
+    const updatedBag = player.componentBag
+      .filter(c => c.id !== compA.id && c.id !== compB.id)
+      .concat(artifact);
 
-    // Equip the artifact
-    const playerWithArtifact = equipItemFn({ ...player, componentBag: updatedBag }, artifact);
-    setPlayer(playerWithArtifact);
+    setPlayer({ ...player, componentBag: updatedBag });
     addLog(`Synthesized ${artifact.name}!`, 'gain');
     setSelectedComponent(null);
   };
