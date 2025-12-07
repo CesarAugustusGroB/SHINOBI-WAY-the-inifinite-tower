@@ -162,6 +162,7 @@ export const formatEffectDescription = (effect: EffectDefinition): string => {
 
 // Full buff description (for active buffs display)
 export const getBuffDescription = (buff: Buff): string => {
+  if (!buff?.effect) return buff?.name || 'Unknown effect';
   const { type, value, targetStat } = buff.effect;
   switch (type) {
     case EffectType.STUN:

@@ -1,33 +1,55 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
-  GameState, Player, Clan, Skill, Enemy, Room, Item, Rarity, DamageType, EffectType, Buff
+  GameState, Player, Clan, Skill, Enemy, Item, Rarity, DamageType,
+  ApproachType, BranchingRoom, PrimaryStat, TrainingActivity, TrainingIntensity
 } from './game/types';
-import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS, getElementEffectiveness } from './game/constants';
+import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS } from './game/constants';
 import {
   calculateDerivedStats,
   getPlayerFullStats,
-  getEnemyFullStats,
-  canLearnSkill,
-  calculateDamage
+  canLearnSkill
 } from './game/systems/StatSystem';
-import { getStoryArc, generateEnemy } from './game/systems/EnemySystem';
+import { generateEnemy } from './game/systems/EnemySystem';
 import { generateItem, generateSkillLoot, equipItem as equipItemFn, sellItem as sellItemFn } from './game/systems/LootSystem';
-import { processEnemyTurn, useSkill as useSkillCombat } from './game/systems/CombatSystem';
-import { generateRooms } from './game/systems/RoomSystem';
+import {
+  CombatState,
+  createCombatState,
+  applyApproachEffects
+} from './game/systems/CombatSystem';
+import {
+  executeApproach,
+  applyApproachCosts,
+  applyEnemyHpReduction,
+  getCombatModifiers
+} from './game/systems/ApproachSystem';
+import { TERRAIN_DEFINITIONS } from './game/constants/terrain';
+import {
+  generateBranchingFloor,
+  moveToRoom,
+  getCurrentActivity,
+  completeActivity,
+  getCurrentRoom
+} from './game/systems/BranchingFloorSystem';
+import { useCombat } from './hooks/useCombat';
+import { useCombatExplorationState } from './hooks/useCombatExplorationState';
+import { GameProvider, GameContextValue } from './contexts/GameContext';
+import { LIMITS } from './game/config';
 import MainMenu from './scenes/MainMenu';
 import CharacterSelect from './scenes/CharacterSelect';
-import Exploration from './scenes/Exploration';
-import Combat, { CombatRef } from './scenes/Combat';
+import Combat from './scenes/Combat';
 import Event from './scenes/Event';
 import Loot from './scenes/Loot';
+import Merchant from './scenes/Merchant';
+import Training from './scenes/Training';
 import GameOver from './scenes/GameOver';
 import GameGuide from './scenes/GameGuide';
 import LeftSidebarPanel from './components/LeftSidebarPanel';
+import ApproachSelector from './components/ApproachSelector';
+import BranchingExplorationMap from './components/BranchingExplorationMap';
+import PlayerHUD from './components/PlayerHUD';
 
 // Import the parchment background styles
 import './App.css';
-
-const generateId = () => Math.random().toString(36).substring(2, 9);
 
 const App: React.FC = () => {
   // --- Core State ---
@@ -35,24 +57,37 @@ const App: React.FC = () => {
   const [floor, setFloor] = useState(1);
   const [logs, setLogs] = useState<any[]>([]);
   const [player, setPlayer] = useState<Player | null>(null);
-  const [enemy, setEnemy] = useState<Enemy | null>(null);
-  const [roomChoices, setRoomChoices] = useState<Room[]>([]);
   const [droppedItems, setDroppedItems] = useState<Item[]>([]);
   const [droppedSkill, setDroppedSkill] = useState<Skill | null>(null);
   const [activeEvent, setActiveEvent] = useState<any>(null);
   const [difficulty, setDifficulty] = useState<number>(20);
-  const [turnState, setTurnState] = useState<'PLAYER' | 'ENEMY_TURN'>('PLAYER');
+  const [isProcessingLoot, setIsProcessingLoot] = useState(false);
+  const [merchantItems, setMerchantItems] = useState<Item[]>([]);
+  const [merchantDiscount, setMerchantDiscount] = useState<number>(0);
+  const [trainingData, setTrainingData] = useState<TrainingActivity | null>(null);
   const logIdCounter = useRef<number>(0);
 
-  // Combat ref for floating text
-  const combatRef = useRef<CombatRef>(null);
+  // --- Shared Combat/Exploration State ---
+  // This hook owns state needed by both useCombat and useExploration
+  const {
+    combatState,
+    setCombatState,
+    approachResult,
+    setApproachResult,
+    branchingFloor,
+    setBranchingFloor,
+    selectedBranchingRoom,
+    setSelectedBranchingRoom,
+    showApproachSelector,
+    setShowApproachSelector,
+  } = useCombatExplorationState();
 
   const addLog = useCallback((text: string, type: any = 'info', details?: string) => {
     setLogs(prev => {
       logIdCounter.current += 1;
       const newEntry: any = { id: logIdCounter.current, text, type, details };
       const newLogs = [...prev, newEntry];
-      if (newLogs.length > 50) newLogs.shift();
+      if (newLogs.length > LIMITS.MAX_LOG_ENTRIES) newLogs.shift();
       return newLogs;
     });
   }, []);
@@ -62,10 +97,107 @@ const App: React.FC = () => {
     return getPlayerFullStats(player);
   }, [player]);
 
-  const enemyStats = useMemo(() => {
-    if (!enemy) return null;
-    return getEnemyFullStats(enemy);
-  }, [enemy]);
+  // Create game context value for child components
+  const gameContextValue = useMemo((): GameContextValue => ({
+    player,
+    playerStats,
+    floor,
+    difficulty,
+    logs,
+    addLog,
+  }), [player, playerStats, floor, difficulty, logs, addLog]);
+
+  // Victory handler for combat hook
+  const handleCombatVictory = useCallback((defeatedEnemy: Enemy, combatStateAtVictory: CombatState | null) => {
+    addLog("Enemy Defeated!", 'gain');
+
+    // Complete combat activity in branching floor
+    if (branchingFloor) {
+      setBranchingFloor(prevFloor => {
+        if (!prevFloor) return prevFloor;
+        const combatRoom = getCurrentRoom(prevFloor);  // Uses currentRoomId set by moveToRoom
+        if (!combatRoom) return prevFloor;
+
+        let updatedFloor = completeActivity(prevFloor, combatRoom.id, 'combat');
+        if (updatedFloor.currentRoomId !== combatRoom.id) {
+          updatedFloor = {
+            ...updatedFloor,
+            currentRoomId: combatRoom.id,
+            rooms: updatedFloor.rooms.map(room => ({
+              ...room,
+              isCurrent: room.id === combatRoom.id,
+            })),
+          };
+        }
+
+        const updatedRoom = updatedFloor.rooms.find(r => r.id === combatRoom.id);
+        if (updatedRoom?.isCleared && updatedRoom.isExit) {
+          addLog('You cleared the exit! Proceed to the next floor?', 'gain');
+        }
+
+        return updatedFloor;
+      });
+    }
+
+    // Apply XP multiplier from approach
+    const xpMultiplier = combatStateAtVictory?.xpMultiplier || 1.0;
+
+    setPlayer(prev => {
+      if (!prev) return null;
+      const isBoss = defeatedEnemy?.isBoss;
+      const isAmbush = defeatedEnemy?.tier.includes('S-Rank');
+      const isGuardian = defeatedEnemy?.tier === 'Guardian';
+      const enemyTier = defeatedEnemy?.tier || 'Chunin';
+
+      const baseExp = 25 + (floor * 5);
+      const tierBonus = isGuardian ? 300 : enemyTier === 'Jonin' ? 20 : enemyTier === 'Kage Level' ? 200 : isAmbush ? 100 : 0;
+      const expGain = Math.floor((baseExp + tierBonus) * xpMultiplier);
+
+      let updatedPlayer = { ...prev, exp: prev.exp + expGain };
+      addLog(`Gained ${expGain} Experience${xpMultiplier > 1 ? ` (${Math.round((xpMultiplier - 1) * 100)}% bonus!)` : ''}.`, 'info');
+      updatedPlayer = checkLevelUp(updatedPlayer);
+
+      const ryoGain = (floor * 15) + Math.floor(Math.random() * 25);
+      updatedPlayer.ryo += ryoGain;
+
+      let rarityBonus = undefined;
+      if (isBoss) rarityBonus = Rarity.EPIC;
+      if (isAmbush || isGuardian) rarityBonus = Rarity.LEGENDARY;
+
+      const item1 = generateItem(floor, difficulty, rarityBonus);
+      const item2 = generateItem(floor, difficulty);
+      const skill = generateSkillLoot(enemyTier, floor);
+
+      setDroppedItems([item1, item2]);
+      setDroppedSkill(skill);
+      setGameState(GameState.LOOT);
+
+      return updatedPlayer;
+    });
+  }, [branchingFloor, floor, difficulty, addLog]);
+
+  // Combat hook - manages enemy, turns, and combat logic
+  const {
+    enemy,
+    enemyStats,
+    turnState,
+    combatRef,
+    setEnemy,
+    setTurnState,
+    useSkill,
+  } = useCombat({
+    player,
+    playerStats,
+    addLog,
+    setPlayer,
+    setGameState,
+    onVictory: handleCombatVictory,
+    // Pass shared state from useCombatExplorationState
+    combatState,
+    setCombatState,
+    approachResult,
+    setApproachResult,
+  });
 
   const checkLevelUp = (p: Player): Player => {
     let currentPlayer = { ...p };
@@ -126,27 +258,191 @@ const App: React.FC = () => {
     setDroppedSkill(null);
     setActiveEvent(null);
     setTurnState('PLAYER');
+    setShowApproachSelector(false);
+    setCombatState(null);
+    setApproachResult(null);
     addLog(`Lineage chosen: ${clan}. The Tower awaits.`, 'info');
-    const rooms = generateRooms(1, difficulty, newPlayer);
-    setRoomChoices(rooms);
-    setGameState(GameState.EXPLORE);
+
+    // Initialize branching floor exploration
+    const newBranchingFloor = generateBranchingFloor(1, difficulty, newPlayer);
+    setBranchingFloor(newBranchingFloor);
+    setSelectedBranchingRoom(null);
+    setGameState(GameState.BRANCHING_EXPLORE);
   };
 
-  const selectRoom = (room: Room) => {
-    if (room.type === 'REST') {
-      if (!player || !playerStats) return;
-      setPlayer({ ...player, currentHp: playerStats.derived.maxHp, currentChakra: playerStats.derived.maxChakra });
-      addLog('You rested. HP & Chakra fully restored.', 'gain');
-      nextFloor();
-    } else if (room.type === 'EVENT' && room.eventDefinition) {
-      setActiveEvent(room.eventDefinition);
-      setGameState(GameState.EVENT);
-    } else if (['COMBAT', 'ELITE', 'BOSS', 'AMBUSH'].includes(room.type) && room.enemy) {
-      setEnemy(room.enemy);
-      setTurnState('PLAYER');
-      setGameState(GameState.COMBAT);
-      addLog(`Engaged: ${room.enemy.name}`, 'danger');
-      if (room.type === 'AMBUSH') addLog("DANGER! An S-Rank Rogue blocks your path!", 'danger');
+  // Cancel approach selection
+  const handleApproachCancel = () => {
+    setShowApproachSelector(false);
+    setSelectedBranchingRoom(null);
+  };
+
+  // Handle approach selection for BRANCHING exploration combat
+  const handleBranchingApproachSelect = (approach: ApproachType) => {
+    if (!player || !playerStats || !selectedBranchingRoom || !branchingFloor) return;
+
+    const combat = selectedBranchingRoom.activities.combat;
+    if (!combat || !combat.enemy) return;
+
+    const terrain = TERRAIN_DEFINITIONS[selectedBranchingRoom.terrain];
+    const result = executeApproach(
+      approach,
+      player,
+      playerStats,
+      combat.enemy,
+      terrain
+    );
+
+    setApproachResult(result);
+    addLog(result.description, result.success ? 'gain' : 'info');
+
+    // Apply costs
+    const playerAfterCosts = applyApproachCosts(player, result);
+    setPlayer(playerAfterCosts);
+
+    if (result.skipCombat) {
+      // Successfully bypassed combat - mark as completed
+      addLog('You slip past undetected!', 'gain');
+      setShowApproachSelector(false);
+
+      // Mark combat as completed in branching floor
+      setBranchingFloor(prevFloor => {
+        if (!prevFloor || !selectedBranchingRoom) return prevFloor;
+        return completeActivity(prevFloor, selectedBranchingRoom.id, 'combat');
+      });
+
+      // Return to map - this will clear selectedBranchingRoom properly
+      returnToMap();
+      return;
+    }
+
+    // Set up enemy with any HP reduction from approach
+    let combatEnemy = combat.enemy;
+    if (result.enemyHpReduction > 0) {
+      combatEnemy = applyEnemyHpReduction(combatEnemy, result);
+      addLog(`Your approach dealt ${Math.floor(combat.enemy.currentHp * result.enemyHpReduction)} damage!`, 'combat');
+    }
+
+    // Apply approach effects to both combatants
+    const modifiers = getCombatModifiers(result);
+    const { player: preparedPlayer, enemy: preparedEnemy, logs: effectLogs } = applyApproachEffects(
+      playerAfterCosts,
+      combatEnemy,
+      modifiers
+    );
+    effectLogs.forEach(log => addLog(log, 'info'));
+
+    // Create combat state with modifiers
+    const newCombatState = createCombatState(modifiers, terrain);
+    setCombatState(newCombatState);
+
+    // Set up combat
+    setPlayer(preparedPlayer);
+    setEnemy(preparedEnemy);
+    setTurnState('PLAYER');
+    setShowApproachSelector(false);
+    setGameState(GameState.COMBAT);
+    addLog(`Engaged: ${combatEnemy.name}`, 'danger');
+  };
+
+  // ============================================================================
+  // BRANCHING EXPLORATION HANDLERS
+  // ============================================================================
+
+  // Handle selecting a room in branching exploration
+  const handleBranchingRoomSelect = (room: BranchingRoom) => {
+    setSelectedBranchingRoom(room);
+  };
+
+  // Handle entering a room in branching exploration
+  const handleBranchingRoomEnter = (room: BranchingRoom) => {
+    if (!branchingFloor || !player || !playerStats) return;
+
+    // Move to the room
+    const updatedFloor = moveToRoom(branchingFloor, room.id);
+    setBranchingFloor(updatedFloor);
+
+    // Get the current activity for the room
+    const currentRoom = updatedFloor.rooms.find(r => r.id === room.id);
+    if (!currentRoom) return;
+
+    const activity = getCurrentActivity(currentRoom);
+
+    if (!activity) {
+      // Room is already cleared or has no activities
+      addLog(`You enter ${currentRoom.name}. Nothing remains here.`, 'info');
+      return;
+    }
+
+    // Handle the current activity
+    switch (activity) {
+      case 'combat':
+        if (currentRoom.activities.combat) {
+          // Show approach selector for combat
+          setSelectedBranchingRoom(currentRoom);
+          setShowApproachSelector(true);
+          addLog(`Enemy spotted: ${currentRoom.activities.combat.enemy.name}. Choose your approach!`, 'info');
+        }
+        break;
+
+      case 'merchant':
+        if (currentRoom.activities.merchant) {
+          setMerchantItems(currentRoom.activities.merchant.items);
+          setMerchantDiscount(currentRoom.activities.merchant.discountPercent || 0);
+          setSelectedBranchingRoom(currentRoom);
+          setGameState(GameState.MERCHANT);
+          addLog(`A merchant greets you. ${currentRoom.activities.merchant.items.length} items available.`, 'info');
+        }
+        break;
+
+      case 'event':
+        if (currentRoom.activities.event) {
+          setActiveEvent(currentRoom.activities.event.definition);
+          setGameState(GameState.EVENT);
+        }
+        break;
+
+      case 'rest':
+        if (currentRoom.activities.rest) {
+          const restData = currentRoom.activities.rest;
+          const hpHeal = Math.floor(playerStats.derived.maxHp * (restData.healPercent / 100));
+          const chakraHeal = Math.floor(playerStats.derived.maxChakra * (restData.chakraRestorePercent / 100));
+
+          setPlayer(p => p ? {
+            ...p,
+            currentHp: Math.min(playerStats.derived.maxHp, p.currentHp + hpHeal),
+            currentChakra: Math.min(playerStats.derived.maxChakra, p.currentChakra + chakraHeal)
+          } : null);
+
+          addLog(`You rest and recover. +${hpHeal} HP, +${chakraHeal} Chakra.`, 'gain');
+
+          const updatedFloorAfterRest = completeActivity(updatedFloor, room.id, 'rest');
+          setBranchingFloor(updatedFloorAfterRest);
+        }
+        break;
+
+      case 'training':
+        if (currentRoom.activities.training && !currentRoom.activities.training.completed) {
+          setTrainingData(currentRoom.activities.training);
+          setSelectedBranchingRoom(currentRoom);
+          setGameState(GameState.TRAINING);
+          addLog('You arrive at a training area. Choose your training regimen.', 'info');
+        }
+        break;
+
+      case 'treasure':
+        if (currentRoom.activities.treasure) {
+          const treasure = currentRoom.activities.treasure;
+          setDroppedItems(treasure.items);
+          setDroppedSkill(null);
+          if (treasure.ryo > 0) {
+            setPlayer(p => p ? { ...p, ryo: p.ryo + treasure.ryo } : null);
+            addLog(`Found treasure! +${treasure.ryo} Ryo.`, 'loot');
+          }
+          const updatedFloorAfterTreasure = completeActivity(updatedFloor, room.id, 'treasure');
+          setBranchingFloor(updatedFloorAfterTreasure);
+          setGameState(GameState.LOOT);
+        }
+        break;
     }
   };
 
@@ -196,7 +492,8 @@ const App: React.FC = () => {
         break;
       case 'FIGHT_GHOST':
         // Generate a ghost enemy and start combat
-        const ghostEnemy = generateEnemy(floor, difficulty, 'Vengeful Spirit', 'ASSASSIN', false);
+        const ghostEnemy = generateEnemy(floor, 'ELITE', difficulty);
+        ghostEnemy.name = 'Vengeful Spirit';
         setEnemy(ghostEnemy);
         setTurnState('PLAYER');
         setGameState(GameState.COMBAT);
@@ -209,14 +506,29 @@ const App: React.FC = () => {
         break;
       case 'CHALLENGE_GUARDIAN':
         // Generate a guardian enemy (stronger than normal)
-        const guardian = generateEnemy(floor + 2, difficulty, 'Guardian', 'TANK', false);
+        const guardian = generateEnemy(floor + 2, 'ELITE', difficulty + 10);
+        guardian.name = 'Guardian';
+        guardian.tier = 'Guardian';
         setEnemy(guardian);
         setTurnState('PLAYER');
         setGameState(GameState.COMBAT);
         text = "The guardian accepts your challenge!"; type = 'danger'; next = false;
         break;
     }
-    if (next) { addLog(text, type); nextFloor(); }
+    if (next) {
+      addLog(text, type);
+
+      // Mark event as completed in branching floor
+      if (branchingFloor) {
+        const currentRoom = getCurrentRoom(branchingFloor);
+        if (currentRoom) {
+          const updatedFloor = completeActivity(branchingFloor, currentRoom.id, 'event');
+          setBranchingFloor(updatedFloor);
+        }
+      }
+      setActiveEvent(null);
+      setGameState(GameState.BRANCHING_EXPLORE);
+    }
   };
 
   const nextFloor = () => {
@@ -233,198 +545,43 @@ const App: React.FC = () => {
         currentHp: Math.min(stats.derived.maxHp, p.currentHp + stats.derived.hpRegen)
       };
 
-      // Generate rooms with updated player
-      const rooms = generateRooms(nextFloorNum, difficulty, updatedPlayer, stats.derived.maxHp);
-      setRoomChoices(rooms);
+      // Reset combat state
+      setShowApproachSelector(false);
+      setCombatState(null);
+      setApproachResult(null);
+
+      // Generate new branching floor
+      const newBranchingFloor = generateBranchingFloor(nextFloorNum, difficulty, updatedPlayer);
+      setBranchingFloor(newBranchingFloor);
+      setSelectedBranchingRoom(null);
 
       return updatedPlayer;
     });
-    setGameState(GameState.EXPLORE);
+
+    setGameState(GameState.BRANCHING_EXPLORE);
   };
 
-  const useSkill = (skill: Skill) => {
-    if (!player || !enemy || !playerStats || !enemyStats) return;
-
-    // Handle toggle skills
-    if (skill.isToggle) {
-      const isActive = skill.isActive || false;
-
-      // Check chakra cost for activation
-      if (!isActive && player.currentChakra < skill.chakraCost) {
-        addLog("Insufficient Chakra to activate!", 'danger');
-        return;
-      }
-
-      setPlayer(prev => {
-        if (!prev) return null;
-        let newBuffs = [...prev.activeBuffs];
-        let newSkills = prev.skills.map(s => s.id === skill.id ? { ...s, isActive: !isActive } : s);
-        let newChakra = prev.currentChakra;
-
-        if (isActive) {
-          // Deactivate: Remove all buffs from this skill
-          newBuffs = newBuffs.filter(b => b.source !== skill.name);
-          addLog(`${skill.name} Deactivated.`, 'info');
-        } else {
-          // Activate: Apply effects and pay initial cost
-          newChakra -= skill.chakraCost;
-          if (skill.effects) {
-            skill.effects.forEach(eff => {
-              const buff: Buff = {
-                id: Math.random().toString(36).substring(2, 9),
-                name: eff.type,
-                duration: eff.duration,
-                effect: eff,
-                source: skill.name
-              };
-              newBuffs.push(buff);
-            });
-          }
-          addLog(`${skill.name} Activated!`, 'gain');
-        }
-
-        return { ...prev, skills: newSkills, activeBuffs: newBuffs, currentChakra: newChakra };
-      });
-      setTurnState('ENEMY_TURN');
-      return;
-    }
-
-    // Use CombatSystem for regular skills
-    const result = useSkillCombat(player, playerStats, enemy, enemyStats, skill);
-
-    if (!result) return;
-
-    // Apply result to game state
-    addLog(result.logMessage, result.logType);
-
-    // Spawn floating combat text
-    if (result.damageDealt > 0) {
-      const isCrit = result.logMessage.includes('CRITICAL');
-      combatRef.current?.spawnFloatingText('enemy', result.damageDealt.toString(), isCrit ? 'crit' : 'damage');
-    } else if (result.logMessage.includes('MISSED') || result.logMessage.includes('EVADED')) {
-      combatRef.current?.spawnFloatingText('enemy', 'MISS', 'miss');
-    }
-
-    setPlayer(prev => prev ? {
-      ...prev,
-      currentHp: result.newPlayerHp,
-      currentChakra: result.newPlayerChakra,
-      activeBuffs: result.newPlayerBuffs,
-      skills: result.skillsUpdate || prev.skills
-    } : null);
-
-    setEnemy(prev => prev ? {
-      ...prev,
-      currentHp: result.newEnemyHp,
-      activeBuffs: result.newEnemyBuffs
-    } : null);
-
-    // Check for victory/defeat
-    if (result.enemyDefeated) {
-      handleVictory();
-    } else if (result.playerDefeated) {
-      setGameState(GameState.GAME_OVER);
-    } else {
-      setTurnState('ENEMY_TURN');
-    }
-  };
-
-  useEffect(() => {
-    if (turnState === 'ENEMY_TURN' && player && enemy && playerStats && enemyStats) {
-      const timer = setTimeout(() => {
-        const result = processEnemyTurn(player, playerStats, enemy, enemyStats);
-        result.logMessages.forEach(msg => {
-          addLog(msg, msg.includes('GUTS') ? 'gain' : msg.includes('took') ? 'combat' : 'danger');
-        });
-
-        // Calculate damage dealt to player for floating text
-        const playerDamageTaken = player.currentHp - result.newPlayerHp;
-        if (playerDamageTaken > 0) {
-          // Check if it was a crit from log messages
-          const isCrit = result.logMessages.some(m => m.includes('Crit'));
-          combatRef.current?.spawnFloatingText('player', playerDamageTaken.toString(), isCrit ? 'crit' : 'damage');
-        } else if (result.logMessages.some(m => m.includes('MISSED') || m.includes('EVADED'))) {
-          combatRef.current?.spawnFloatingText('player', 'MISS', 'miss');
-        }
-
-        // Check if enemy took DoT damage for floating text
-        const enemyDamageTaken = enemy.currentHp - result.newEnemyHp;
-        if (enemyDamageTaken > 0) {
-          combatRef.current?.spawnFloatingText('enemy', enemyDamageTaken.toString(), 'damage');
-        }
-
-        // Check for player healing (regen)
-        if (result.logMessages.some(m => m.includes('regenerated'))) {
-          const healMatch = result.logMessages.find(m => m.includes('You regenerated'));
-          if (healMatch) {
-            const healAmount = healMatch.match(/(\d+)/)?.[1];
-            if (healAmount) {
-              combatRef.current?.spawnFloatingText('player', healAmount, 'heal');
-            }
-          }
-        }
-
-        setPlayer(prev => prev ? { ...prev, currentHp: result.newPlayerHp, activeBuffs: result.newPlayerBuffs, skills: result.playerSkills } : null);
-        setEnemy(prev => prev ? { ...prev, currentHp: result.newEnemyHp, activeBuffs: result.newEnemyBuffs } : null);
-
-        if (result.enemyDefeated) {
-          handleVictory();
-        } else if (result.playerDefeated) {
-          setGameState(GameState.GAME_OVER);
-        } else {
-          setTurnState('PLAYER');
-        }
-      }, 800);
-
-      return () => clearTimeout(timer);
-    }
-  }, [turnState, player, enemy, playerStats, enemyStats]);
-
-  const handleVictory = () => {
-    addLog("Enemy Defeated!", 'gain');
+  // Return to exploration map after loot/events (without advancing floor)
+  const returnToMap = () => {
+    setDroppedItems([]);
+    setDroppedSkill(null);
     setEnemy(null);
-    setPlayer(prev => {
-      if (!prev) return null;
-      const isBoss = enemy?.isBoss;
-      const isAmbush = enemy?.tier.includes('S-Rank');
-      const isGuardian = enemy?.tier === 'Guardian';
-      const enemyTier = enemy?.tier || 'Chunin';
-
-      const baseExp = 25 + (floor * 5);
-      const tierBonus = isGuardian ? 300 : enemyTier === 'Jonin' ? 20 : enemyTier === 'Kage Level' ? 200 : isAmbush ? 100 : 0;
-      const expGain = baseExp + tierBonus;
-
-      let updatedPlayer = { ...prev, exp: prev.exp + expGain };
-      addLog(`Gained ${expGain} Experience.`, 'info');
-      updatedPlayer = checkLevelUp(updatedPlayer);
-
-      const ryoGain = (floor * 15) + Math.floor(Math.random() * 25);
-      updatedPlayer.ryo += ryoGain;
-
-      let rarityBonus = undefined;
-      if (isBoss) rarityBonus = Rarity.EPIC;
-      if (isAmbush || isGuardian) rarityBonus = Rarity.LEGENDARY;
-
-      const item1 = generateItem(floor, difficulty, rarityBonus);
-      const item2 = generateItem(floor, difficulty);
-      const skill = generateSkillLoot(enemyTier, floor);
-
-      setDroppedItems([item1, item2]);
-      setDroppedSkill(skill);
-      setGameState(GameState.LOOT);
-
-      return updatedPlayer;
-    });
+    setSelectedBranchingRoom(null);
+    setGameState(GameState.BRANCHING_EXPLORE);
   };
 
   const equipItem = (item: Item) => {
-    if (!player) return;
+    if (!player || isProcessingLoot) return;
+    setIsProcessingLoot(true);
     setPlayer(prev => {
       if (!prev) return null;
       return equipItemFn(prev, item);
     });
     addLog(`Equipped ${item.name}.`, 'loot');
-    nextFloor();
+    setTimeout(() => {
+      setIsProcessingLoot(false);
+      returnToMap();
+    }, 100);
   };
 
   const learnSkill = (skill: Skill, slotIndex?: number) => {
@@ -457,17 +614,102 @@ const App: React.FC = () => {
       }
     }
     setPlayer({ ...player, skills: newSkills });
-    nextFloor();
+    setDroppedSkill(null);
+    returnToMap();
   };
 
   const sellItem = (item: Item) => {
-    if (!player) return;
+    if (!player || isProcessingLoot) return;
+    setIsProcessingLoot(true);
     setPlayer(prev => {
       if (!prev) return null;
       return sellItemFn(prev, item);
     });
     addLog(`Sold ${item.name} for ${Math.floor(item.value * 0.6)} Ryō.`, 'loot');
-    nextFloor();
+    setTimeout(() => {
+      setIsProcessingLoot(false);
+      returnToMap();
+    }, 100);
+  };
+
+  const buyItem = (item: Item) => {
+    if (!player || isProcessingLoot) return;
+
+    const price = Math.floor(item.value * (1 - merchantDiscount / 100));
+    if (player.ryo < price) {
+      addLog(`Not enough Ryo! Need ${price}.`, 'danger');
+      return;
+    }
+
+    setIsProcessingLoot(true);
+    setPlayer(prev => {
+      if (!prev) return null;
+      const afterBuy = { ...prev, ryo: prev.ryo - price };
+      return equipItemFn(afterBuy, item);
+    });
+    addLog(`Bought and equipped ${item.name} for ${price} Ryō.`, 'loot');
+    setMerchantItems(prev => prev.filter(i => i.id !== item.id));
+    setTimeout(() => setIsProcessingLoot(false), 100);
+  };
+
+  const leaveMerchant = () => {
+    if (branchingFloor && selectedBranchingRoom) {
+      const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'merchant');
+      setBranchingFloor(updatedFloor);
+    }
+    setMerchantItems([]);
+    setMerchantDiscount(0);
+    setSelectedBranchingRoom(null);
+    setGameState(GameState.BRANCHING_EXPLORE);
+    addLog('The merchant waves goodbye.', 'info');
+  };
+
+  const handleTrainingComplete = (stat: PrimaryStat, intensity: TrainingIntensity) => {
+    if (!trainingData || !player || !selectedBranchingRoom || !branchingFloor) return;
+
+    const option = trainingData.options.find(o => o.stat === stat);
+    if (!option) return;
+
+    const { cost, gain } = option.intensities[intensity];
+
+    // Get stat key for primaryStats object
+    const statKey = stat.toLowerCase() as keyof typeof player.primaryStats;
+
+    // Deduct costs and apply stat gain
+    setPlayer(p => {
+      if (!p) return null;
+      return {
+        ...p,
+        currentHp: p.currentHp - cost.hp,
+        currentChakra: p.currentChakra - cost.chakra,
+        primaryStats: {
+          ...p.primaryStats,
+          [statKey]: p.primaryStats[statKey] + gain
+        }
+      };
+    });
+
+    const intensityLabel = intensity.charAt(0).toUpperCase() + intensity.slice(1);
+    addLog(`${intensityLabel} training complete! ${stat} +${gain}`, 'gain');
+
+    // Mark training as complete and return to map
+    const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'training');
+    setBranchingFloor(updatedFloor);
+    setTrainingData(null);
+    setSelectedBranchingRoom(null);
+    setGameState(GameState.BRANCHING_EXPLORE);
+  };
+
+  const handleTrainingSkip = () => {
+    // Mark training as complete without training
+    if (branchingFloor && selectedBranchingRoom) {
+      const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'training');
+      setBranchingFloor(updatedFloor);
+    }
+    setTrainingData(null);
+    setSelectedBranchingRoom(null);
+    setGameState(GameState.BRANCHING_EXPLORE);
+    addLog('You decide to skip training for now.', 'info');
   };
 
   const getRarityColor = (r: Rarity) => {
@@ -526,31 +768,34 @@ const App: React.FC = () => {
   const isCombat = gameState === GameState.COMBAT;
 
   return (
+    <GameProvider value={gameContextValue}>
     <div className="h-screen bg-black text-gray-300 flex overflow-hidden font-sans">
       {/* Left Panel - Hidden during combat */}
       {!isCombat && (
         <div className="hidden lg:flex w-[320px] flex-col border-r border-zinc-900 bg-zinc-950 p-4">
-          {player && playerStats && (
-            <LeftSidebarPanel
-              floor={floor}
-              player={player}
-              playerStats={playerStats}
-              storyArcLabel={getStoryArc(floor).label}
-            />
-          )}
+          <LeftSidebarPanel />
         </div>
       )}
 
       {/* Center Panel */}
       <div className="flex-1 flex flex-col relative bg-zinc-950">
         <div className="flex-1 p-6 flex flex-col items-center justify-center relative overflow-y-auto parchment-panel">
-          {gameState === GameState.EXPLORE && player && playerStats && (
-            <Exploration
-              roomChoices={roomChoices}
-              onSelectRoom={selectRoom}
-              player={player}
-              playerStats={playerStats}
-            />
+          {gameState === GameState.BRANCHING_EXPLORE && player && playerStats && branchingFloor && (
+            <div className="w-full h-full flex flex-col">
+              <BranchingExplorationMap
+                branchingFloor={branchingFloor}
+                player={player}
+                playerStats={playerStats}
+                onRoomSelect={handleBranchingRoomSelect}
+                onRoomEnter={handleBranchingRoomEnter}
+              />
+              <PlayerHUD
+                player={player}
+                playerStats={playerStats}
+                floor={floor}
+                biome={branchingFloor.biome}
+              />
+            </div>
           )}
 
           {gameState === GameState.COMBAT && player && enemy && playerStats && enemyStats && (
@@ -584,14 +829,64 @@ const App: React.FC = () => {
               onEquipItem={equipItem}
               onSellItem={sellItem}
               onLearnSkill={learnSkill}
-              onLeaveAll={nextFloor}
+              onLeaveAll={returnToMap}
               getRarityColor={getRarityColor}
               getDamageTypeColor={getDamageTypeColor}
+              isProcessing={isProcessingLoot}
+            />
+          )}
+
+          {gameState === GameState.MERCHANT && (
+            <Merchant
+              merchantItems={merchantItems}
+              discountPercent={merchantDiscount}
+              player={player}
+              playerStats={playerStats}
+              onBuyItem={buyItem}
+              onLeave={leaveMerchant}
+              getRarityColor={getRarityColor}
+              getDamageTypeColor={getDamageTypeColor}
+              isProcessing={isProcessingLoot}
+            />
+          )}
+
+          {gameState === GameState.TRAINING && trainingData && player && playerStats && (
+            <Training
+              training={trainingData}
+              player={player}
+              playerStats={playerStats}
+              onTrain={handleTrainingComplete}
+              onSkip={handleTrainingSkip}
             />
           )}
         </div>
       </div>
+
+      {/* Approach Selector Modal */}
+      {showApproachSelector && selectedBranchingRoom && selectedBranchingRoom.activities.combat && player && playerStats && (
+        <ApproachSelector
+          node={{
+            id: selectedBranchingRoom.id,
+            type: selectedBranchingRoom.activities.combat.enemy.tier === 'Guardian' ? 'BOSS' as any :
+                  selectedBranchingRoom.activities.combat.enemy.tier === 'Jonin' ? 'ELITE' as any : 'COMBAT' as any,
+            terrain: selectedBranchingRoom.terrain,
+            visibility: 'VISIBLE' as any,
+            position: { x: 0, y: 0 },
+            connections: [],
+            enemy: selectedBranchingRoom.activities.combat.enemy,
+            isVisited: true,
+            isCleared: false,
+            isRevealed: true,
+          }}
+          terrain={TERRAIN_DEFINITIONS[selectedBranchingRoom.terrain]}
+          player={player}
+          playerStats={playerStats}
+          onSelectApproach={handleBranchingApproachSelect}
+          onCancel={handleApproachCancel}
+        />
+      )}
     </div>
+    </GameProvider>
   );
 };
 

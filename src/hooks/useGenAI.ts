@@ -2,6 +2,16 @@ import { useCallback, useState } from 'react';
 import { Enemy } from '../game/types';
 import { generateEnemyImage } from '../game/systems/EnemySystem';
 
+// Extend Window interface for AI Studio integration
+declare global {
+  interface Window {
+    aistudio?: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
+  }
+}
+
 interface UseGenAIProps {
   onSuccess: (imageUrl: string) => void;
   onError: (message: string) => void;

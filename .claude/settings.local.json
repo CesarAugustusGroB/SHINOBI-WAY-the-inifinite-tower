@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npm run build:*)",
-      "Bash(timeout 5 npm run dev)"
+      "Bash(timeout 5 npm run dev)",
+      "Bash(git grep:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [
       "Write(*.md)",

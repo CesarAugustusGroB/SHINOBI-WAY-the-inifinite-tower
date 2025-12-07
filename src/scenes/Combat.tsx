@@ -7,6 +7,7 @@ import {
   DamageType,
   CharacterStats,
   Buff,
+  Rarity,
 } from '../game/types';
 import StatBar from '../components/StatBar';
 import Tooltip from '../components/Tooltip';
@@ -43,7 +44,7 @@ interface CombatProps {
   onPassTurn: () => void;
   droppedSkill?: Skill | null;
   getDamageTypeColor: (dt: DamageType) => string;
-  getRarityColor: (rarity: string) => string;
+  getRarityColor: (rarity: Rarity) => string;
 }
 
 const Combat = forwardRef<CombatRef, CombatProps>(({
@@ -202,13 +203,13 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
 
             {/* RIGHT: Active Buffs */}
             <div className="flex flex-col items-end gap-2">
-              {enemy.activeBuffs.map(buff => (
+              {enemy.activeBuffs.filter(b => b?.effect).map(buff => (
                 <Tooltip
                   key={buff.id}
                   content={
                     <div className="space-y-2 p-1 max-w-[220px]">
                       <div className="font-bold text-zinc-200 flex items-center gap-2">
-                        <span className={getEffectColor(buff.effect.type)}>{getEffectIcon(buff.effect.type)}</span>
+                        <span className={getEffectColor(buff.effect?.type)}>{getEffectIcon(buff.effect?.type)}</span>
                         <span>{buff.name}</span>
                       </div>
                       <div className="text-xs text-zinc-400">{getBuffDescription(buff)}</div>
@@ -243,7 +244,7 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 lg:gap-6 items-end">
           {player.skills.map(skill => {
             const canUse = player.currentChakra >= skill.chakraCost && player.currentHp > skill.hpCost && skill.currentCooldown === 0;
-            const isStunned = player.activeBuffs.some(b => b.effect.type === EffectType.STUN);
+            const isStunned = player.activeBuffs.some(b => b?.effect?.type === EffectType.STUN);
             const isEnemyTurn = turnState === 'ENEMY_TURN';
             const usable = (canUse || skill.isActive) && !isStunned && !isEnemyTurn;
 
