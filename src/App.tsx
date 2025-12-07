@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   GameState, Player, Clan, Skill, Enemy, Item, Rarity, DamageType,
   ApproachType, BranchingRoom, PrimaryStat, TrainingActivity, TrainingIntensity,
-  EquipmentSlot, MAX_BAG_SLOTS
+  EquipmentSlot, MAX_BAG_SLOTS, ScrollDiscoveryActivity
 } from './game/types';
 import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS } from './game/constants';
 import {
@@ -13,8 +13,6 @@ import {
 import { generateEnemy } from './game/systems/EnemySystem';
 import {
   generateLoot,
-  generateRandomArtifact,
-  generateSkillLoot,
   equipItem as equipItemFn,
   sellItem as sellItemFn,
   addToBag,
@@ -51,12 +49,14 @@ import Event from './scenes/Event';
 import Loot from './scenes/Loot';
 import Merchant from './scenes/Merchant';
 import Training from './scenes/Training';
+import ScrollDiscovery from './scenes/ScrollDiscovery';
 import GameOver from './scenes/GameOver';
 import GameGuide from './scenes/GameGuide';
 import LeftSidebarPanel from './components/LeftSidebarPanel';
 import ApproachSelector from './components/ApproachSelector';
 import BranchingExplorationMap from './components/BranchingExplorationMap';
 import PlayerHUD from './components/PlayerHUD';
+import RewardModal from './components/RewardModal';
 
 // Import the parchment background styles
 import './App.css';
@@ -75,7 +75,14 @@ const App: React.FC = () => {
   const [merchantItems, setMerchantItems] = useState<Item[]>([]);
   const [merchantDiscount, setMerchantDiscount] = useState<number>(0);
   const [trainingData, setTrainingData] = useState<TrainingActivity | null>(null);
+  const [scrollDiscoveryData, setScrollDiscoveryData] = useState<ScrollDiscoveryActivity | null>(null);
+  const [pendingArtifact, setPendingArtifact] = useState<Item | null>(null);
   const [selectedComponent, setSelectedComponent] = useState<Item | null>(null);
+  const [combatReward, setCombatReward] = useState<{
+    expGain: number;
+    ryoGain: number;
+    levelUp?: { oldLevel: number; newLevel: number; statGains: Record<string, number> };
+  } | null>(null);
   const logIdCounter = useRef<number>(0);
 
   // --- Shared Combat/Exploration State ---
@@ -122,14 +129,19 @@ const App: React.FC = () => {
   const handleCombatVictory = useCallback((defeatedEnemy: Enemy, combatStateAtVictory: CombatState | null) => {
     addLog("Enemy Defeated!", 'gain');
 
-    // Complete combat activity in branching floor
+    // Determine if this was an elite challenge (check pendingArtifact)
+    const wasEliteChallenge = pendingArtifact !== null;
+
+    // Complete the appropriate activity in branching floor
     if (branchingFloor) {
       setBranchingFloor(prevFloor => {
         if (!prevFloor) return prevFloor;
         const combatRoom = getCurrentRoom(prevFloor);  // Uses currentRoomId set by moveToRoom
         if (!combatRoom) return prevFloor;
 
-        let updatedFloor = completeActivity(prevFloor, combatRoom.id, 'combat');
+        // Mark the correct activity as completed
+        const activityType = wasEliteChallenge ? 'eliteChallenge' : 'combat';
+        let updatedFloor = completeActivity(prevFloor, combatRoom.id, activityType);
         if (updatedFloor.currentRoomId !== combatRoom.id) {
           updatedFloor = {
             ...updatedFloor,
@@ -153,38 +165,47 @@ const App: React.FC = () => {
     // Apply XP multiplier from approach
     const xpMultiplier = combatStateAtVictory?.xpMultiplier || 1.0;
 
+    // Calculate rewards outside setPlayer so we can use them for the modal
+    const isAmbush = defeatedEnemy?.tier.includes('S-Rank');
+    const isGuardian = defeatedEnemy?.tier === 'Guardian';
+    const enemyTier = defeatedEnemy?.tier || 'Chunin';
+
+    const baseExp = 25 + (floor * 5);
+    const tierBonus = isGuardian ? 300 : enemyTier === 'Jonin' ? 20 : enemyTier === 'Kage Level' ? 200 : isAmbush ? 100 : 0;
+    const expGain = Math.floor((baseExp + tierBonus) * xpMultiplier);
+    const ryoGain = (floor * 15) + Math.floor(Math.random() * 25);
+
+    let levelUpInfo: { oldLevel: number; newLevel: number; statGains: Record<string, number> } | undefined;
+
     setPlayer(prev => {
       if (!prev) return null;
-      const isBoss = defeatedEnemy?.isBoss;
-      const isAmbush = defeatedEnemy?.tier.includes('S-Rank');
-      const isGuardian = defeatedEnemy?.tier === 'Guardian';
-      const enemyTier = defeatedEnemy?.tier || 'Chunin';
-
-      const baseExp = 25 + (floor * 5);
-      const tierBonus = isGuardian ? 300 : enemyTier === 'Jonin' ? 20 : enemyTier === 'Kage Level' ? 200 : isAmbush ? 100 : 0;
-      const expGain = Math.floor((baseExp + tierBonus) * xpMultiplier);
 
       let updatedPlayer = { ...prev, exp: prev.exp + expGain };
       addLog(`Gained ${expGain} Experience${xpMultiplier > 1 ? ` (${Math.round((xpMultiplier - 1) * 100)}% bonus!)` : ''}.`, 'info');
-      updatedPlayer = checkLevelUp(updatedPlayer);
 
-      const ryoGain = (floor * 15) + Math.floor(Math.random() * 25);
+      const levelUpResult = checkLevelUp(updatedPlayer);
+      updatedPlayer = levelUpResult.player;
+      levelUpInfo = levelUpResult.levelUpInfo;
+
       updatedPlayer.ryo += ryoGain;
+      addLog(`Gained ${ryoGain} Ryō.`, 'loot');
 
-      // Boss/elite drops get guaranteed artifacts, regular drops get components
-      const isBossOrElite = isBoss || isAmbush || isGuardian;
-
-      const item1 = isBossOrElite ? generateRandomArtifact(floor, difficulty) : generateLoot(floor, difficulty);
-      const item2 = generateLoot(floor, difficulty);
-      const skill = generateSkillLoot(enemyTier, floor);
-
-      setDroppedItems([item1, item2]);
-      setDroppedSkill(skill);
-      setGameState(GameState.LOOT);
-
+      // Combat no longer drops items/skills - find loot in treasures, events, and scroll discoveries
       return updatedPlayer;
     });
-  }, [branchingFloor, floor, difficulty, addLog]);
+
+    // Show reward modal instead of returning to map immediately
+    setCombatReward({
+      expGain,
+      ryoGain,
+      levelUp: levelUpInfo
+    });
+
+    // Set game state to branching explore so the modal shows on the map
+    setTimeout(() => {
+      setGameState(GameState.BRANCHING_EXPLORE);
+    }, 100);
+  }, [branchingFloor, floor, addLog, pendingArtifact]);
 
   // Combat hook - manages enemy, turns, and combat logic
   const {
@@ -212,16 +233,34 @@ const App: React.FC = () => {
     setApproachResult,
   });
 
-  const checkLevelUp = (p: Player): Player => {
+  interface LevelUpResult {
+    player: Player;
+    levelUpInfo?: {
+      oldLevel: number;
+      newLevel: number;
+      statGains: Record<string, number>;
+    };
+  }
+
+  const checkLevelUp = (p: Player): LevelUpResult => {
     let currentPlayer = { ...p };
-    let leveledUp = false;
+    const oldLevel = currentPlayer.level;
+    const totalStatGains: Record<string, number> = {};
+
     while (currentPlayer.exp >= currentPlayer.maxExp) {
-      leveledUp = true;
       currentPlayer.exp -= currentPlayer.maxExp;
       currentPlayer.level += 1;
       currentPlayer.maxExp = currentPlayer.level * 100;
       const growth = CLAN_GROWTH[currentPlayer.clan];
       const s = currentPlayer.primaryStats;
+
+      // Accumulate stat gains
+      Object.entries(growth).forEach(([stat, gain]) => {
+        if (gain) {
+          totalStatGains[stat] = (totalStatGains[stat] || 0) + gain;
+        }
+      });
+
       currentPlayer.primaryStats = {
         willpower: s.willpower + (growth.willpower || 0),
         chakra: s.chakra + (growth.chakra || 0),
@@ -234,13 +273,24 @@ const App: React.FC = () => {
         dexterity: s.dexterity + (growth.dexterity || 0)
       };
     }
-    if (leveledUp) {
+
+    if (currentPlayer.level > oldLevel) {
       const newStats = getPlayerFullStats(currentPlayer);
       currentPlayer.currentHp = newStats.derived.maxHp;
       currentPlayer.currentChakra = newStats.derived.maxChakra;
       addLog(`LEVEL UP! You reached Level ${currentPlayer.level}. Stats increased & Fully Healed!`, 'gain');
+
+      return {
+        player: currentPlayer,
+        levelUpInfo: {
+          oldLevel,
+          newLevel: currentPlayer.level,
+          statGains: totalStatGains
+        }
+      };
     }
-    return currentPlayer;
+
+    return { player: currentPlayer };
   };
 
   const startGame = (clan: Clan) => {
@@ -299,15 +349,20 @@ const App: React.FC = () => {
   const handleBranchingApproachSelect = (approach: ApproachType) => {
     if (!player || !playerStats || !selectedBranchingRoom || !branchingFloor) return;
 
+    // Check for elite challenge first, then regular combat
+    const eliteChallenge = selectedBranchingRoom.activities.eliteChallenge;
     const combat = selectedBranchingRoom.activities.combat;
-    if (!combat || !combat.enemy) return;
+    const isEliteChallenge = eliteChallenge && !eliteChallenge.completed;
+    const targetEnemy = isEliteChallenge ? eliteChallenge.enemy : combat?.enemy;
+
+    if (!targetEnemy) return;
 
     const terrain = TERRAIN_DEFINITIONS[selectedBranchingRoom.terrain];
     const result = executeApproach(
       approach,
       player,
       playerStats,
-      combat.enemy,
+      targetEnemy,
       terrain
     );
 
@@ -323,22 +378,29 @@ const App: React.FC = () => {
       addLog('You slip past undetected!', 'gain');
       setShowApproachSelector(false);
 
-      // Mark combat as completed in branching floor
+      // Mark the appropriate activity as completed
       setBranchingFloor(prevFloor => {
         if (!prevFloor || !selectedBranchingRoom) return prevFloor;
-        return completeActivity(prevFloor, selectedBranchingRoom.id, 'combat');
+        const activityType = isEliteChallenge ? 'eliteChallenge' : 'combat';
+        return completeActivity(prevFloor, selectedBranchingRoom.id, activityType);
       });
 
-      // Return to map - this will clear selectedBranchingRoom properly
+      // Clear pending artifact if bypassing elite challenge
+      if (isEliteChallenge) {
+        setPendingArtifact(null);
+        addLog('You bypassed the guardian but left the artifact behind...', 'info');
+      }
+
+      // Return to map
       returnToMap();
       return;
     }
 
     // Set up enemy with any HP reduction from approach
-    let combatEnemy = combat.enemy;
+    let combatEnemy = targetEnemy;
     if (result.enemyHpReduction > 0) {
       combatEnemy = applyEnemyHpReduction(combatEnemy, result);
-      addLog(`Your approach dealt ${Math.floor(combat.enemy.currentHp * result.enemyHpReduction)} damage!`, 'combat');
+      addLog(`Your approach dealt ${Math.floor(targetEnemy.currentHp * result.enemyHpReduction)} damage!`, 'combat');
     }
 
     // Apply approach effects to both combatants
@@ -448,6 +510,26 @@ const App: React.FC = () => {
         }
         break;
 
+      case 'scrollDiscovery':
+        if (currentRoom.activities.scrollDiscovery && !currentRoom.activities.scrollDiscovery.completed) {
+          setScrollDiscoveryData(currentRoom.activities.scrollDiscovery);
+          setSelectedBranchingRoom(currentRoom);
+          setGameState(GameState.SCROLL_DISCOVERY);
+          addLog('You discovered ancient jutsu scrolls!', 'gain');
+        }
+        break;
+
+      case 'eliteChallenge':
+        if (currentRoom.activities.eliteChallenge && !currentRoom.activities.eliteChallenge.completed) {
+          const challenge = currentRoom.activities.eliteChallenge;
+          // Store the artifact for victory reward
+          setPendingArtifact(challenge.artifact);
+          setSelectedBranchingRoom(currentRoom);
+          setShowApproachSelector(true);
+          addLog(`A ${challenge.enemy.name} guards a sealed artifact! Defeat it to claim the prize.`, 'danger');
+        }
+        break;
+
       case 'treasure':
         if (currentRoom.activities.treasure) {
           const treasure = currentRoom.activities.treasure;
@@ -484,9 +566,9 @@ const App: React.FC = () => {
         setPlayer(p => p ? ({ ...p, currentHp: playerStats.derived.maxHp, currentChakra: playerStats.derived.maxChakra }) : null);
         text = "HP & Chakra fully restored."; type = 'gain'; break;
       case 'GAIN_XP':
-        const xpGain = choice.value || 20;
-        setPlayer(prev => prev ? checkLevelUp({ ...prev, exp: prev.exp + xpGain }) : null);
-        text = `Gained ${xpGain} Experience.`; type = 'gain'; break;
+        const xpGainEvent = choice.value || 20;
+        setPlayer(prev => prev ? checkLevelUp({ ...prev, exp: prev.exp + xpGainEvent }).player : null);
+        text = `Gained ${xpGainEvent} Experience.`; type = 'gain'; break;
       case 'GAMBLE_HP':
         if (Math.random() < (choice.chance || 0.5)) {
           setPlayer(p => p ? ({ ...p, primaryStats: { ...p.primaryStats, willpower: p.primaryStats.willpower + 5 } }) : null);
@@ -499,7 +581,8 @@ const App: React.FC = () => {
         break;
       case 'TRADE':
         if (player.ryo >= (choice.value || 150)) {
-          const item = generateRandomArtifact(floor, difficulty);
+          // Trade for component only - artifacts from Elite Challenges
+          const item = generateLoot(floor, difficulty + 10);
           setPlayer(p => p ? ({ ...p, ryo: p.ryo - (choice.value || 150) }) : null);
           setDroppedItems([item]);
           setDroppedSkill(null);
@@ -587,6 +670,20 @@ const App: React.FC = () => {
     setEnemy(null);
     setSelectedBranchingRoom(null);
     setGameState(GameState.BRANCHING_EXPLORE);
+  };
+
+  // Close reward modal - check for pending artifact from elite challenge
+  const handleRewardClose = () => {
+    setCombatReward(null);
+
+    // If there's a pending artifact from elite challenge, show loot screen
+    if (pendingArtifact) {
+      setDroppedItems([pendingArtifact]);
+      setDroppedSkill(null);
+      setPendingArtifact(null);
+      addLog('The artifact guardian has fallen! Claim your prize.', 'loot');
+      setGameState(GameState.LOOT);
+    }
   };
 
   const equipItem = (item: Item) => {
@@ -834,6 +931,81 @@ const App: React.FC = () => {
     addLog('You decide to skip training for now.', 'info');
   };
 
+  // Scroll Discovery handlers
+  const handleLearnScroll = (skill: Skill) => {
+    if (!scrollDiscoveryData || !player || !selectedBranchingRoom || !branchingFloor || !playerStats) return;
+
+    const chakraCost = scrollDiscoveryData.cost?.chakra || 0;
+
+    // Check chakra cost
+    if (player.currentChakra < chakraCost) {
+      addLog('Not enough chakra to study the scroll!', 'danger');
+      return;
+    }
+
+    // Check skill requirements
+    const checkResult = canLearnSkill(
+      skill,
+      playerStats.effectivePrimary.intelligence,
+      player.level,
+      player.clan
+    );
+
+    if (!checkResult.canLearn) {
+      addLog(`Cannot learn ${skill.name}: ${checkResult.reason}`, 'danger');
+      return;
+    }
+
+    // Deduct chakra
+    let updatedPlayer = { ...player, currentChakra: player.currentChakra - chakraCost };
+
+    // Check if player already knows this skill
+    const existingIndex = updatedPlayer.skills.findIndex(s => s.id === skill.id);
+
+    if (existingIndex !== -1) {
+      // Upgrade existing skill
+      const existing = updatedPlayer.skills[existingIndex];
+      const currentLevel = existing.level || 1;
+      const growth = skill.damageMult * 0.2;
+      updatedPlayer.skills = [...updatedPlayer.skills];
+      updatedPlayer.skills[existingIndex] = {
+        ...existing,
+        level: currentLevel + 1,
+        damageMult: existing.damageMult + growth
+      };
+      addLog(`Upgraded ${skill.name} to Level ${currentLevel + 1}!`, 'gain');
+    } else if (updatedPlayer.skills.length < 4) {
+      // Learn new skill
+      updatedPlayer.skills = [...updatedPlayer.skills, { ...skill, level: 1 }];
+      addLog(`Learned ${skill.name}!`, 'gain');
+    } else {
+      // Replace first skill (TODO: Let player choose which to replace)
+      const forgotten = updatedPlayer.skills[0];
+      updatedPlayer.skills = [{ ...skill, level: 1 }, ...updatedPlayer.skills.slice(1)];
+      addLog(`Forgot ${forgotten.name} to learn ${skill.name}!`, 'loot');
+    }
+
+    setPlayer(updatedPlayer);
+
+    // Mark scroll discovery as complete
+    const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'scrollDiscovery');
+    setBranchingFloor(updatedFloor);
+    setScrollDiscoveryData(null);
+    setSelectedBranchingRoom(null);
+    setGameState(GameState.BRANCHING_EXPLORE);
+  };
+
+  const handleScrollDiscoverySkip = () => {
+    if (branchingFloor && selectedBranchingRoom) {
+      const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'scrollDiscovery');
+      setBranchingFloor(updatedFloor);
+    }
+    setScrollDiscoveryData(null);
+    setSelectedBranchingRoom(null);
+    setGameState(GameState.BRANCHING_EXPLORE);
+    addLog('You leave the scrolls behind.', 'info');
+  };
+
   const getRarityColor = (r: Rarity) => {
     switch (r) {
       case Rarity.LEGENDARY: return 'text-orange-400';
@@ -925,6 +1097,15 @@ const App: React.FC = () => {
                 floor={floor}
                 biome={branchingFloor.biome}
               />
+              {/* Combat Victory Reward Modal */}
+              {combatReward && (
+                <RewardModal
+                  expGain={combatReward.expGain}
+                  ryoGain={combatReward.ryoGain}
+                  levelUp={combatReward.levelUp}
+                  onClose={handleRewardClose}
+                />
+              )}
             </div>
           )}
 
@@ -993,32 +1174,50 @@ const App: React.FC = () => {
               onSkip={handleTrainingSkip}
             />
           )}
+
+          {gameState === GameState.SCROLL_DISCOVERY && scrollDiscoveryData && player && playerStats && (
+            <ScrollDiscovery
+              scrollDiscovery={scrollDiscoveryData}
+              player={player}
+              playerStats={playerStats}
+              onLearnScroll={handleLearnScroll}
+              onSkip={handleScrollDiscoverySkip}
+            />
+          )}
         </div>
       </div>
 
       {/* Approach Selector Modal */}
-      {showApproachSelector && selectedBranchingRoom && selectedBranchingRoom.activities.combat && player && playerStats && (
-        <ApproachSelector
-          node={{
-            id: selectedBranchingRoom.id,
-            type: selectedBranchingRoom.activities.combat.enemy.tier === 'Guardian' ? 'BOSS' as any :
-                  selectedBranchingRoom.activities.combat.enemy.tier === 'Jonin' ? 'ELITE' as any : 'COMBAT' as any,
-            terrain: selectedBranchingRoom.terrain,
-            visibility: 'VISIBLE' as any,
-            position: { x: 0, y: 0 },
-            connections: [],
-            enemy: selectedBranchingRoom.activities.combat.enemy,
-            isVisited: true,
-            isCleared: false,
-            isRevealed: true,
-          }}
-          terrain={TERRAIN_DEFINITIONS[selectedBranchingRoom.terrain]}
-          player={player}
-          playerStats={playerStats}
-          onSelectApproach={handleBranchingApproachSelect}
-          onCancel={handleApproachCancel}
-        />
-      )}
+      {showApproachSelector && selectedBranchingRoom && (selectedBranchingRoom.activities.combat || selectedBranchingRoom.activities.eliteChallenge) && player && playerStats && (() => {
+        // Get enemy from elite challenge or combat
+        const eliteChallenge = selectedBranchingRoom.activities.eliteChallenge;
+        const combat = selectedBranchingRoom.activities.combat;
+        const targetEnemy = (eliteChallenge && !eliteChallenge.completed) ? eliteChallenge.enemy : combat?.enemy;
+        if (!targetEnemy) return null;
+
+        return (
+          <ApproachSelector
+            node={{
+              id: selectedBranchingRoom.id,
+              type: targetEnemy.tier === 'Guardian' ? 'BOSS' as any :
+                    targetEnemy.tier === 'Jonin' ? 'ELITE' as any : 'COMBAT' as any,
+              terrain: selectedBranchingRoom.terrain,
+              visibility: 'VISIBLE' as any,
+              position: { x: 0, y: 0 },
+              connections: [],
+              enemy: targetEnemy,
+              isVisited: true,
+              isCleared: false,
+              isRevealed: true,
+            }}
+            terrain={TERRAIN_DEFINITIONS[selectedBranchingRoom.terrain]}
+            player={player}
+            playerStats={playerStats}
+            onSelectApproach={handleBranchingApproachSelect}
+            onCancel={handleApproachCancel}
+          />
+        );
+      })()}
     </div>
     </GameProvider>
   );

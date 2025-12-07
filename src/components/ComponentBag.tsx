@@ -105,6 +105,7 @@ const ComponentBag: React.FC<ComponentBagProps> = ({
           return (
             <Tooltip
               key={index}
+              position="right"
               content={
                 item ? (
                   <div className="space-y-2 p-1 max-w-[200px]">

@@ -20,7 +20,7 @@ import {
   ACTIVITY_ORDER,
 } from '../types';
 import { generateEnemy, getStoryArc } from './EnemySystem';
-import { generateLoot, generateRandomArtifact } from './LootSystem';
+import { generateLoot, generateRandomArtifact, generateSkillForFloor } from './LootSystem';
 import {
   ROOM_TYPE_CONFIGS,
   getRandomRoomName,
@@ -161,6 +161,30 @@ function generateActivities(
     }
   }
 
+  // Scroll Discovery - chance to find jutsu scrolls in certain rooms
+  // Shrines, Ruins, and rooms with events have a chance for scrolls
+  if (config.hasScrollDiscovery || (config.hasEvent && Math.random() < 0.25)) {
+    const skill = generateSkillForFloor(floor);
+    activities.scrollDiscovery = {
+      availableScrolls: [skill],
+      cost: { chakra: 15 + floor * 2 }, // Chakra cost to study the scroll
+      completed: false,
+    };
+  }
+
+  // Elite Challenge - rare chance in SHRINE and RUINS to fight elite for artifact
+  // This is the ONLY source of artifacts in the game
+  if ((room.type === BranchingRoomType.SHRINE || room.type === BranchingRoomType.RUINS) && Math.random() < 0.15) {
+    const eliteEnemy = generateEnemy(floor + 1, 'ELITE', difficulty + 15);
+    eliteEnemy.name = `${eliteEnemy.name} (Artifact Guardian)`;
+
+    activities.eliteChallenge = {
+      enemy: eliteEnemy,
+      artifact: generateRandomArtifact(floor, difficulty + 20),
+      completed: false,
+    };
+  }
+
   // Rest
   if (config.hasRest) {
     activities.rest = {
@@ -216,22 +240,18 @@ function generateActivities(
     };
   }
 
-  // Treasure
+  // Treasure - Source of components only (artifacts from Elite Challenges)
   if (config.hasTreasure) {
-    const itemCount = 1 + Math.floor(Math.random() * 2);
+    const itemCount = 2 + Math.floor(Math.random() * 2); // 2-3 items
     const items: Item[] = [];
     for (let i = 0; i < itemCount; i++) {
-      // Treasure rooms have a chance for artifacts
-      if (Math.random() < 0.3) {
-        items.push(generateRandomArtifact(floor, difficulty + 10));
-      } else {
-        items.push(generateLoot(floor, difficulty + 10));
-      }
+      // Only components drop from treasure - artifacts from Elite Challenges only
+      items.push(generateLoot(floor, difficulty + 5));
     }
 
     activities.treasure = {
       items,
-      ryo: 50 + floor * 10 + Math.floor(Math.random() * 100),
+      ryo: 75 + floor * 15 + Math.floor(Math.random() * 100),
       collected: false,
     };
   }
@@ -355,7 +375,7 @@ export function generateChildrenForRoom(
       childRoom.description = getRandomRoomDescription(BranchingRoomType.BOSS_GATE);
       childRoom.icon = ROOM_TYPE_CONFIGS[BranchingRoomType.BOSS_GATE].icon;
 
-      // Replace activities with semi-boss
+      // Replace activities with semi-boss (components only, artifacts from Elite Challenges)
       childRoom.activities = {
         combat: {
           enemy: generateSemiBoss(floor, difficulty),
@@ -363,7 +383,10 @@ export function generateChildrenForRoom(
           completed: false,
         },
         treasure: {
-          items: [generateRandomArtifact(floor, difficulty + 20)],
+          items: [
+            generateLoot(floor, difficulty + 15),
+            generateLoot(floor, difficulty + 15),
+          ],
           ryo: 100 + floor * 15,
           collected: false,
         },

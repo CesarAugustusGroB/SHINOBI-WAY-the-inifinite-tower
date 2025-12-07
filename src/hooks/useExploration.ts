@@ -11,7 +11,7 @@ import {
   getCurrentRoom,
 } from '../game/systems/BranchingFloorSystem';
 
-export type ActivityType = 'combat' | 'merchant' | 'event' | 'rest' | 'training' | 'treasure';
+export type ActivityType = 'combat' | 'eliteChallenge' | 'merchant' | 'event' | 'rest' | 'training' | 'treasure' | 'scrollDiscovery';
 
 export interface ActivityResult {
   type: ActivityType;

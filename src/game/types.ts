@@ -13,6 +13,7 @@ export enum GameState {
   MERCHANT,
   EVENT,
   TRAINING,         // Training scene for stat upgrades
+  SCROLL_DISCOVERY, // Finding jutsu scrolls in exploration
   GAME_OVER,
   GUIDE
 }
@@ -1104,10 +1105,24 @@ export interface TreasureActivity {
   collected: boolean;
 }
 
+export interface ScrollDiscoveryActivity {
+  availableScrolls: Skill[];
+  cost?: { ryo?: number; chakra?: number };
+  completed: boolean;
+}
+
+export interface EliteChallengeActivity {
+  enemy: Enemy;      // Elite-tier enemy guardian
+  artifact: Item;    // The artifact reward
+  completed: boolean;
+}
+
 export interface RoomActivities {
   combat?: CombatActivity;
+  eliteChallenge?: EliteChallengeActivity;
   merchant?: MerchantActivity;
   event?: EventActivity;
+  scrollDiscovery?: ScrollDiscoveryActivity;
   rest?: RestActivity;
   training?: TrainingActivity;
   treasure?: TreasureActivity;
@@ -1115,12 +1130,14 @@ export interface RoomActivities {
 
 // Order in which activities are processed
 export const ACTIVITY_ORDER: (keyof RoomActivities)[] = [
-  'combat',     // Always first if present
-  'merchant',   // Shop opens after combat
-  'event',      // Story/dialogue
-  'rest',       // Healing
-  'training',   // Stat boost
-  'treasure'    // Loot last
+  'combat',          // Always first if present
+  'eliteChallenge',  // Elite challenge after regular combat
+  'merchant',        // Shop opens after combat
+  'event',           // Story/dialogue
+  'scrollDiscovery', // Jutsu scroll discovery
+  'rest',            // Healing
+  'training',        // Stat boost
+  'treasure'         // Loot last
 ];
 
 export interface RoomRevealRequirement {
@@ -1196,6 +1213,7 @@ export interface RoomTypeConfig {
   hasRest: boolean;
   hasTraining: boolean;
   hasTreasure: boolean;
+  hasScrollDiscovery?: boolean; // Rooms where jutsu scrolls can be found
 
   // Appearance weights by tier
   tier0Weight: number;

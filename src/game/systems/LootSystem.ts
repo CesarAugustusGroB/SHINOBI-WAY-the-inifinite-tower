@@ -18,12 +18,53 @@ import { BALANCE } from '../config';
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
+/**
+ * Cap stats to maximum of 2, keeping the highest values
+ * Used for artifacts to limit stat bonuses
+ */
+const capStatsToTwo = (stats: ItemStatBonus): ItemStatBonus => {
+  const entries = Object.entries(stats).filter(([, v]) => v !== undefined && v !== 0);
+
+  if (entries.length <= 2) return stats;
+
+  // Sort by value descending, take top 2
+  const topTwo = entries
+    .sort(([, a], [, b]) => (b as number) - (a as number))
+    .slice(0, 2);
+
+  return Object.fromEntries(topTwo) as ItemStatBonus;
+};
+
 export const generateSkillLoot = (enemyTier: string, currentFloor: number): Skill | null => {
   let possibleTiers: SkillTier[] = [SkillTier.COMMON];
   if (enemyTier === 'Chunin') possibleTiers = [SkillTier.COMMON, SkillTier.RARE];
   else if (enemyTier === 'Jonin') possibleTiers = [SkillTier.RARE, SkillTier.EPIC];
   else if (enemyTier === 'Akatsuki' || enemyTier === 'Kage Level' || enemyTier.includes('S-Rank')) possibleTiers = [SkillTier.EPIC, SkillTier.LEGENDARY];
   else if (enemyTier === 'Guardian') possibleTiers = [SkillTier.FORBIDDEN];
+
+  const candidates = Object.values(SKILLS).filter(s => possibleTiers.includes(s.tier));
+  if (candidates.length === 0) return SKILLS.SHURIKEN;
+  return candidates[Math.floor(Math.random() * candidates.length)];
+};
+
+/**
+ * Generate a skill for scroll discovery based on floor depth
+ * Higher floors have better chances for higher tier skills
+ */
+export const generateSkillForFloor = (floor: number): Skill => {
+  let possibleTiers: SkillTier[];
+
+  if (floor <= 3) {
+    possibleTiers = [SkillTier.COMMON];
+  } else if (floor <= 7) {
+    possibleTiers = [SkillTier.COMMON, SkillTier.RARE];
+  } else if (floor <= 12) {
+    possibleTiers = [SkillTier.RARE, SkillTier.EPIC];
+  } else if (floor <= 18) {
+    possibleTiers = [SkillTier.EPIC, SkillTier.LEGENDARY];
+  } else {
+    possibleTiers = [SkillTier.LEGENDARY, SkillTier.FORBIDDEN];
+  }
 
   const candidates = Object.values(SKILLS).filter(s => possibleTiers.includes(s.tier));
   if (candidates.length === 0) return SKILLS.SHURIKEN;
@@ -149,13 +190,16 @@ export const generateRandomArtifact = (currentFloor: number, difficulty: number)
     }
   }
 
+  // Cap to maximum 2 stat bonuses
+  const cappedStats = capStatsToTwo(combinedStats);
+
   const baseValue = (statValueA + statValueB) * 15;
 
   return {
     id: generateId(),
     name: recipe.name,
     rarity: Rarity.EPIC, // All synthesized artifacts are Epic
-    stats: combinedStats,
+    stats: cappedStats,
     value: baseValue * 2, // Artifacts are worth more
     description: recipe.description,
     isComponent: false,
@@ -201,11 +245,14 @@ export const synthesize = (componentA: Item, componentB: Item): Item | null => {
     }
   }
 
+  // Cap to maximum 2 stat bonuses
+  const cappedStats = capStatsToTwo(combinedStats);
+
   return {
     id: generateId(),
     name: recipe.name,
     rarity: Rarity.EPIC, // All synthesized artifacts are Epic
-    stats: combinedStats,
+    stats: cappedStats,
     value: (componentA.value + componentB.value) * 2,
     description: recipe.description,
     isComponent: false,
