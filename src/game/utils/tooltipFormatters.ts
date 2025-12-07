@@ -15,18 +15,18 @@ import {
 // ============================================================================
 
 export const formatScalingStat = (stat: PrimaryStat): string => {
-  const abbreviations: Record<PrimaryStat, string> = {
-    [PrimaryStat.WILLPOWER]: 'WIL',
-    [PrimaryStat.CHAKRA]: 'CHA',
-    [PrimaryStat.STRENGTH]: 'STR',
-    [PrimaryStat.SPIRIT]: 'SPI',
-    [PrimaryStat.INTELLIGENCE]: 'INT',
-    [PrimaryStat.CALMNESS]: 'CAL',
-    [PrimaryStat.SPEED]: 'SPD',
-    [PrimaryStat.ACCURACY]: 'ACC',
-    [PrimaryStat.DEXTERITY]: 'DEX',
+  const names: Record<PrimaryStat, string> = {
+    [PrimaryStat.WILLPOWER]: 'Willpower',
+    [PrimaryStat.CHAKRA]: 'Chakra',
+    [PrimaryStat.STRENGTH]: 'Strength',
+    [PrimaryStat.SPIRIT]: 'Spirit',
+    [PrimaryStat.INTELLIGENCE]: 'Intelligence',
+    [PrimaryStat.CALMNESS]: 'Calmness',
+    [PrimaryStat.SPEED]: 'Speed',
+    [PrimaryStat.ACCURACY]: 'Accuracy',
+    [PrimaryStat.DEXTERITY]: 'Dexterity',
   };
-  return abbreviations[stat] || stat;
+  return names[stat] || stat;
 };
 
 export const getStatColor = (stat: PrimaryStat): string => {
@@ -289,25 +289,25 @@ export const getCategoryRanks = (stats: PrimaryAttributes) => {
 
 export const formatStatName = (key: string): string => {
   const names: Record<string, string> = {
-    willpower: 'WIL',
-    chakra: 'CHA',
-    strength: 'STR',
-    spirit: 'SPI',
-    intelligence: 'INT',
-    calmness: 'CAL',
-    speed: 'SPD',
-    accuracy: 'ACC',
-    dexterity: 'DEX',
+    willpower: 'Willpower',
+    chakra: 'Chakra',
+    strength: 'Strength',
+    spirit: 'Spirit',
+    intelligence: 'Intelligence',
+    calmness: 'Calmness',
+    speed: 'Speed',
+    accuracy: 'Accuracy',
+    dexterity: 'Dexterity',
     flatHp: 'HP',
-    flatChakra: 'CP',
-    flatPhysicalDef: 'P.DEF',
-    flatElementalDef: 'E.DEF',
-    flatMentalDef: 'M.DEF',
-    percentPhysicalDef: 'P.DEF%',
-    percentElementalDef: 'E.DEF%',
-    percentMentalDef: 'M.DEF%',
-    critChance: 'CRIT%',
-    critDamage: 'CRIT DMG',
+    flatChakra: 'Chakra',
+    flatPhysicalDef: 'Physical Def',
+    flatElementalDef: 'Elemental Def',
+    flatMentalDef: 'Mental Def',
+    percentPhysicalDef: 'Physical Def %',
+    percentElementalDef: 'Elemental Def %',
+    percentMentalDef: 'Mental Def %',
+    critChance: 'Crit Chance',
+    critDamage: 'Crit Damage',
   };
   return names[key] || key.toUpperCase();
 };

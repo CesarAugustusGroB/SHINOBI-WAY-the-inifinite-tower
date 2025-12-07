@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Item, MAX_BAG_SLOTS, Rarity } from '../game/types';
 import { getRecipesUsingComponent, findRecipe } from '../game/constants/synthesis';
+import { formatStatName } from '../game/utils/tooltipFormatters';
 import Tooltip from './Tooltip';
 
 interface ComponentBagProps {
@@ -117,8 +118,8 @@ const ComponentBag: React.FC<ComponentBagProps> = ({
                     </div>
                     <div className="space-y-1 text-[10px] font-mono text-zinc-400 pt-2 border-t border-zinc-800">
                       {Object.entries(item.stats).map(([key, val]) => (
-                        <div key={key} className="flex justify-between uppercase">
-                          <span>{key.substring(0, 3).toUpperCase()}</span>
+                        <div key={key} className="flex justify-between">
+                          <span>{formatStatName(key)}</span>
                           <span className="text-zinc-200">+{val}</span>
                         </div>
                       ))}

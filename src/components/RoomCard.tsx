@@ -9,6 +9,7 @@ import {
   Heart,
   ShoppingBag,
   Scroll,
+  BookOpen,
   Dumbbell,
   Gift,
   Crown,
@@ -176,6 +177,9 @@ const RoomCard: React.FC<RoomCardProps> = ({
     }
     if (room.activities.event && !room.activities.event.completed) {
       icons.push(<Scroll key="event" className={`${iconClass} text-blue-400`} />);
+    }
+    if (room.activities.scrollDiscovery && !room.activities.scrollDiscovery.completed) {
+      icons.push(<BookOpen key="scrollDiscovery" className={`${iconClass} text-purple-400`} />);
     }
     if (room.activities.rest && !room.activities.rest.completed) {
       icons.push(<Heart key="rest" className={`${iconClass} text-green-400`} />);

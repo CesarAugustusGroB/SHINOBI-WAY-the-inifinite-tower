@@ -180,10 +180,15 @@ const BranchingExplorationMap: React.FC<BranchingExplorationMapProps> = ({
               </p>
 
               {/* Activity list */}
-              <div className="flex gap-2 mt-2">
+              <div className="flex gap-2 mt-2 flex-wrap">
                 {selectedRoom.activities.combat && !selectedRoom.activities.combat.completed && (
                   <span className="text-[10px] bg-orange-900/50 text-orange-400 px-2 py-0.5 rounded">
                     Combat: {selectedRoom.activities.combat.enemy.name}
+                  </span>
+                )}
+                {selectedRoom.activities.eliteChallenge && !selectedRoom.activities.eliteChallenge.completed && (
+                  <span className="text-[10px] bg-red-900/50 text-red-400 px-2 py-0.5 rounded">
+                    Elite: {selectedRoom.activities.eliteChallenge.enemy.name}
                   </span>
                 )}
                 {selectedRoom.activities.merchant && !selectedRoom.activities.merchant.completed && (
@@ -191,14 +196,19 @@ const BranchingExplorationMap: React.FC<BranchingExplorationMapProps> = ({
                     Merchant
                   </span>
                 )}
-                {selectedRoom.activities.rest && !selectedRoom.activities.rest.completed && (
-                  <span className="text-[10px] bg-green-900/50 text-green-400 px-2 py-0.5 rounded">
-                    Rest (+{selectedRoom.activities.rest.healPercent}% HP)
-                  </span>
-                )}
                 {selectedRoom.activities.event && !selectedRoom.activities.event.completed && (
                   <span className="text-[10px] bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded">
                     Event
+                  </span>
+                )}
+                {selectedRoom.activities.scrollDiscovery && !selectedRoom.activities.scrollDiscovery.completed && (
+                  <span className="text-[10px] bg-purple-900/50 text-purple-400 px-2 py-0.5 rounded">
+                    Scroll Discovery
+                  </span>
+                )}
+                {selectedRoom.activities.rest && !selectedRoom.activities.rest.completed && (
+                  <span className="text-[10px] bg-green-900/50 text-green-400 px-2 py-0.5 rounded">
+                    Rest (+{selectedRoom.activities.rest.healPercent}% HP)
                   </span>
                 )}
                 {selectedRoom.activities.training && !selectedRoom.activities.training.completed && (

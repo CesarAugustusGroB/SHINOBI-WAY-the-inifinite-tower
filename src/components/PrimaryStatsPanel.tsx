@@ -78,9 +78,9 @@ const PrimaryStatsPanel: React.FC<PrimaryStatsPanelProps> = ({ player, effective
           <Flame size={10} /> The Spirit
         </h3>
         <div className="space-y-0 bg-zinc-950/50 rounded p-1">
-          {renderPrimaryStat(<Heart size={12} />, "WIL", "willpower", "Willpower", "Grit & survival instinct. Governs Max HP, Guts chance (survive fatal blow), and HP regeneration.", "text-red-500")}
-          {renderPrimaryStat(<Droplet size={12} />, "CHA", "chakra", "Chakra", "Raw energy capacity. Determines Max Chakra pool size.", "text-blue-500")}
-          {renderPrimaryStat(<Flame size={12} />, "SPI", "spirit", "Spirit", "Nature affinity. Governs Elemental Ninjutsu damage and Elemental Defense.", "text-purple-500")}
+          {renderPrimaryStat(<Heart size={12} />, "Willpower", "willpower", "Willpower", "Grit & survival instinct. Governs Max HP, Guts chance (survive fatal blow), and HP regeneration.", "text-red-500")}
+          {renderPrimaryStat(<Droplet size={12} />, "Chakra", "chakra", "Chakra", "Raw energy capacity. Determines Max Chakra pool size.", "text-blue-500")}
+          {renderPrimaryStat(<Flame size={12} />, "Spirit", "spirit", "Spirit", "Nature affinity. Governs Elemental Ninjutsu damage and Elemental Defense.", "text-purple-500")}
         </div>
       </div>
 
@@ -90,9 +90,9 @@ const PrimaryStatsPanel: React.FC<PrimaryStatsPanelProps> = ({ player, effective
           <Brain size={10} /> The Mind
         </h3>
         <div className="space-y-0 bg-zinc-950/50 rounded p-1">
-          {renderPrimaryStat(<Brain size={12} />, "INT", "intelligence", "Intelligence", "Tactical acumen. Required to learn complex Jutsus. Governs Chakra regeneration.", "text-cyan-500")}
-          {renderPrimaryStat(<Eye size={12} />, "CAL", "calmness", "Calmness", "Mental fortitude. Governs Genjutsu damage/defense and Status Resistance.", "text-indigo-500")}
-          {renderPrimaryStat(<Target size={12} />, "ACC", "accuracy", "Accuracy", "Marksmanship. Governs Ranged Hit chance and Ranged Critical Damage bonus.", "text-yellow-500")}
+          {renderPrimaryStat(<Brain size={12} />, "Intelligence", "intelligence", "Intelligence", "Tactical acumen. Required to learn complex Jutsus. Governs Chakra regeneration.", "text-cyan-500")}
+          {renderPrimaryStat(<Eye size={12} />, "Calmness", "calmness", "Calmness", "Mental fortitude. Governs Genjutsu damage/defense and Status Resistance.", "text-indigo-500")}
+          {renderPrimaryStat(<Target size={12} />, "Accuracy", "accuracy", "Accuracy", "Marksmanship. Governs Ranged Hit chance and Ranged Critical Damage bonus.", "text-yellow-500")}
         </div>
       </div>
 
@@ -102,9 +102,9 @@ const PrimaryStatsPanel: React.FC<PrimaryStatsPanelProps> = ({ player, effective
           <Swords size={10} /> The Body
         </h3>
         <div className="space-y-0 bg-zinc-950/50 rounded p-1">
-          {renderPrimaryStat(<Swords size={12} />, "STR", "strength", "Strength", "Physical conditioning. Governs Taijutsu damage and Physical Defense.", "text-orange-500")}
-          {renderPrimaryStat(<Wind size={12} />, "SPD", "speed", "Speed", "Reflexes & flow. Governs Initiative, Melee Hit chance, and Evasion.", "text-green-500")}
-          {renderPrimaryStat(<Sparkles size={12} />, "DEX", "dexterity", "Dexterity", "Lethal precision. Governs Critical Hit chance for all attack types.", "text-pink-500")}
+          {renderPrimaryStat(<Swords size={12} />, "Strength", "strength", "Strength", "Physical conditioning. Governs Taijutsu damage and Physical Defense.", "text-orange-500")}
+          {renderPrimaryStat(<Wind size={12} />, "Speed", "speed", "Speed", "Reflexes & flow. Governs Initiative, Melee Hit chance, and Evasion.", "text-green-500")}
+          {renderPrimaryStat(<Sparkles size={12} />, "Dexterity", "dexterity", "Dexterity", "Lethal precision. Governs Critical Hit chance for all attack types.", "text-pink-500")}
         </div>
       </div>
     </div>

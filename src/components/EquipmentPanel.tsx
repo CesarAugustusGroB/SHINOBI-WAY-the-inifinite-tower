@@ -29,25 +29,25 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
 
   const formatStatName = (key: string): string => {
     const map: Record<string, string> = {
-      willpower: 'WIL',
-      chakra: 'CHA',
-      strength: 'STR',
-      spirit: 'SPI',
-      intelligence: 'INT',
-      calmness: 'CAL',
-      speed: 'SPD',
-      accuracy: 'ACC',
-      dexterity: 'DEX',
+      willpower: 'Willpower',
+      chakra: 'Chakra',
+      strength: 'Strength',
+      spirit: 'Spirit',
+      intelligence: 'Intelligence',
+      calmness: 'Calmness',
+      speed: 'Speed',
+      accuracy: 'Accuracy',
+      dexterity: 'Dexterity',
       flatHp: 'HP',
       flatChakra: 'Chakra',
-      flatPhysicalDef: 'Phys Def',
-      flatElementalDef: 'Elem Def',
-      flatMentalDef: 'Mind Def',
-      percentPhysicalDef: 'Phys %',
-      percentElementalDef: 'Elem %',
-      percentMentalDef: 'Mind %',
-      critChance: 'Crit %',
-      critDamage: 'Crit Dmg'
+      flatPhysicalDef: 'Physical Def',
+      flatElementalDef: 'Elemental Def',
+      flatMentalDef: 'Mental Def',
+      percentPhysicalDef: 'Physical Def %',
+      percentElementalDef: 'Elemental Def %',
+      percentMentalDef: 'Mental Def %',
+      critChance: 'Crit Chance',
+      critDamage: 'Crit Damage'
     };
     return map[key] || key.toUpperCase();
   };
