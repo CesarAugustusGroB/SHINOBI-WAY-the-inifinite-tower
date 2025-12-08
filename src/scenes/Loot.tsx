@@ -278,29 +278,34 @@ const Loot: React.FC<LootProps> = ({
               </div>
             )}
 
-            <div className="mt-auto pt-3">
+            <div className="mt-auto pt-3 space-y-2">
               {player && player.skills.some(s => s.id === droppedSkill.id) ? (
                 <button type="button" disabled={isProcessing} onClick={() => onLearnSkill(droppedSkill)} className="w-full py-2 bg-green-900/20 border border-green-900 text-[10px] font-bold text-green-200 uppercase disabled:opacity-50 disabled:cursor-not-allowed">
                   Upgrade
                 </button>
-              ) : player && player.skills.length < 4 ? (
-                <button type="button" disabled={isProcessing} onClick={() => onLearnSkill(droppedSkill)} className="w-full py-2 bg-blue-900/20 border border-blue-900 text-[10px] font-bold text-blue-200 uppercase disabled:opacity-50 disabled:cursor-not-allowed">
-                  Learn
-                </button>
               ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  {player?.skills.map((s, idx) => (
-                    <button
-                      type="button"
-                      key={idx}
-                      disabled={isProcessing}
-                      onClick={() => onLearnSkill(droppedSkill, idx)}
-                      className="py-1 bg-zinc-900 border border-zinc-800 text-[8px] text-zinc-400 hover:text-red-400 uppercase disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Replace {s.name}
+                <>
+                  {player && player.skills.length < 4 && (
+                    <button type="button" disabled={isProcessing} onClick={() => onLearnSkill(droppedSkill)} className="w-full py-2 bg-blue-900/20 border border-blue-900 text-[10px] font-bold text-blue-200 uppercase disabled:opacity-50 disabled:cursor-not-allowed">
+                      Learn
                     </button>
-                  ))}
-                </div>
+                  )}
+                  {player && player.skills.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {player.skills.map((s, idx) => (
+                        <button
+                          type="button"
+                          key={idx}
+                          disabled={isProcessing}
+                          onClick={() => onLearnSkill(droppedSkill, idx)}
+                          className="py-1 bg-zinc-900 border border-zinc-800 text-[8px] text-zinc-400 hover:text-red-400 uppercase disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Replace {s.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

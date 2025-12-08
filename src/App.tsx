@@ -932,7 +932,7 @@ const App: React.FC = () => {
   };
 
   // Scroll Discovery handlers
-  const handleLearnScroll = (skill: Skill) => {
+  const handleLearnScroll = (skill: Skill, slotIndex?: number) => {
     if (!scrollDiscoveryData || !player || !selectedBranchingRoom || !branchingFloor || !playerStats) return;
 
     const chakraCost = scrollDiscoveryData.cost?.chakra || 0;
@@ -974,15 +974,19 @@ const App: React.FC = () => {
         damageMult: existing.damageMult + growth
       };
       addLog(`Upgraded ${skill.name} to Level ${currentLevel + 1}!`, 'gain');
+    } else if (slotIndex !== undefined) {
+      // Replace specific skill at slotIndex
+      const forgotten = updatedPlayer.skills[slotIndex];
+      updatedPlayer.skills = [...updatedPlayer.skills];
+      updatedPlayer.skills[slotIndex] = { ...skill, level: 1 };
+      addLog(`Forgot ${forgotten.name} to learn ${skill.name}!`, 'loot');
     } else if (updatedPlayer.skills.length < 4) {
       // Learn new skill
       updatedPlayer.skills = [...updatedPlayer.skills, { ...skill, level: 1 }];
       addLog(`Learned ${skill.name}!`, 'gain');
     } else {
-      // Replace first skill (TODO: Let player choose which to replace)
-      const forgotten = updatedPlayer.skills[0];
-      updatedPlayer.skills = [{ ...skill, level: 1 }, ...updatedPlayer.skills.slice(1)];
-      addLog(`Forgot ${forgotten.name} to learn ${skill.name}!`, 'loot');
+      // Fallback: shouldn't reach here with UI changes
+      return;
     }
 
     setPlayer(updatedPlayer);

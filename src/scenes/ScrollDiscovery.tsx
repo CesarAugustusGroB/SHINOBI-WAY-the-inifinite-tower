@@ -22,7 +22,7 @@ interface ScrollDiscoveryProps {
   scrollDiscovery: ScrollDiscoveryActivity;
   player: Player;
   playerStats: CharacterStats;
-  onLearnScroll: (skill: Skill) => void;
+  onLearnScroll: (skill: Skill, slotIndex?: number) => void;
   onSkip: () => void;
 }
 
@@ -227,25 +227,49 @@ const ScrollDiscovery: React.FC<ScrollDiscoveryProps> = ({
                   </div>
                 )}
 
-                <div className="mt-auto pt-3">
-                  <button
-                    type="button"
-                    disabled={!canLearn}
-                    onClick={() => onLearnScroll(skill)}
-                    className={`w-full py-3 border text-xs font-bold uppercase transition-colors flex items-center justify-center gap-2
-                      ${canLearn
-                        ? 'bg-amber-900/20 border-amber-700 text-amber-300 hover:bg-amber-900/40'
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed'
-                      }`}
-                  >
-                    <Sparkles size={14} />
-                    {known ? 'Upgrade Skill' : skillSlotsFull ? 'Replace Skill' : 'Learn Technique'}
-                    {chakraCost > 0 && (
-                      <span className={canAfford ? 'text-blue-400' : 'text-red-400'}>
-                        (-{chakraCost} Chakra)
-                      </span>
-                    )}
-                  </button>
+                <div className="mt-auto pt-3 space-y-2">
+                  {/* Upgrade or Learn button */}
+                  {(known || (!skillSlotsFull && reqCheck.meets)) && (
+                    <button
+                      type="button"
+                      disabled={!canAfford || !reqCheck.meets}
+                      onClick={() => onLearnScroll(skill)}
+                      className={`w-full py-3 border text-xs font-bold uppercase transition-colors flex items-center justify-center gap-2
+                        ${canAfford && reqCheck.meets
+                          ? 'bg-amber-900/20 border-amber-700 text-amber-300 hover:bg-amber-900/40'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed'
+                        }`}
+                    >
+                      <Sparkles size={14} />
+                      {known ? 'Upgrade Skill' : 'Learn Technique'}
+                      {chakraCost > 0 && (
+                        <span className={canAfford ? 'text-blue-400' : 'text-red-400'}>
+                          (-{chakraCost} Chakra)
+                        </span>
+                      )}
+                    </button>
+                  )}
+
+                  {/* Replacement buttons when slots are full */}
+                  {!known && player.skills.length > 0 && reqCheck.meets && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {player.skills.map((s, idx) => (
+                        <button
+                          type="button"
+                          key={idx}
+                          disabled={!canAfford}
+                          onClick={() => onLearnScroll(skill, idx)}
+                          className={`py-2 border text-[9px] uppercase transition-colors
+                            ${canAfford
+                              ? 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-red-400 hover:border-red-900'
+                              : 'bg-zinc-900 border-zinc-800 text-zinc-700 cursor-not-allowed'
+                            }`}
+                        >
+                          Replace {s.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                   {!canAfford && (
                     <div className="text-[9px] text-red-400 text-center mt-1">
