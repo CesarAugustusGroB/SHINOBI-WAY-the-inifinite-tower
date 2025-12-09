@@ -8,7 +8,8 @@ import {
   AggregatedStats,
   ApproachStatistics,
   SimulationSummary,
-  PlayerBuildConfig
+  PlayerBuildConfig,
+  ConfidenceInterval
 } from './types';
 import { EnemyArchetype } from './EnemyArchetypes';
 
@@ -73,6 +74,9 @@ export function aggregateResults(
   // Approach statistics
   const approachStats = calculateApproachStats(results);
 
+  // Calculate confidence interval for win rate
+  const winRateCI = calculateConfidenceInterval(wins, totalBattles);
+
   return {
     playerBuildName,
     enemyArchetype,
@@ -82,6 +86,7 @@ export function aggregateResults(
     wins,
     losses,
     winRate: wins / totalBattles,
+    winRateCI,
 
     // Turn metrics
     averageTurnsToWin: average(turnsToWin),
@@ -183,6 +188,7 @@ function createEmptyStats(
     wins: 0,
     losses: 0,
     winRate: 0,
+    winRateCI: { lower: 0, upper: 0, marginOfError: 0 },
     averageTurnsToWin: 0,
     averageTurnsToLose: 0,
     averageTurns: 0,
@@ -329,4 +335,50 @@ export function percentile(arr: number[], p: number): number {
   const sorted = [...arr].sort((a, b) => a - b);
   const index = Math.ceil((p / 100) * sorted.length) - 1;
   return sorted[Math.max(0, index)];
+}
+
+/**
+ * Calculate 95% confidence interval for a proportion (win rate)
+ * Uses Wilson score interval which is more accurate for extreme proportions
+ * @param successes Number of successes (wins)
+ * @param total Total trials (battles)
+ * @returns { lower: number, upper: number, marginOfError: number }
+ */
+export function calculateConfidenceInterval(
+  successes: number,
+  total: number
+): { lower: number; upper: number; marginOfError: number } {
+  if (total === 0) {
+    return { lower: 0, upper: 0, marginOfError: 0 };
+  }
+
+  // Wilson score interval for 95% confidence (z = 1.96)
+  const z = 1.96;
+  const p = successes / total;
+  const n = total;
+
+  // Wilson formula
+  const denominator = 1 + z * z / n;
+  const center = (p + z * z / (2 * n)) / denominator;
+  const spread = z * Math.sqrt((p * (1 - p) + z * z / (4 * n)) / n) / denominator;
+
+  const lower = Math.max(0, center - spread);
+  const upper = Math.min(1, center + spread);
+  const marginOfError = spread;
+
+  return { lower, upper, marginOfError };
+}
+
+/**
+ * Format confidence interval as a string
+ * @param winRate Win rate (0-1)
+ * @param ci Confidence interval object
+ * @returns Formatted string like "65.2% ± 3.1% [62.1% - 68.3%]"
+ */
+export function formatConfidenceInterval(
+  winRate: number,
+  ci: { lower: number; upper: number; marginOfError: number }
+): string {
+  const pct = (v: number) => (v * 100).toFixed(1);
+  return `${pct(winRate)}% ± ${pct(ci.marginOfError)}% [${pct(ci.lower)}% - ${pct(ci.upper)}%]`;
 }

@@ -114,6 +114,12 @@ export interface BattleResult {
 // AGGREGATED STATISTICS
 // ============================================================================
 
+export interface ConfidenceInterval {
+  lower: number;
+  upper: number;
+  marginOfError: number;
+}
+
 export interface AggregatedStats {
   // Configuration
   playerBuildName: string;
@@ -124,6 +130,7 @@ export interface AggregatedStats {
   wins: number;
   losses: number;
   winRate: number;
+  winRateCI: ConfidenceInterval;  // 95% confidence interval for win rate
 
   // Turn metrics
   averageTurnsToWin: number;
@@ -258,4 +265,78 @@ export interface TurnLog {
   isEvaded: boolean;
   playerHp: number;
   enemyHp: number;
+}
+
+// ============================================================================
+// PROGRESSION SIMULATION TYPES
+// ============================================================================
+
+export interface ProgressionConfig {
+  startLevel: number;              // Default: 1
+  maxLevel: number;                // Default: 50
+  battlesPerLevelUp: number;       // Default: 2
+  battlesPerSkillGain: number;     // Default: 3
+  startingSkillIds: string[];      // Initial skillset
+  maxSkills: number;               // Default: 4
+  skillPool: string[];             // Available skills to learn
+  maxBattles: number;              // Safety limit (default: 500)
+  runsToSimulate: number;          // Number of full runs (default: 100)
+}
+
+export const DEFAULT_PROGRESSION_CONFIG: ProgressionConfig = {
+  startLevel: 1,
+  maxLevel: 50,
+  battlesPerLevelUp: 2,
+  battlesPerSkillGain: 3,
+  startingSkillIds: ['basic_atk'],
+  maxSkills: 4,
+  skillPool: [],  // Will be populated from SKILLS
+  maxBattles: 500,
+  runsToSimulate: 100
+};
+
+export interface ProgressionState {
+  currentLevel: number;
+  currentSkillIds: string[];
+  battleCount: number;
+  battlesUntilLevelUp: number;
+  battlesUntilSkillGain: number;
+  currentIntelligence: number;
+}
+
+export interface ProgressionBattle {
+  battleNumber: number;
+  levelAtBattle: number;
+  skillsAtBattle: string[];
+  enemyArchetype: EnemyArchetype;
+  won: boolean;
+  turns: number;
+  damageDealt: number;
+  damageReceived: number;
+  leveledUp: boolean;
+  skillGained: string | null;
+}
+
+export interface ProgressionRunResult {
+  runId: number;
+  clan: Clan;
+  finalLevel: number;
+  totalBattles: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  winRateByLevel: Record<number, { wins: number; total: number }>;
+  skillsAcquired: string[];
+  battles: ProgressionBattle[];
+}
+
+export interface ProgressionSummary {
+  clan: Clan;
+  totalRuns: number;
+  averageFinalLevel: number;
+  survivalRate: number;
+  winRateByLevel: Record<number, number>;
+  averageWinRate: number;
+  levelBreakpoints: { level: number; winRateDrop: number }[];
+  skillAcquisitionStats: Record<string, number>;  // Skill ID -> % of runs that acquired it
 }

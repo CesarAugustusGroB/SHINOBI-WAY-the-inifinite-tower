@@ -9,7 +9,9 @@ import {
   SimulationOutput,
   SimulationRunResult,
   PlayerBuildConfig,
-  DEFAULT_CONFIG
+  DEFAULT_CONFIG,
+  ProgressionConfig,
+  DEFAULT_PROGRESSION_CONFIG
 } from './types';
 import { EnemyArchetype, getAllArchetypes } from './EnemyArchetypes';
 import { generateAllBuilds, generateClanPresets, generateExtremeBuilds } from './BuildGenerator';
@@ -17,6 +19,7 @@ import { runBattles } from './BattleSimulator';
 import { aggregateResults, generateSummary } from './StatisticsCollector';
 import { printFullReport, printProgress, clearProgress, printHeader } from './ConsoleReporter';
 import { exportToJson, exportSummaryToJson, exportToCsv } from './JsonExporter';
+import { runFullProgressionSimulation, printProgressionSummary } from './ProgressionSimulator';
 
 // ============================================================================
 // SIMULATION RUNNER
@@ -174,6 +177,46 @@ async function main() {
   // Parse command line arguments
   const args = process.argv.slice(2);
 
+  // Check for progression mode
+  const isProgression = args.includes('--progression') || args.includes('-p');
+
+  if (isProgression) {
+    // Run progression simulation
+    let progressionConfig: ProgressionConfig = { ...DEFAULT_PROGRESSION_CONFIG };
+
+    // Parse progression-specific arguments
+    for (let i = 0; i < args.length; i++) {
+      const arg = args[i];
+
+      if (arg === '--runs' || arg === '-r') {
+        progressionConfig.runsToSimulate = parseInt(args[++i]) || 100;
+      } else if (arg === '--max-level') {
+        progressionConfig.maxLevel = parseInt(args[++i]) || 50;
+      } else if (arg === '--battles-per-level') {
+        progressionConfig.battlesPerLevelUp = parseInt(args[++i]) || 2;
+      } else if (arg === '--battles-per-skill') {
+        progressionConfig.battlesPerSkillGain = parseInt(args[++i]) || 3;
+      } else if (arg === '--quick' || arg === '-q') {
+        progressionConfig.runsToSimulate = 10;
+        progressionConfig.maxBattles = 100;
+      } else if (arg === '--help' || arg === '-h') {
+        printHelp();
+        return;
+      }
+    }
+
+    try {
+      const summaries = await runFullProgressionSimulation(progressionConfig);
+      printProgressionSummary(summaries);
+      console.log('\nProgression simulation complete!');
+    } catch (error) {
+      console.error('Progression simulation failed:', error);
+      process.exit(1);
+    }
+    return;
+  }
+
+  // Standard battle simulation
   let config: SimulationConfig = { ...DEFAULT_CONFIG };
 
   // Parse arguments
@@ -220,8 +263,9 @@ function printHelp(): void {
   console.log(`
 SHINOBI WAY - Battle Simulation
 
-Usage: npx ts-node src/simulation/index.ts [options]
+Usage: npx tsx src/simulation/index.ts [options]
 
+=== BATTLE MODE (default) ===
 Options:
   -b, --battles <n>     Number of battles per matchup (default: 1000)
   -l, --level <n>       Player level (default: 10)
@@ -231,9 +275,25 @@ Options:
   -h, --help            Show this help message
 
 Examples:
-  npx ts-node src/simulation/index.ts
-  npx ts-node src/simulation/index.ts --battles 500 --level 15
-  npx ts-node src/simulation/index.ts --quick
+  npx tsx src/simulation/index.ts
+  npx tsx src/simulation/index.ts --battles 500 --level 15
+  npx tsx src/simulation/index.ts --quick
+
+=== PROGRESSION MODE ===
+Simulates full game runs from level 1 with leveling and skill acquisition.
+
+Options:
+  -p, --progression         Enable progression mode
+  -r, --runs <n>            Number of runs per clan (default: 100)
+  --max-level <n>           Max level to simulate (default: 50)
+  --battles-per-level <n>   Battles before level up (default: 2)
+  --battles-per-skill <n>   Battles before skill gain (default: 3)
+  -q, --quick               Quick mode (10 runs, 100 battles max)
+
+Examples:
+  npx tsx src/simulation/index.ts --progression
+  npx tsx src/simulation/index.ts -p --runs 50 --max-level 30
+  npx tsx src/simulation/index.ts -p -q
 
 Output:
   Results are exported to simulation-output/ as:

@@ -38,6 +38,49 @@ import { EnemyArchetype, generateSimEnemy } from './EnemyArchetypes';
 import { createBuildFromConfig } from './BuildGenerator';
 import { selectBestSkill, AIStrategy, selectSkillByStrategy } from './SkillSelectionAI';
 
+/**
+ * Calculate approach success based on player stats and approach type
+ * Returns true if approach succeeds, false otherwise
+ */
+function calculateApproachSuccess(
+  approach: ApproachType,
+  playerStats: { primary: PrimaryAttributes; derived: DerivedStats }
+): boolean {
+  if (approach === ApproachType.FRONTAL_ASSAULT) {
+    return true; // Always succeeds (no stealth needed)
+  }
+
+  let baseChance = 50;
+  let scalingStat = 0;
+
+  switch (approach) {
+    case ApproachType.STEALTH_AMBUSH:
+      // Speed-based stealth
+      scalingStat = playerStats.primary.speed;
+      baseChance = 40 + scalingStat * 1.5; // 40% base + 1.5% per speed
+      break;
+    case ApproachType.GENJUTSU_SETUP:
+      // Intelligence-based mental setup
+      scalingStat = playerStats.primary.intelligence;
+      baseChance = 35 + scalingStat * 2; // 35% base + 2% per intelligence
+      break;
+    case ApproachType.ENVIRONMENTAL_TRAP:
+      // Dexterity-based trap setup
+      scalingStat = playerStats.primary.dexterity;
+      baseChance = 45 + scalingStat * 1.2; // 45% base + 1.2% per dexterity
+      break;
+    case ApproachType.SHADOW_BYPASS:
+      // Very hard - requires high calmness
+      scalingStat = playerStats.primary.calmness;
+      baseChance = 20 + scalingStat * 1.5; // 20% base + 1.5% per calmness
+      break;
+  }
+
+  // Cap at 95%
+  const successChance = Math.min(95, baseChance);
+  return Math.random() * 100 < successChance;
+}
+
 // ============================================================================
 // COMBAT HELPERS
 // ============================================================================
@@ -188,6 +231,7 @@ export interface BattleContext {
   turn: number;
   isFirstTurn: boolean;
   firstHitMultiplier: number;
+  approachSucceeded: boolean;  // Track actual approach success
   logs: TurnLog[];
   metrics: {
     totalDamageDealt: number;
@@ -240,9 +284,35 @@ function executePlayerTurn(ctx: BattleContext): boolean {
 
   // Check resources
   if (player.currentChakra < skill.chakraCost || player.currentHp <= skill.hpCost) {
-    // Use basic attack instead
-    const basicAttack = player.skills.find(s => s.id === 'basic_atk') || player.skills[0];
-    return executeSkill(ctx, basicAttack, true);
+    // Find a skill we can afford
+    const affordableSkill = player.skills.find(s =>
+      s.currentCooldown === 0 &&
+      player.currentChakra >= s.chakraCost &&
+      player.currentHp > s.hpCost
+    );
+
+    // Fallback to basic attack or first available skill
+    const fallbackSkill = affordableSkill ||
+      player.skills.find(s => s.id === 'basic_atk') ||
+      player.skills[0];
+
+    if (!fallbackSkill) {
+      // No skills available at all - skip turn
+      ctx.logs.push({
+        turn: ctx.turn,
+        actor: 'player',
+        action: 'No skills available',
+        damage: 0,
+        isCrit: false,
+        isMiss: false,
+        isEvaded: false,
+        playerHp: player.currentHp,
+        enemyHp: ctx.enemy.currentHp
+      });
+      return false;
+    }
+
+    return executeSkill(ctx, fallbackSkill, true);
   }
 
   return executeSkill(ctx, skill, true);
@@ -342,13 +412,17 @@ function executeSkill(ctx: BattleContext, skill: Skill, isPlayer: boolean): bool
   } else {
     ctx.player.activeBuffs = mitigation.updatedBuffs;
 
+    // Store HP before damage to check guts properly
+    const hpBeforeDamage = ctx.player.currentHp;
+
     // Check guts
-    const gutsResult = checkGuts(ctx.player.currentHp, damage, ctx.playerDerived.gutsChance);
+    const gutsResult = checkGuts(hpBeforeDamage, damage, ctx.playerDerived.gutsChance);
     if (!gutsResult.survived) {
       ctx.player.currentHp = 0;
     } else {
       ctx.player.currentHp = gutsResult.newHp;
-      if (gutsResult.newHp === 1 && ctx.player.currentHp - damage <= 0) {
+      // Guts triggered if we would have died but survived at 1 HP
+      if (gutsResult.newHp === 1 && hpBeforeDamage - damage <= 0) {
         ctx.metrics.gutsTriggered++;
       }
     }
@@ -430,10 +504,10 @@ function executeSkill(ctx: BattleContext, skill: Skill, isPlayer: boolean): bool
 }
 
 /**
- * Execute enemy turn
+ * Execute enemy turn with intelligent AI (same logic as player)
  */
-function executeEnemyTurn(ctx: BattleContext): void {
-  const { enemy, enemyDerived } = ctx;
+function executeEnemyTurn(ctx: BattleContext, useSmartAI: boolean = true): void {
+  const { enemy, enemyDerived, player, playerDerived } = ctx;
 
   // Check stun
   if (enemy.activeBuffs.some(b => b?.effect?.type === EffectType.STUN)) {
@@ -471,18 +545,43 @@ function executeEnemyTurn(ctx: BattleContext): void {
     }
   }
 
-  // Select random skill
-  const availableSkills = enemy.skills.filter(s => s.currentCooldown === 0);
-  const skill = availableSkills.length > 0
-    ? availableSkills[Math.floor(Math.random() * availableSkills.length)]
-    : enemy.skills[0];
+  let skill: Skill;
 
-  executeSkill(ctx, skill, false);
+  if (useSmartAI) {
+    // Use intelligent skill selection (same as player)
+    const simEnemy = toSimCombatant(enemy, enemyDerived);
+    const simPlayer = toSimCombatant(player, playerDerived);
 
-  // Update cooldowns
-  ctx.enemy.skills = ctx.enemy.skills.map(s =>
-    s.id === skill.id ? { ...s, currentCooldown: s.cooldown + 1 } : { ...s, currentCooldown: Math.max(0, s.currentCooldown - 1) }
-  );
+    skill = selectBestSkill(
+      enemy.skills,
+      simEnemy,
+      enemyDerived,
+      simPlayer,
+      playerDerived,
+      false, // Not first turn for enemy
+      1.0    // No first hit multiplier
+    );
+  } else {
+    // Legacy random skill selection
+    const availableSkills = enemy.skills.filter(s => s.currentCooldown === 0);
+    skill = availableSkills.length > 0
+      ? availableSkills[Math.floor(Math.random() * availableSkills.length)]
+      : enemy.skills[0];
+  }
+
+  // Fallback if no skill found
+  if (!skill && enemy.skills.length > 0) {
+    skill = enemy.skills[0];
+  }
+
+  if (skill) {
+    executeSkill(ctx, skill, false);
+
+    // Update cooldowns
+    ctx.enemy.skills = ctx.enemy.skills.map(s =>
+      s.id === skill.id ? { ...s, currentCooldown: s.cooldown + 1 } : { ...s, currentCooldown: Math.max(0, s.currentCooldown - 1) }
+    );
+  }
 }
 
 /**
@@ -503,6 +602,11 @@ export function simulateBattle(
   const playerStats = getPlayerFullStats(player);
   const enemyStats = getEnemyFullStats(enemy);
 
+  // Calculate approach success (only if approach is used)
+  const approachSucceeded = approach
+    ? calculateApproachSuccess(approach, { primary: playerStats.primary, derived: playerStats.derived })
+    : false;
+
   // Initialize battle context
   const ctx: BattleContext = {
     player: { ...player },
@@ -511,7 +615,9 @@ export function simulateBattle(
     enemyDerived: enemyStats.derived,
     turn: 0,
     isFirstTurn: true,
-    firstHitMultiplier: approach === ApproachType.STEALTH_AMBUSH ? 2.5 : 1.0,
+    // Only apply first hit multiplier if approach succeeded
+    firstHitMultiplier: (approach === ApproachType.STEALTH_AMBUSH && approachSucceeded) ? 2.5 : 1.0,
+    approachSucceeded,
     logs: [],
     metrics: {
       totalDamageDealt: 0,
@@ -527,16 +633,18 @@ export function simulateBattle(
   };
 
   // Determine who goes first
-  const playerInit = playerStats.derived.initiative + (approach === ApproachType.STEALTH_AMBUSH ? 100 : 0);
+  const playerInit = playerStats.derived.initiative +
+    ((approach === ApproachType.STEALTH_AMBUSH && approachSucceeded) ? 100 : 0);
   const enemyInit = enemyStats.derived.initiative;
   let playerGoesFirst = playerInit + Math.random() * 10 >= enemyInit + Math.random() * 10;
 
-  if (approach === ApproachType.STEALTH_AMBUSH || approach === ApproachType.GENJUTSU_SETUP) {
+  // Only guarantee first if approach succeeded
+  if (approachSucceeded && (approach === ApproachType.STEALTH_AMBUSH || approach === ApproachType.GENJUTSU_SETUP)) {
     playerGoesFirst = true;
   }
 
-  // Apply approach effects
-  if (approach === ApproachType.GENJUTSU_SETUP) {
+  // Apply approach effects only if succeeded
+  if (approachSucceeded && approach === ApproachType.GENJUTSU_SETUP) {
     ctx.enemy.activeBuffs.push({
       id: generateId(),
       name: 'Confusion',
@@ -546,7 +654,7 @@ export function simulateBattle(
     });
   }
 
-  if (approach === ApproachType.ENVIRONMENTAL_TRAP) {
+  if (approachSucceeded && approach === ApproachType.ENVIRONMENTAL_TRAP) {
     ctx.enemy.currentHp = Math.floor(ctx.enemy.currentHp * 0.8); // 20% HP reduction
   }
 
@@ -638,7 +746,7 @@ export function simulateBattle(
     totalChakraUsed: ctx.metrics.chakraUsed,
     skillsUsed: ctx.metrics.skillsUsed,
     approachUsed: approach,
-    approachSucceeded: approach !== null
+    approachSucceeded: ctx.approachSucceeded
   };
 }
 

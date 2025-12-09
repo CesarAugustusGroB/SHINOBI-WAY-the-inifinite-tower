@@ -78,18 +78,20 @@ export const ARCHETYPE_CONFIGS: Record<EnemyArchetype, ArchetypeConfig> = {
     name: 'Elemental Caster',
     description: 'High spirit for elemental damage, ranged attacks',
     baseStats: {
-      willpower: 14,
-      chakra: 25,
-      strength: 8,
-      spirit: 28,
-      intelligence: 18,
-      calmness: 12,
-      speed: 14,
-      accuracy: 12,
-      dexterity: 12
+      willpower: 12,       // NERFED: -2 (more fragile)
+      chakra: 18,          // NERFED: -7 (fewer skill uses, runs out faster)
+      strength: 6,         // NERFED: -2 (even weaker physical)
+      spirit: 22,          // NERFED: -6 (main nerf - less elemental damage)
+      intelligence: 14,    // NERFED: -4 (less skill scaling)
+      calmness: 10,        // NERFED: -2 (weaker mental resist)
+      speed: 12,           // NERFED: -2 (slower)
+      accuracy: 10,        // NERFED: -2 (more misses)
+      dexterity: 10        // NERFED: -2 (less crit)
     },
     element: ElementType.FIRE,
-    skillIds: ['basic_atk', 'fireball', 'phoenix_flower']
+    skillIds: ['basic_atk', 'phoenix_flower']  // NERFED: Removed fireball (no big nuke)
+    // Note: CASTER now relies on Phoenix Flower (2.2x + burn) instead of Fireball (3.5x + burn)
+    // This significantly reduces burst damage while keeping DoT pressure
   },
 
   [EnemyArchetype.GENJUTSU]: {

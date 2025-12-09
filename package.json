@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "simulate": "npx tsx src/simulation/index.ts",
-    "simulate:quick": "npx tsx src/simulation/index.ts --quick"
+    "simulate:quick": "npx tsx src/simulation/index.ts --quick",
+    "simulate:progression": "npx tsx src/simulation/index.ts --progression",
+    "simulate:progression:quick": "npx tsx src/simulation/index.ts --progression --quick"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",

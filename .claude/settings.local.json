@@ -4,7 +4,8 @@
       "Bash(npm run build:*)",
       "Bash(timeout 5 npm run dev)",
       "Bash(git grep:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm run simulate:progression:quick:*)"
     ],
     "deny": [
       "Write(*.md)",

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
@@ -23,9 +23,16 @@ npm run preview
 
 # Type check (no emit)
 npx tsc --noEmit
+
+# Run battle simulation (balance testing)
+npm run simulate
+
+# Quick simulation (fewer battles)
+npm run simulate:quick
 ```
 
 **Environment Setup:**
+
 - Set `GEMINI_API_KEY` in `.env.local` to enable AI-generated enemy images
 - Default dev port: 5173 (Vite rotates if in use)
 
@@ -33,7 +40,7 @@ npx tsc --noEmit
 
 ### Directory Structure
 
-```
+```text
 src/
 ├── App.tsx                        # Main orchestrator (900+ LOC), game state management
 ├── index.tsx                      # React entry point
@@ -78,10 +85,12 @@ src/
 ├── scenes/                        # Full-screen scene views
 │   ├── MainMenu.tsx
 │   ├── CharacterSelect.tsx
-│   ├── Exploration.tsx
 │   ├── Combat.tsx
 │   ├── Event.tsx
 │   ├── Loot.tsx
+│   ├── Merchant.tsx
+│   ├── Training.tsx
+│   ├── ScrollDiscovery.tsx
 │   ├── GameOver.tsx
 │   └── GameGuide.tsx
 └── hooks/
@@ -97,17 +106,15 @@ Located in `src/game/types.ts`:
 enum GameState {
   MENU,
   CHAR_SELECT,
-  EXPLORE,
-  EXPLORE_MAP,        // Node map exploration
-  BRANCHING_EXPLORE,  // Branching room exploration (current system)
-  ROOM_ACTIVITY,      // In a room doing activities
-  MERCHANT,           // Shopping phase
-  APPROACH_SELECT,    // Choosing combat approach
+  EXPLORE_MAP,        // Legacy node map (kept for compatibility)
+  BRANCHING_EXPLORE,  // Primary branching room exploration view
   COMBAT,
   LOOT,
+  MERCHANT,
   EVENT,
+  TRAINING,           // Training scene for stat upgrades
+  SCROLL_DISCOVERY,   // Finding jutsu scrolls in exploration
   GAME_OVER,
-  VICTORY,
   GUIDE
 }
 ```
@@ -118,9 +125,11 @@ The game uses a branching room exploration system (`BranchingFloorSystem.ts`):
 
 - **Structure:** 1→2→4 branching (entrance → 2 paths → 4 final rooms → exit)
 - **Room Activities:** Each room can have multiple activities in order:
+
   ```typescript
-  ACTIVITY_ORDER = ['combat', 'merchant', 'event', 'rest', 'training', 'treasure']
+  ACTIVITY_ORDER = ['combat', 'eliteChallenge', 'merchant', 'event', 'scrollDiscovery', 'rest', 'training', 'treasure']
   ```
+
 - **Key Functions:**
   - `generateBranchingFloor()` - Creates floor layout
   - `moveToRoom()` - Player navigation
@@ -155,19 +164,32 @@ enum DamageType { PHYSICAL, ELEMENTAL, MENTAL, TRUE }
 enum Rarity { COMMON, RARE, EPIC, LEGENDARY, CURSED }
 ```
 
+### Synthesis System (TFT-Style Crafting)
+
+- **Components:** Basic crafting materials that drop from enemies (Ninja Steel, Spirit Tag, Chakra Pill, etc.)
+- **Artifacts:** Crafted items with passive effects, created by combining two components
+- **Bag System:** `player.componentBag` holds up to 8 items (components or artifacts)
+- **Key Functions in `LootSystem.ts`:**
+  - `synthesize(compA, compB)` - Combine two components into an artifact
+  - `disassemble(artifact)` - Break artifact back into components (50% value)
+  - `addToBag(player, item)` - Store item in bag
+
 ## Common Development Tasks
 
 ### Adding a New Skill
+
 1. Add to `SKILLS` in `src/game/constants/index.ts`
 2. Use `Skill` interface from `types.ts`
 3. Set `damageMult` to scale with appropriate stat
 
 ### Adding Events
+
 1. Create event in appropriate arc file (`src/game/constants/events/`)
 2. Use `GameEventDefinition` interface
 3. Include `allowedArcs` array if arc-specific
 
 ### Modifying Game Balance
+
 - Stat formulas: `src/game/systems/StatSystem.ts`
 - Clan stats: `src/game/constants/index.ts` (CLAN_STATS, CLAN_GROWTH)
 - Enemy scaling: `src/game/systems/EnemySystem.ts`
@@ -175,12 +197,14 @@ enum Rarity { COMMON, RARE, EPIC, LEGENDARY, CURSED }
 ## Important Patterns
 
 ### Do This
+
 - Keep game logic in `/game/systems/` (testable, no React)
 - Use TypeScript enums (e.g., `PrimaryStat.STRENGTH`) not string literals
 - Create new objects with spread `{ ...old, updated: value }`
 - Pass data down, callbacks up (React unidirectional flow)
 
 ### Don't Do This
+
 - Don't add React dependencies to game systems
 - Don't mutate objects directly
 - Don't use `any` type
@@ -196,6 +220,7 @@ enum Rarity { COMMON, RARE, EPIC, LEGENDARY, CURSED }
 ## Testing
 
 No automated tests. Manual testing:
+
 1. Start game → select clan → verify stats
 2. Enter combat room → win → verify remaining activities trigger
 3. Check element effectiveness in combat

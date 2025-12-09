@@ -180,8 +180,10 @@ export function generateClanPresets(level: number = 10): PlayerBuildConfig[] {
     level,
     customStats: {
       ...uzumakiStats,
-      spirit: 28,         // BOOSTED: +9 base +9 growth = 19, override to 28 for Wind scaling
-      intelligence: 20    // BOOSTED: Unlocks Rasenshuriken (req: 20)
+      spirit: 32,         // BUFFED: +4 more to offset 0.5x elemental weakness vs Fire
+      intelligence: 20,   // BOOSTED: Unlocks Rasenshuriken (req: 20)
+      speed: 24,          // BUFFED: Go first vs CASTER, use Shadow Clone early
+      accuracy: 22        // BUFFED: Hit Rasenshuriken more reliably
     },
     skillIds: [
       'basic_atk',
@@ -370,23 +372,24 @@ export function generateExtremeBuilds(level: number = 10): PlayerBuildConfig[] {
     element: ElementType.MENTAL
   });
 
-  // Balanced - All stats equal
+  // Balanced - Competitive generalist (was 180 points, now 218)
+  // BUFFED: Old version had 0% win rate due to stat inefficiency
   builds.push({
     name: 'Balanced Build',
     clan: Clan.HYUGA,
     level,
     customStats: {
-      willpower: 20,
-      chakra: 20,
-      strength: 20,
-      spirit: 20,
-      intelligence: 20,
-      calmness: 20,
-      speed: 20,
-      accuracy: 20,
-      dexterity: 20
+      willpower: 28,      // +8 (survive longer)
+      chakra: 24,         // +4 (more skill uses)
+      strength: 26,       // +6 (physical damage)
+      spirit: 26,         // +6 (elemental damage)
+      intelligence: 22,   // +2 (skill access)
+      calmness: 22,       // +2 (mental defense)
+      speed: 24,          // +4 (initiative)
+      accuracy: 24,       // +4 (hit rate)
+      dexterity: 22       // +2 (crit chance)
     },
-    skillIds: ['basic_atk', 'gentle_fist', 'shuriken', 'water_dragon'],
+    skillIds: ['basic_atk', 'water_dragon', 'chidori', 'shuriken'],
     element: ElementType.WATER
   });
 

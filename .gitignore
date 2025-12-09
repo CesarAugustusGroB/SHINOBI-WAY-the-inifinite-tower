@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 assets
+simulation-output
 
 # Editor directories and files
 .vscode/*
