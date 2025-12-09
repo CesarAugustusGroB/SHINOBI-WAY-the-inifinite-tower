@@ -212,6 +212,7 @@ const App: React.FC = () => {
     enemy,
     enemyStats,
     turnState,
+    turnPhase,
     combatRef,
     setEnemy,
     setTurnState,
@@ -689,11 +690,20 @@ const App: React.FC = () => {
   const equipItem = (item: Item) => {
     if (!player || isProcessingLoot) return;
     setIsProcessingLoot(true);
-    setPlayer(prev => {
-      if (!prev) return null;
-      return equipItemFn(prev, item);
-    });
-    addLog(`Equipped ${item.name}.`, 'loot');
+
+    const result = equipItemFn(player, item);
+    if (!result.success) {
+      addLog(result.reason || 'Cannot equip item.', 'danger');
+      setIsProcessingLoot(false);
+      return;
+    }
+
+    setPlayer(result.player);
+    if (result.replacedItem) {
+      addLog(`Equipped ${item.name}. ${result.replacedItem.name} moved to bag.`, 'loot');
+    } else {
+      addLog(`Equipped ${item.name}.`, 'loot');
+    }
     setTimeout(() => {
       setIsProcessingLoot(false);
       returnToMap();
@@ -780,6 +790,28 @@ const App: React.FC = () => {
     setSelectedComponent(null);
   };
 
+  // Equip item from component bag
+  const equipFromBag = (item: Item) => {
+    if (!player) return;
+    // Remove from bag first, then try to equip
+    const playerWithoutItem = {
+      ...player,
+      componentBag: player.componentBag.filter(c => c.id !== item.id)
+    };
+    const result = equipItemFn(playerWithoutItem, item);
+    if (!result.success) {
+      addLog(result.reason || 'Cannot equip item.', 'danger');
+      return;
+    }
+    setPlayer(result.player);
+    if (result.replacedItem) {
+      addLog(`Equipped ${item.name}. ${result.replacedItem.name} moved to bag.`, 'loot');
+    } else {
+      addLog(`Equipped ${item.name} from bag.`, 'loot');
+    }
+    setSelectedComponent(null);
+  };
+
   // Synthesize two components into an artifact
   const handleSynthesize = (compA: Item, compB: Item) => {
     if (!player) return;
@@ -860,13 +892,21 @@ const App: React.FC = () => {
       return;
     }
 
+    // Check if equip will succeed before deducting money
+    const afterBuy = { ...player, ryo: player.ryo - price };
+    const result = equipItemFn(afterBuy, item);
+    if (!result.success) {
+      addLog(result.reason || 'Cannot equip item.', 'danger');
+      return;
+    }
+
     setIsProcessingLoot(true);
-    setPlayer(prev => {
-      if (!prev) return null;
-      const afterBuy = { ...prev, ryo: prev.ryo - price };
-      return equipItemFn(afterBuy, item);
-    });
-    addLog(`Bought and equipped ${item.name} for ${price} Ryō.`, 'loot');
+    setPlayer(result.player);
+    if (result.replacedItem) {
+      addLog(`Bought ${item.name} for ${price} Ryō. ${result.replacedItem.name} moved to bag.`, 'loot');
+    } else {
+      addLog(`Bought and equipped ${item.name} for ${price} Ryō.`, 'loot');
+    }
     setMerchantItems(prev => prev.filter(i => i.id !== item.id));
     setTimeout(() => setIsProcessingLoot(false), 100);
   };
@@ -1076,6 +1116,7 @@ const App: React.FC = () => {
             onSelectComponent={setSelectedComponent}
             onSellComponent={sellComponent}
             onSynthesize={handleSynthesize}
+            onEquipFromBag={equipFromBag}
             onSellEquipped={sellEquipped}
             onUnequipToBag={unequipToBag}
             onDisassembleEquipped={handleDisassembleEquipped}
@@ -1121,6 +1162,7 @@ const App: React.FC = () => {
               enemy={enemy}
               enemyStats={enemyStats}
               turnState={turnState}
+              turnPhase={turnPhase}
               onUseSkill={useSkill}
               onPassTurn={() => {
                 addLog("You focus on defense and wait.", 'info');

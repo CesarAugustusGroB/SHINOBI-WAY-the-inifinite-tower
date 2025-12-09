@@ -1,3 +1,69 @@
+/**
+ * =============================================================================
+ * LOOT SYSTEM - Items, Components & Synthesis (TFT-Style Crafting)
+ * =============================================================================
+ *
+ * This system handles all item generation, the component-based crafting system,
+ * and equipment management. Inspired by Teamfight Tactics' item combine system.
+ *
+ * ## ITEM TYPES
+ *
+ * ### Components (Basic Materials)
+ * - 8 component types that drop from enemies
+ * - Each has a primary stat bonus and base value
+ * - Components are ALWAYS Rarity.COMMON
+ *
+ * | Component          | Primary Stat   | Drop Weight |
+ * |--------------------|----------------|-------------|
+ * | Ninja Steel        | Strength       | 20          |
+ * | Chakra Crystal     | Chakra         | 18          |
+ * | Spirit Core        | Spirit         | 15          |
+ * | Wind Essence       | Speed          | 12          |
+ * | Thunder Orb        | Dexterity      | 12          |
+ * | Spirit Tag         | Calmness       | 10          |
+ * | Chakra Pill        | Intelligence   | 8           |
+ * | Blessing Token     | Willpower      | 5           |
+ * | Hashirama Cell     | Willpower      | 0 (event)   |
+ *
+ * ### Artifacts (Crafted Items)
+ * - Created by combining 2 components via synthesis
+ * - Have passive abilities from recipes
+ * - ONLY source: Elite Challenges or Synthesis
+ * - Maximum 2 stat bonuses (highest values kept)
+ * - Always Rarity.EPIC
+ *
+ * ## SYNTHESIS SYSTEM
+ *
+ * - Combine any 2 components to find a matching recipe
+ * - Stats from both components are combined
+ * - Recipe may add bonus stats
+ * - Total stats capped at 2 (highest values preserved)
+ *
+ * ## DISASSEMBLY
+ *
+ * - Break artifacts back into component materials
+ * - Returns 50% of artifact value (DISASSEMBLE_RETURN_RATE)
+ * - Splits value between 2 new components
+ *
+ * ## SKILL TIERS BY FLOOR
+ *
+ * | Floor Range | Available Skill Tiers        |
+ * |-------------|------------------------------|
+ * | 1-3         | BASIC                        |
+ * | 4-7         | BASIC, ADVANCED              |
+ * | 8-12        | ADVANCED, HIDDEN             |
+ * | 13-18       | HIDDEN, FORBIDDEN            |
+ * | 19+         | FORBIDDEN, KINJUTSU          |
+ *
+ * ## EQUIPMENT SLOTS
+ *
+ * - 4 equipment slots for artifacts/components
+ * - Component bag: 8 slots for inventory
+ * - Swapping equipped items moves old item to bag
+ *
+ * =============================================================================
+ */
+
 import {
   Item,
   Skill,
@@ -16,6 +82,7 @@ import { COMPONENT_DEFINITIONS, COMPONENT_DROP_WEIGHTS, getTotalDropWeight } fro
 import { findRecipe, SYNTHESIS_RECIPES } from '../constants/synthesis';
 import { BALANCE } from '../config';
 
+/** Generates a random 7-character ID for item tracking */
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
 /**
@@ -36,11 +103,12 @@ const capStatsToTwo = (stats: ItemStatBonus): ItemStatBonus => {
 };
 
 export const generateSkillLoot = (enemyTier: string, currentFloor: number): Skill | null => {
-  let possibleTiers: SkillTier[] = [SkillTier.COMMON];
-  if (enemyTier === 'Chunin') possibleTiers = [SkillTier.COMMON, SkillTier.RARE];
-  else if (enemyTier === 'Jonin') possibleTiers = [SkillTier.RARE, SkillTier.EPIC];
-  else if (enemyTier === 'Akatsuki' || enemyTier === 'Kage Level' || enemyTier.includes('S-Rank')) possibleTiers = [SkillTier.EPIC, SkillTier.LEGENDARY];
-  else if (enemyTier === 'Guardian') possibleTiers = [SkillTier.FORBIDDEN];
+  // Tier mapping: BASIC → ADVANCED → HIDDEN → FORBIDDEN → KINJUTSU
+  let possibleTiers: SkillTier[] = [SkillTier.BASIC];
+  if (enemyTier === 'Chunin') possibleTiers = [SkillTier.BASIC, SkillTier.ADVANCED];
+  else if (enemyTier === 'Jonin') possibleTiers = [SkillTier.ADVANCED, SkillTier.HIDDEN];
+  else if (enemyTier === 'Akatsuki' || enemyTier === 'Kage Level' || enemyTier.includes('S-Rank')) possibleTiers = [SkillTier.HIDDEN, SkillTier.FORBIDDEN];
+  else if (enemyTier === 'Guardian') possibleTiers = [SkillTier.FORBIDDEN, SkillTier.KINJUTSU];
 
   const candidates = Object.values(SKILLS).filter(s => possibleTiers.includes(s.tier));
   if (candidates.length === 0) return SKILLS.SHURIKEN;
@@ -52,18 +120,19 @@ export const generateSkillLoot = (enemyTier: string, currentFloor: number): Skil
  * Higher floors have better chances for higher tier skills
  */
 export const generateSkillForFloor = (floor: number): Skill => {
+  // Tier mapping: BASIC → ADVANCED → HIDDEN → FORBIDDEN → KINJUTSU
   let possibleTiers: SkillTier[];
 
   if (floor <= 3) {
-    possibleTiers = [SkillTier.COMMON];
+    possibleTiers = [SkillTier.BASIC];
   } else if (floor <= 7) {
-    possibleTiers = [SkillTier.COMMON, SkillTier.RARE];
+    possibleTiers = [SkillTier.BASIC, SkillTier.ADVANCED];
   } else if (floor <= 12) {
-    possibleTiers = [SkillTier.RARE, SkillTier.EPIC];
+    possibleTiers = [SkillTier.ADVANCED, SkillTier.HIDDEN];
   } else if (floor <= 18) {
-    possibleTiers = [SkillTier.EPIC, SkillTier.LEGENDARY];
+    possibleTiers = [SkillTier.HIDDEN, SkillTier.FORBIDDEN];
   } else {
-    possibleTiers = [SkillTier.LEGENDARY, SkillTier.FORBIDDEN];
+    possibleTiers = [SkillTier.FORBIDDEN, SkillTier.KINJUTSU];
   }
 
   const candidates = Object.values(SKILLS).filter(s => possibleTiers.includes(s.tier));
@@ -72,12 +141,26 @@ export const generateSkillForFloor = (floor: number): Skill => {
 };
 
 /**
- * Equip an item to a specific slot or auto-assign based on legacy type
+ * Result of attempting to equip an item
+ */
+export interface EquipResult {
+  player: Player;
+  success: boolean;
+  reason?: string;
+  replacedItem?: Item;
+}
+
+/**
+ * Equip an item to a specific slot or auto-assign based on legacy type.
+ * If slot is occupied, the old item moves to component bag.
+ * If bag is full and slot is occupied, equip fails.
+ *
  * @param player - The player to equip the item on
  * @param item - The item to equip
  * @param targetSlot - Optional specific slot to equip to (overrides auto-assignment)
+ * @returns EquipResult with success status and updated player
  */
-export const equipItem = (player: Player, item: Item, targetSlot?: EquipmentSlot): Player => {
+export const equipItem = (player: Player, item: Item, targetSlot?: EquipmentSlot): EquipResult => {
   let slotToUse: EquipmentSlot;
 
   if (targetSlot) {
@@ -94,8 +177,34 @@ export const equipItem = (player: Player, item: Item, targetSlot?: EquipmentSlot
     slotToUse = emptySlot || EquipmentSlot.SLOT_1;
   }
 
+  const existingItem = player.equipment[slotToUse];
+
+  // If slot is occupied, check bag space
+  if (existingItem) {
+    if (player.componentBag.length >= MAX_BAG_SLOTS) {
+      return {
+        player,
+        success: false,
+        reason: 'Component bag is full. Sell or discard items first.'
+      };
+    }
+
+    // Move old item to bag, equip new item
+    const newBag = [...player.componentBag, existingItem];
+    const newEquip = { ...player.equipment, [slotToUse]: item };
+    return {
+      player: { ...player, equipment: newEquip, componentBag: newBag },
+      success: true,
+      replacedItem: existingItem
+    };
+  }
+
+  // Slot is empty, just equip
   const newEquip = { ...player.equipment, [slotToUse]: item };
-  return { ...player, equipment: newEquip };
+  return {
+    player: { ...player, equipment: newEquip },
+    success: true
+  };
 };
 
 export const sellItem = (player: Player, item: Item): Player => {

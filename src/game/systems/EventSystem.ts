@@ -1,3 +1,65 @@
+/**
+ * =============================================================================
+ * EVENT SYSTEM - Narrative Events & Choice Resolution
+ * =============================================================================
+ *
+ * This system handles branching narrative events with player choices,
+ * requirements, costs, and weighted random outcomes.
+ *
+ * ## EVENT STRUCTURE
+ *
+ * Events consist of:
+ * 1. **Description**: Narrative text describing the situation
+ * 2. **Choices**: Available player responses (may be restricted)
+ * 3. **Outcomes**: Weighted random results for each choice
+ * 4. **Effects**: Stat changes, items, buffs applied on resolution
+ *
+ * ## CHOICE VALIDATION
+ *
+ * Choices can have requirements and costs:
+ *
+ * ### Requirements (must be met to select)
+ * - **minStat**: Minimum value for a primary stat
+ * - **requiredClan**: Must be a specific clan
+ *
+ * ### Costs (deducted when choice is made)
+ * - **ryo**: Currency cost
+ *
+ * ## OUTCOME ROLLING
+ *
+ * Each choice has weighted outcomes:
+ * - Higher weight = more likely to occur
+ * - Clan bonuses can reweight outcomes for matching clans
+ *
+ * Weighted roll algorithm:
+ * 1. Sum all outcome weights
+ * 2. Roll random value 0 to total
+ * 3. Iterate outcomes, subtracting weights until roll ≤ 0
+ * 4. Return that outcome
+ *
+ * ## OUTCOME EFFECTS
+ *
+ * Effects that can be applied:
+ * - **statChanges**: Modify primary stats (+/-)
+ * - **exp**: Grant experience points
+ * - **ryo**: Grant/deduct currency
+ * - **hpChange**: Heal/damage (flat or % of max)
+ * - **chakraChange**: Restore/drain (flat or % of max)
+ * - **buffs**: Apply temporary effects
+ * - **triggerCombat**: Start a fight after event
+ *
+ * ## STORY ARC FILTERING
+ *
+ * Events can be restricted to specific story arcs:
+ * - ACADEMY_ARC (floors 1-10)
+ * - WAVES_ARC (floors 11-25)
+ * - EXAMS_ARC (floors 26-50)
+ * - ROGUE_ARC (floors 51-75)
+ * - WAR_ARC (floors 76+)
+ *
+ * =============================================================================
+ */
+
 import {
   EnhancedEventChoice,
   EventOutcome,
@@ -9,7 +71,13 @@ import {
 } from '../types';
 
 /**
- * Check if a player meets all requirements for an event choice
+ * Check if a player meets all requirements for an event choice.
+ * Used to determine if a choice should be enabled or disabled.
+ *
+ * @param player - Current player state
+ * @param requirements - Optional requirements to check
+ * @param playerStats - Derived stats for HP/Chakra calculations
+ * @returns true if all requirements are met
  */
 export const checkRequirements = (
   player: Player,

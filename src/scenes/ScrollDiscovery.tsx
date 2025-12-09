@@ -27,30 +27,18 @@ interface ScrollDiscoveryProps {
 }
 
 const TIER_COLORS: Record<SkillTier, string> = {
-  // Legacy tiers
-  [SkillTier.COMMON]: 'text-zinc-400',
-  [SkillTier.RARE]: 'text-blue-400',
-  [SkillTier.EPIC]: 'text-purple-400',
-  [SkillTier.LEGENDARY]: 'text-orange-400',
-  [SkillTier.FORBIDDEN]: 'text-red-500 animate-pulse',
-  // New tier system
-  [SkillTier.BASIC]: 'text-zinc-500',
+  [SkillTier.BASIC]: 'text-zinc-400',
   [SkillTier.ADVANCED]: 'text-cyan-400',
   [SkillTier.HIDDEN]: 'text-amber-400',
+  [SkillTier.FORBIDDEN]: 'text-red-500',
   [SkillTier.KINJUTSU]: 'text-rose-500 animate-pulse',
 };
 
 const TIER_BORDER_COLORS: Record<SkillTier, string> = {
-  // Legacy tiers
-  [SkillTier.COMMON]: 'border-zinc-700',
-  [SkillTier.RARE]: 'border-blue-700',
-  [SkillTier.EPIC]: 'border-purple-700',
-  [SkillTier.LEGENDARY]: 'border-orange-700',
-  [SkillTier.FORBIDDEN]: 'border-red-700',
-  // New tier system
   [SkillTier.BASIC]: 'border-zinc-700',
   [SkillTier.ADVANCED]: 'border-cyan-700',
   [SkillTier.HIDDEN]: 'border-amber-700',
+  [SkillTier.FORBIDDEN]: 'border-red-700',
   [SkillTier.KINJUTSU]: 'border-rose-700',
 };
 

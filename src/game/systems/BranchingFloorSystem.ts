@@ -1,7 +1,68 @@
-// ============================================================================
-// BRANCHING FLOOR SYSTEM
-// Generates and manages the 1→2→4 branching room exploration structure
-// ============================================================================
+/**
+ * =============================================================================
+ * BRANCHING FLOOR SYSTEM - Exploration & Room Management
+ * =============================================================================
+ *
+ * This system manages the procedurally-generated dungeon floors with a
+ * branching room structure. Players explore rooms, complete activities,
+ * and eventually find the exit to advance to the next floor.
+ *
+ * ## FLOOR STRUCTURE
+ *
+ * The floor uses a dynamic 1→2→4 branching pattern:
+ * ```
+ *                    [START] (Tier 0, Floor 1 only)
+ *                    /     \
+ *               [LEFT]    [RIGHT] (Tier 1)
+ *               /    \    /    \
+ *            [L_O] [L_I][R_I] [R_O] (Tier 2)
+ *              |     |    |     |
+ *           [...dynamic generation continues...]
+ * ```
+ *
+ * Rooms are generated dynamically as the player explores to ensure:
+ * - Memory efficiency (only generate what's needed)
+ * - Always 2 levels of rooms visible ahead
+ * - Exit can appear at any depth after minimum rooms
+ *
+ * ## ACTIVITY ORDER
+ * Each room can have multiple activities that must be completed in order:
+ * 1. combat - Fight the room's enemy
+ * 2. eliteChallenge - Optional elite fight for artifacts (15% chance in shrines/ruins)
+ * 3. merchant - Buy items
+ * 4. event - Story/choice event
+ * 5. scrollDiscovery - Find and learn jutsu scrolls
+ * 6. rest - Heal HP and restore chakra
+ * 7. training - Spend HP/chakra to gain stats
+ * 8. treasure - Collect components and ryo
+ *
+ * ## EXIT ROOM PROBABILITY
+ * The exit room appears dynamically based on exploration progress:
+ *
+ * - Minimum rooms before exit: 3 + floor (capped at 18)
+ *   - Floor 1: 4 rooms minimum
+ *   - Floor 10: 13 rooms minimum
+ *   - Floor 15+: 18 rooms minimum
+ *
+ * - After minimum is reached:
+ *   - Base 20% chance per new room
+ *   - +10% per additional room beyond minimum
+ *   - Maximum 80% chance (always some exploration required)
+ *
+ * ## SEMI-BOSS (Exit Guardian)
+ * Exit rooms contain a "Guardian" enemy with boosted stats:
+ * - Willpower: ×1.3 (more HP)
+ * - Strength: ×1.2 (more physical damage/defense)
+ * - Spirit: ×1.2 (more elemental defense)
+ *
+ * ## ELITE CHALLENGES (Artifact Source)
+ * - Only source of artifacts in the game
+ * - 15% chance to appear in SHRINE or RUINS room types
+ * - Elite enemy with +15 difficulty
+ * - Guaranteed artifact drop on victory
+ *
+ * =============================================================================
+ */
 
 import {
   BranchingFloor,
@@ -100,7 +161,26 @@ function createRoom(
 }
 
 /**
- * Generate activities for a room based on its config
+ * Generate activities for a room based on its configuration.
+ * Activities are determined by the room type config and random chance.
+ *
+ * ## Activity Generation Rules:
+ *
+ * - **Combat**: Required or optional based on config, 50% for optional
+ * - **Elite Challenge**: 15% in SHRINE/RUINS, drops artifacts
+ * - **Merchant**: 2-4 items with 20% chance of 15% discount
+ * - **Event**: Filtered by current story arc
+ * - **Scroll Discovery**: 25% chance if room has events
+ * - **Rest**: 30-50% HP heal, 40-60% chakra restore
+ * - **Training**: 3 random stats with light/medium/intense intensity
+ * - **Treasure**: 2-3 components + ryo (scales with floor)
+ *
+ * @param room - The room being populated with activities
+ * @param config - Room type configuration (from ROOM_TYPE_CONFIGS)
+ * @param floor - Current floor number for scaling
+ * @param difficulty - Difficulty modifier for enemy/loot generation
+ * @param arc - Current story arc name for event filtering
+ * @returns RoomActivities object with all generated activities
  */
 function generateActivities(
   room: BranchingRoom,
@@ -260,19 +340,36 @@ function generateActivities(
 }
 
 /**
- * Generate a semi-boss enemy for exit rooms
+ * Generate a semi-boss "Guardian" enemy for exit rooms.
+ * Guardians are enhanced elite enemies that guard the floor exit.
+ *
+ * ## Guardian Stat Multipliers:
+ * - Willpower: ×1.3 (30% more HP and HP regen)
+ * - Strength: ×1.2 (20% more physical damage/defense)
+ * - Spirit: ×1.2 (20% more elemental defense)
+ *
+ * ## HP Recalculation:
+ * After stat boost, HP is recalculated using the standard formula:
+ * HP = (willpower × 12) + 50
+ *
+ * This ensures the Guardian has significantly more health than regular
+ * elite enemies, making them a meaningful floor-ending challenge.
+ *
+ * @param floor - Current floor for base stat scaling
+ * @param difficulty - Difficulty modifier (extra +15 applied)
+ * @returns Enhanced Enemy with Guardian tier and boosted stats
  */
 function generateSemiBoss(floor: number, difficulty: number): Enemy {
   const enemy = generateEnemy(floor, 'ELITE', difficulty + 15);
 
-  // Buff the semi-boss stats
+  // Apply Guardian stat multipliers
   enemy.name = `Guardian ${enemy.name}`;
   enemy.tier = 'Guardian';
   enemy.primaryStats.willpower = Math.floor(enemy.primaryStats.willpower * 1.3);
   enemy.primaryStats.strength = Math.floor(enemy.primaryStats.strength * 1.2);
   enemy.primaryStats.spirit = Math.floor(enemy.primaryStats.spirit * 1.2);
 
-  // Recalculate HP
+  // Recalculate HP based on boosted willpower
   const hpBonus = enemy.primaryStats.willpower * 12 + 50;
   enemy.currentHp = hpBonus;
 
@@ -282,18 +379,45 @@ function generateSemiBoss(floor: number, difficulty: number): Enemy {
 // ============================================================================
 // EXIT ROOM PROBABILITY
 // ============================================================================
+//
+// The exit room system creates a dynamic floor length that scales with
+// progression while ensuring players always explore a meaningful amount.
+//
+// Formula: minRooms = 3 + floor (capped at 18)
+// After minimum: 20% base + 10% per additional room (capped at 80%)
+//
+// Example progression:
+// - Floor 1: Min 4 rooms, exit appears around rooms 4-8
+// - Floor 5: Min 8 rooms, exit appears around rooms 8-12
+// - Floor 15+: Min 18 rooms, exit appears around rooms 18-24
+// ============================================================================
 
 /**
- * Calculate minimum rooms before exit can appear
- * Formula: minRoomsBeforeExit = 3 + floor (Floor 1 = 4 rooms, Floor 10 = 13 rooms)
+ * Calculate minimum rooms player must visit before exit can appear.
+ * This ensures each floor has a minimum exploration requirement.
+ *
+ * @param floor - Current floor number
+ * @returns Minimum room count before exit is possible
  */
 function getMinRoomsBeforeExit(floor: number): number {
-  return 3 + Math.min(floor, 15); // Cap at 18 rooms max
+  // Cap at 15 to prevent excessive floor length on high floors
+  return 3 + Math.min(floor, 15); // Results: Floor 1→4, Floor 10→13, Floor 15+→18
 }
 
 /**
- * Calculate exit probability for a room at given depth
- * After min rooms, each room has increasing chance to be EXIT
+ * Calculate probability that a new room becomes the exit.
+ * Uses a ramping probability system to prevent infinite exploration.
+ *
+ * ## Probability Curve:
+ * - Below minimum: 0% (no exit possible)
+ * - At minimum: 20% base chance
+ * - Each room beyond: +10% cumulative
+ * - Maximum: 80% (always some uncertainty)
+ *
+ * @param roomsVisited - Total rooms player has entered
+ * @param floor - Current floor number (affects minimum)
+ * @param depth - Room depth in tree (unused, kept for flexibility)
+ * @returns Probability 0.0-0.8 that next room is the exit
  */
 function calculateExitProbability(roomsVisited: number, floor: number, depth: number): number {
   const minRooms = getMinRoomsBeforeExit(floor);

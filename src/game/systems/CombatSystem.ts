@@ -1,3 +1,59 @@
+/**
+ * =============================================================================
+ * COMBAT SYSTEM - Turn-Based Battle Engine
+ * =============================================================================
+ *
+ * This system handles all turn-based combat mechanics, including:
+ * - Player skill execution and damage application
+ * - Enemy turn processing with AI skill selection
+ * - Damage mitigation pipeline (shields, invulnerability, reflection)
+ * - Status effect processing (DoTs, buffs, debuffs)
+ * - Terrain effects and hazards
+ * - Toggle skill upkeep management
+ *
+ * ## COMBAT TURN ORDER
+ *
+ * ### Player Turn (useSkill):
+ * 1. Resource validation (chakra, HP costs)
+ * 2. Stun check (prevents action if stunned)
+ * 3. Damage calculation (via StatSystem.calculateDamage)
+ * 4. First hit multiplier from approach (if first turn)
+ * 5. Terrain element amplification
+ * 6. Damage mitigation on enemy (shields, invuln, reflection)
+ * 7. Effect application with resistance checks
+ * 8. Cooldown update
+ *
+ * ### Enemy Turn (processEnemyTurn):
+ * 1. Process DoT effects on enemy (Bleed, Burn, Poison)
+ * 2. Process Regen effects on enemy
+ * 3. Process DoT effects on player (with shield mitigation)
+ * 4. Process Regen effects on player
+ * 5. Check for DoT deaths (enemy first, then player)
+ * 6. Guts check for player if lethal
+ * 7. Enemy action (stunned, confused, or attack)
+ * 8. Damage mitigation on player
+ * 9. Apply enemy skill effects to player
+ * 10. Player cooldown reduction
+ * 11. Player chakra regeneration
+ * 12. Apply terrain hazards to both combatants
+ * 13. Final death checks
+ *
+ * ## DAMAGE MITIGATION PIPELINE
+ * Applied in this order (applyMitigation function):
+ * 1. INVULNERABILITY - Blocks ALL damage, returns 0
+ * 2. CURSE - Amplifies incoming damage by curse value
+ * 3. REFLECTION - Returns % of damage to attacker (thorns)
+ * 4. SHIELD - Absorbs damage, breaks when depleted
+ *
+ * ## TERRAIN EFFECTS
+ * - Element Amplification: +25% damage for matching element (default)
+ * - Initiative Modifier: Bonus/penalty to turn order
+ * - Evasion Modifier: Bonus/penalty to dodge chance
+ * - Hazard: Chance to deal environmental damage at turn end
+ *
+ * =============================================================================
+ */
+
 import {
   Player,
   Enemy,
@@ -8,6 +64,7 @@ import {
   DamageResult,
   TerrainDefinition,
   ElementType,
+  ActionType,
 } from '../types';
 import {
   calculateDamage,
@@ -17,19 +74,59 @@ import {
 } from './StatSystem';
 import { CombatModifiers } from './ApproachSystem';
 
+/** Generates a random 7-character ID for buff tracking */
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
 // ============================================================================
 // DAMAGE MITIGATION HELPER
-// Handles Shields, Invulnerability, Curses, and Reflection
 // ============================================================================
+
+/**
+ * Result of the damage mitigation pipeline.
+ * Contains the final damage after all mitigation effects are applied.
+ */
 interface MitigationResult {
+  /** Damage that actually hits the target after all mitigation */
   finalDamage: number;
+  /** Damage reflected back to the attacker (thorns/reflection) */
   reflectedDamage: number;
+  /** Updated buff list after shield consumption */
   updatedBuffs: Buff[];
+  /** Log messages describing what happened during mitigation */
   messages: string[];
 }
 
+/**
+ * Applies the damage mitigation pipeline to incoming damage.
+ * This is the core defensive calculation that happens AFTER the attacker's
+ * damage is calculated but BEFORE it's applied to the target's HP.
+ *
+ * ## Mitigation Order (Critical!)
+ * The order of these checks matters for correct behavior:
+ *
+ * 1. INVULNERABILITY - Complete immunity, blocks everything
+ *    - If active, returns 0 damage immediately
+ *    - Used by skills like "Substitution" or "Time Stop"
+ *
+ * 2. CURSE - Damage amplification (applied before reduction)
+ *    - Increases incoming damage by curse.value (e.g., 0.5 = +50%)
+ *    - Applied to cursed targets to make them more vulnerable
+ *
+ * 3. REFLECTION (Thorns) - Returns damage to attacker
+ *    - Calculates reflected amount BEFORE shield reduces damage
+ *    - reflect.value is the % reflected (e.g., 0.3 = 30%)
+ *    - Does not reduce incoming damage, just adds counter-damage
+ *
+ * 4. SHIELD - Damage absorption with durability
+ *    - Shield has a health value that absorbs damage
+ *    - If shield >= damage: absorbs all, reduces shield value
+ *    - If shield < damage: shield breaks, remaining damage goes through
+ *
+ * @param targetBuffs - Array of buffs on the target being hit
+ * @param incomingDamage - Raw damage after attacker's calculation
+ * @param targetName - Name for log messages ("You" or enemy name)
+ * @returns MitigationResult with final damage and effects
+ */
 const applyMitigation = (
   targetBuffs: Buff[],
   incomingDamage: number,
@@ -241,20 +338,65 @@ export function determineTurnOrder(
   return playerRoll >= enemyRoll ? 'player' : 'enemy';
 }
 
+/**
+ * Result of a player skill use, containing all state changes.
+ */
 export interface CombatResult {
+  /** Total damage dealt to the enemy (after mitigation) */
   damageDealt: number;
+  /** Enemy's HP after this action */
   newEnemyHp: number;
+  /** Player's HP after this action (may decrease from HP costs or reflection) */
   newPlayerHp: number;
+  /** Player's chakra after paying skill cost */
   newPlayerChakra: number;
+  /** Enemy's updated buff list */
   newEnemyBuffs: Buff[];
+  /** Player's updated buff list (may include new self-buffs) */
   newPlayerBuffs: Buff[];
+  /** Combat log message describing what happened */
   logMessage: string;
+  /** Log type for UI styling */
   logType: 'info' | 'combat' | 'gain' | 'danger';
+  /** Updated skill list with cooldowns applied */
   skillsUpdate?: Skill[];
+  /** True if enemy HP reached 0 */
   enemyDefeated: boolean;
-  playerDefeated?: boolean; // Added for reflection kills
+  /** True if player HP reached 0 (can happen from reflection damage) */
+  playerDefeated?: boolean;
 }
 
+/**
+ * Executes a player skill attack against an enemy.
+ * This is the main player combat action function.
+ *
+ * ## Execution Flow:
+ * 1. **Resource Check** - Verify player has enough chakra/HP for skill costs
+ * 2. **Cooldown Check** - Return null if skill is on cooldown
+ * 3. **Stun Check** - Stunned players cannot act
+ * 4. **Pay Costs** - Deduct chakra and HP costs
+ * 5. **Calculate Damage** - Use StatSystem.calculateDamage()
+ * 6. **Apply Modifiers**:
+ *    - First hit multiplier from approach (ambush bonus)
+ *    - Terrain element amplification
+ * 7. **Apply Mitigation** - Enemy shields, invuln, reflection
+ * 8. **Handle Reflection** - Damage returned to player
+ * 9. **Apply Effects** - Self-buffs and enemy debuffs with resistance
+ * 10. **Update Cooldowns** - Set skill on cooldown
+ *
+ * ## Effect Types:
+ * - Self-buffs (BUFF, SHIELD, REFLECTION, REGEN, INVULNERABILITY, HEAL)
+ *   always apply to player, no resistance check
+ * - Debuffs apply to enemy with status resistance check
+ *
+ * @param player - Current player state
+ * @param playerStats - Calculated player stats (from getPlayerFullStats)
+ * @param enemy - Current enemy state
+ * @param enemyStats - Calculated enemy stats (from getEnemyFullStats)
+ * @param skill - The skill being used
+ * @param combatState - Optional combat state for approach/terrain bonuses
+ * @returns CombatResult with all state changes, or null if action impossible
+ */
 export const useSkill = (
   player: Player,
   playerStats: CharacterStats,
@@ -408,17 +550,157 @@ export const useSkill = (
   };
 };
 
+// ============================================================================
+// TURN PHASE PROCESSING - Upkeep Phase
+// Handles toggle skill upkeep costs and passive regen at turn start
+// ============================================================================
+
+export interface UpkeepResult {
+  player: Player;
+  logs: string[];
+  togglesDeactivated: string[];
+}
+
+/**
+ * Process upkeep phase at the start of player's turn
+ * - Deducts toggle skill upkeep costs (chakra or HP)
+ * - Auto-deactivates toggles if player can't afford upkeep
+ * - Applies passive skill regeneration bonuses
+ */
+export function processUpkeep(
+  player: Player,
+  playerStats: CharacterStats
+): UpkeepResult {
+  let updatedPlayer = { ...player };
+  const logs: string[] = [];
+  const togglesDeactivated: string[] = [];
+
+  // Process toggle upkeep costs
+  updatedPlayer.skills = updatedPlayer.skills.map(skill => {
+    if (!skill.isToggle || !skill.isActive) return skill;
+
+    const upkeepCost = skill.upkeepCost || 0;
+    if (upkeepCost <= 0) return skill;
+
+    // Check if player can afford upkeep
+    if (updatedPlayer.currentChakra >= upkeepCost) {
+      // Pay upkeep cost
+      updatedPlayer.currentChakra -= upkeepCost;
+      logs.push(`${skill.name} upkeep: -${upkeepCost} CP`);
+      return skill;
+    } else {
+      // Cannot afford - deactivate toggle
+      logs.push(`${skill.name} deactivated (insufficient chakra)`);
+      togglesDeactivated.push(skill.name);
+
+      // Remove buffs from this toggle
+      updatedPlayer.activeBuffs = updatedPlayer.activeBuffs.filter(
+        buff => buff.source !== skill.name
+      );
+
+      return { ...skill, isActive: false };
+    }
+  });
+
+  // Apply passive skill regeneration
+  const passiveSkills = updatedPlayer.skills.filter(
+    s => s.actionType === ActionType.PASSIVE && s.passiveEffect?.regenBonus
+  );
+
+  for (const skill of passiveSkills) {
+    const regen = skill.passiveEffect?.regenBonus;
+    if (regen?.hp && regen.hp > 0) {
+      const healAmount = Math.min(regen.hp, playerStats.derived.maxHp - updatedPlayer.currentHp);
+      if (healAmount > 0) {
+        updatedPlayer.currentHp += healAmount;
+        logs.push(`${skill.name}: +${healAmount} HP`);
+      }
+    }
+    if (regen?.chakra && regen.chakra > 0) {
+      const chakraAmount = Math.min(regen.chakra, playerStats.derived.maxChakra - updatedPlayer.currentChakra);
+      if (chakraAmount > 0) {
+        updatedPlayer.currentChakra += chakraAmount;
+        logs.push(`${skill.name}: +${chakraAmount} CP`);
+      }
+    }
+  }
+
+  return {
+    player: updatedPlayer,
+    logs,
+    togglesDeactivated
+  };
+}
+
+/**
+ * Result of processing the enemy's turn.
+ */
 export interface EnemyTurnResult {
+  /** Player's HP after enemy turn (may be reduced by attack, DoT, or hazard) */
   newPlayerHp: number;
+  /** Player's updated buff list (duration decremented, expired removed) */
   newPlayerBuffs: Buff[];
+  /** Enemy's HP after enemy turn (may be reduced by DoT, confusion, or hazard) */
   newEnemyHp: number;
+  /** Enemy's updated buff list (duration decremented, expired removed) */
   newEnemyBuffs: Buff[];
+  /** All combat log messages from this turn */
   logMessages: string[];
+  /** True if player was defeated this turn */
   playerDefeated: boolean;
+  /** True if enemy was defeated this turn (from DoT, confusion, or hazard) */
   enemyDefeated: boolean;
+  /** Updated player skills with cooldowns reduced */
   playerSkills: Skill[];
 }
 
+/**
+ * Processes the enemy's turn in combat.
+ * This is the most complex function in the combat system, handling multiple
+ * phases of turn processing in a specific order.
+ *
+ * ## Turn Processing Order (Critical for correct behavior!)
+ *
+ * ### Phase 1: DoT/Regen on Enemy
+ * - Process all DoT effects (Bleed, Burn, Poison) dealing damage
+ * - Process Regen effects healing the enemy
+ * - Decrement buff durations, remove expired buffs
+ *
+ * ### Phase 2: DoT/Regen on Player
+ * - Process all DoT effects on player
+ * - DoT damage goes through shield mitigation (can be absorbed)
+ * - Process Regen effects healing the player
+ * - Decrement buff durations, remove expired buffs
+ *
+ * ### Phase 3: Death Checks (DoT)
+ * - Check if enemy died from DoT → early return with victory
+ * - Check if player died from DoT → Guts check → defeat or survive at 1 HP
+ *
+ * ### Phase 4: Enemy Action
+ * - If STUNNED: Skip action, log message
+ * - If CONFUSED (50% chance): Enemy hits itself for 50% strength damage
+ * - Otherwise: Select random skill and attack player
+ *   - Calculate damage using StatSystem
+ *   - Apply mitigation (player shields, reflection)
+ *   - Guts check on lethal damage
+ *   - Apply skill effects with status resistance
+ *
+ * ### Phase 5: Resource Recovery
+ * - Reduce all player skill cooldowns by 1
+ * - Restore chakra based on chakraRegen stat
+ *
+ * ### Phase 6: Terrain Hazards
+ * - 30% chance per turn to trigger hazard
+ * - Deals fixed damage to both player and enemy
+ * - Final death checks with Guts for player
+ *
+ * @param player - Current player state
+ * @param playerStats - Calculated player stats
+ * @param enemy - Current enemy state
+ * @param enemyStats - Calculated enemy stats
+ * @param combatState - Optional combat state for terrain effects
+ * @returns EnemyTurnResult with all state changes
+ */
 export const processEnemyTurn = (
   player: Player,
   playerStats: CharacterStats,

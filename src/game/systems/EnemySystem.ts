@@ -1,3 +1,63 @@
+/**
+ * =============================================================================
+ * ENEMY SYSTEM - Enemy Generation & Story Arc Management
+ * =============================================================================
+ *
+ * This system generates enemies with varied archetypes, scaling, and story
+ * arc theming. Enemies are the primary combat challenge in the game.
+ *
+ * ## STORY ARCS BY FLOOR
+ *
+ * | Floor Range | Arc Name          | Biome                    |
+ * |-------------|-------------------|--------------------------|
+ * | 1-10        | Academy Graduation| Village Hidden in Leaves |
+ * | 11-25       | Land of Waves     | Mist Covered Bridge      |
+ * | 26-50       | Chunin Exams      | Forest of Death          |
+ * | 51-75       | Sasuke Retrieval  | Valley of the End        |
+ * | 76+         | Great Ninja War   | Divine Tree Roots        |
+ *
+ * ## ENEMY ARCHETYPES (5 Types)
+ *
+ * Each archetype has different base stat distributions:
+ *
+ * | Archetype | Primary Stats              | Combat Style       |
+ * |-----------|----------------------------|-------------------|
+ * | TANK      | Willpower 22, Strength 18  | High HP, defense  |
+ * | ASSASSIN  | Speed 22, Dexterity 18     | Fast, high crit   |
+ * | BALANCED  | All stats 12-14            | No weaknesses     |
+ * | CASTER    | Spirit 22, Chakra 18       | Elemental damage  |
+ * | GENJUTSU  | Calmness 22, Intelligence 18| Mental attacks  |
+ *
+ * ## SCALING FORMULA
+ *
+ * totalScaling = floorMult × diffMult
+ *
+ * - floorMult = 1 + (floor × 0.08)  // +8% per floor
+ * - diffMult = 0.75 + (difficulty / 100)  // 0.75 to 1.75 based on difficulty
+ *
+ * Example: Floor 10, Difficulty 50
+ * - floorMult = 1 + (10 × 0.08) = 1.8
+ * - diffMult = 0.75 + 0.5 = 1.25
+ * - totalScaling = 1.8 × 1.25 = 2.25× base stats
+ *
+ * ## ENEMY TYPES
+ *
+ * - **NORMAL**: Random archetype, standard stats
+ * - **ELITE**: TANK or CASTER, +40% willpower, +30% strength/spirit
+ * - **AMBUSH**: Always ASSASSIN, uses special enemy templates
+ * - **BOSS**: Fixed stats, custom tier "Kage Level", unique skills
+ *
+ * ## SKILL ASSIGNMENT
+ *
+ * All enemies have BASIC_ATTACK. Additional skills by archetype:
+ * - CASTER → FIREBALL
+ * - ASSASSIN → SHURIKEN
+ * - GENJUTSU → HELL_VIEWING
+ * - High difficulty (>50, 30% chance) → RASENGAN
+ *
+ * =============================================================================
+ */
+
 import {
   Enemy,
   ElementType,
@@ -7,14 +67,30 @@ import {
 import { BOSS_NAMES, SKILLS, AMBUSH_ENEMIES, ENEMY_PREFIXES } from '../constants';
 import { calculateDerivedStats } from './StatSystem';
 
+/**
+ * Enemy archetype determines base stat distribution and combat style.
+ */
 type EnemyArchetype = 'TANK' | 'ASSASSIN' | 'BALANCED' | 'CASTER' | 'GENJUTSU';
 
+/**
+ * Story arc data returned by getStoryArc.
+ */
 interface StoryArc {
+  /** Internal arc identifier (e.g., 'ACADEMY_ARC') */
   name: string;
+  /** Display name for the arc */
   label: string;
+  /** Biome/location description for this arc */
   biome: string;
 }
 
+/**
+ * Determine the current story arc based on floor number.
+ * Story arcs affect enemy names, events, and biome theming.
+ *
+ * @param floor - Current floor number
+ * @returns StoryArc with name, label, and biome
+ */
 export const getStoryArc = (floor: number): StoryArc => {
   if (floor <= 10) return { name: 'ACADEMY_ARC', label: 'Academy Graduation', biome: 'Village Hidden in the Leaves' };
   if (floor <= 25) return { name: 'WAVES_ARC', label: 'Land of Waves', biome: 'Mist Covered Bridge' };
@@ -23,9 +99,31 @@ export const getStoryArc = (floor: number): StoryArc => {
   return { name: 'WAR_ARC', label: 'Great Ninja War', biome: 'Divine Tree Roots' };
 };
 
+/**
+ * Generate an enemy with appropriate stats, skills, and theming.
+ *
+ * ## Enemy Generation Flow:
+ * 1. Determine story arc for theming
+ * 2. Calculate total scaling from floor and difficulty
+ * 3. For BOSS: Use fixed boss data from constants
+ * 4. For others: Select archetype and generate base stats
+ * 5. Scale stats by totalScaling multiplier
+ * 6. Apply type-specific bonuses (ELITE gets +40% willpower, +30% str/spirit)
+ * 7. Assign skills based on archetype
+ * 8. Select name from arc-appropriate pool
+ *
+ * @param currentFloor - Current floor for scaling and arc selection
+ * @param type - Enemy type: NORMAL, ELITE, BOSS, or AMBUSH
+ * @param diff - Difficulty value (0-100, affects diffMult)
+ * @returns Fully generated Enemy ready for combat
+ */
 export const generateEnemy = (currentFloor: number, type: 'NORMAL' | 'ELITE' | 'BOSS' | 'AMBUSH', diff: number): Enemy => {
   const arc = getStoryArc(currentFloor);
+
+  // Calculate scaling multipliers
+  // Floor scaling: +8% per floor (floor 10 = 1.8×, floor 50 = 5×)
   const floorMult = 1 + (currentFloor * 0.08);
+  // Difficulty scaling: 75% to 175% based on difficulty value
   const diffMult = 0.75 + (diff / 100);
   const totalScaling = floorMult * diffMult;
 

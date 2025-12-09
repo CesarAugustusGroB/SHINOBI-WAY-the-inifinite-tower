@@ -65,7 +65,8 @@ export enum DamageType {
 export enum DamageProperty {
   NORMAL = 'Normal',         // Subject to BOTH flat and % defenses
   PIERCING = 'Piercing',     // Ignores FLAT defense, only % applies
-  ARMOR_BREAK = 'ArmorBreak' // Ignores % defense, only flat applies
+  ARMOR_BREAK = 'ArmorBreak', // Ignores % defense, only flat applies
+  TRUE = 'True'              // Bypasses ALL defense (rare/forbidden skills)
 }
 
 export enum AttackMethod {
@@ -188,17 +189,13 @@ export enum Rarity {
 }
 
 export enum SkillTier {
-  // Legacy tiers (kept for backward compatibility)
-  COMMON = 'Common',
-  RARE = 'Rare',
-  EPIC = 'Epic',
-  LEGENDARY = 'Legendary',
-  FORBIDDEN = 'Forbidden',
-  // New tier system (Part 1 Naruto)
-  BASIC = 'Basic',
-  ADVANCED = 'Advanced',
-  HIDDEN = 'Hidden',
-  KINJUTSU = 'Kinjutsu'
+  // Jutsu Card Tier System (Part 1 Naruto)
+  // Based on ninja rank and INT requirements
+  BASIC = 'Basic',           // E-D rank, INT 0-6, Academy fundamentals
+  ADVANCED = 'Advanced',     // C-B rank, INT 8-12, Chunin-level techniques
+  HIDDEN = 'Hidden',         // B-A rank, INT 14-18, Jonin/Clan secrets
+  FORBIDDEN = 'Forbidden',   // A-S rank, INT 16-20, Dangerous techniques
+  KINJUTSU = 'Kinjutsu'      // S+ rank, INT 20-24, Ultimate forbidden
 }
 
 // ============================================================================
@@ -210,6 +207,22 @@ export enum ActionType {
   SIDE = 'Side',       // Free action BEFORE Main, max 2 per turn
   PASSIVE = 'Passive'  // Always active, no action required
 }
+
+// Turn phase tracking for combat (Upkeep → Side → Main flow)
+export interface TurnPhaseState {
+  phase: 'UPKEEP' | 'SIDE' | 'MAIN' | 'END';
+  sideActionsUsed: number;
+  maxSideActions: number;   // Default: 2
+  upkeepProcessed: boolean;
+}
+
+// Default turn phase state factory
+export const createInitialTurnPhaseState = (): TurnPhaseState => ({
+  phase: 'UPKEEP',
+  sideActionsUsed: 0,
+  maxSideActions: 2,
+  upkeepProcessed: false,
+});
 
 // Legacy ItemSlot - kept for migration compatibility
 export enum ItemSlot {
@@ -325,7 +338,8 @@ export enum EffectType {
   INVULNERABILITY = 'Invuln',  // Takes 0 damage for duration
   CURSE = 'Curse',             // Increases damage taken by X%
   REFLECTION = 'Reflect',      // Returns % of damage taken
-  REGEN = 'Regen'              // Restores HP at start of turn
+  REGEN = 'Regen',             // Restores HP at start of turn
+  CHAKRA_REGEN = 'ChakraRegen' // Restores Chakra at start of turn
 }
 
 export interface EffectDefinition {
@@ -370,8 +384,8 @@ export interface Skill {
   tier: SkillTier;
   description: string;
 
-  // ACTION TYPE (NEW) - Determines when/how skill can be used
-  actionType?: ActionType;       // MAIN/TOGGLE/SIDE/PASSIVE (default: MAIN)
+  // ACTION TYPE - Determines when/how skill can be used
+  actionType: ActionType;        // MAIN/TOGGLE/SIDE/PASSIVE (required)
   sideActionLimit?: number;      // Max uses per turn for SIDE skills (default: 1)
 
   // Costs

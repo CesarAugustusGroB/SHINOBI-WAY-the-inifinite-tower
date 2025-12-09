@@ -1,3 +1,56 @@
+/**
+ * =============================================================================
+ * APPROACH SYSTEM - Pre-Combat Engagement Options
+ * =============================================================================
+ *
+ * This system handles the pre-combat approach selection phase where players
+ * choose how to engage enemies. Different approaches offer unique advantages
+ * and disadvantages based on success/failure.
+ *
+ * ## APPROACH TYPES (5 Options)
+ *
+ * | Approach          | Primary Stats          | Risk/Reward        |
+ * |-------------------|------------------------|-------------------|
+ * | FRONTAL_ASSAULT   | None (always works)    | Low risk, no bonus |
+ * | STEALTH_AMBUSH    | Speed, Dexterity       | First hit bonus    |
+ * | GENJUTSU_SETUP    | Intelligence, Calmness | Debuff enemy       |
+ * | ENVIRONMENTAL_TRAP| Accuracy, Intelligence | HP reduction       |
+ * | SHADOW_BYPASS     | Speed, Dexterity       | Skip combat        |
+ *
+ * ## SUCCESS CHANCE CALCULATION
+ *
+ * Base formula varies by approach, but generally:
+ * - Primary stat contributes most (×0.5 to ×1.0)
+ * - Secondary stat provides smaller bonus (×0.3 to ×0.5)
+ * - Terrain stealth modifier adds flat bonus
+ * - Roll 1-100, success if roll ≤ successChance
+ *
+ * ## APPROACH EFFECTS
+ *
+ * On success, approaches can provide:
+ * - **skipCombat**: Completely avoid the fight (SHADOW_BYPASS)
+ * - **guaranteedFirst**: Player always acts first
+ * - **initiativeBonus**: Bonus to initiative roll
+ * - **firstHitMultiplier**: Damage multiplier on first attack
+ * - **enemyHpReduction**: % of enemy HP removed before combat
+ * - **playerBuffs**: Buffs applied to player
+ * - **enemyDebuffs**: Debuffs applied to enemy
+ *
+ * On failure, some approaches may:
+ * - Grant enemy first strike
+ * - Consume chakra/HP without benefit
+ * - Apply debuffs to player
+ *
+ * ## TERRAIN INTERACTION
+ *
+ * Terrain provides stealth modifiers that affect approach success:
+ * - Dark areas: +10-20% stealth approaches
+ * - Open areas: -10-20% stealth approaches
+ * - Water: Bonus to water-element traps
+ *
+ * =============================================================================
+ */
+
 import {
   ApproachType,
   Player,

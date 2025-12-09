@@ -104,14 +104,15 @@ function getAvailableSkills(
 
 /**
  * Tier priority for skill selection
+ * Tier order: BASIC → ADVANCED → HIDDEN → FORBIDDEN → KINJUTSU
  */
 function getTierPriority(tier: SkillTier): number {
   switch (tier) {
-    case SkillTier.FORBIDDEN: return 5;
-    case SkillTier.LEGENDARY: return 4;
-    case SkillTier.EPIC: return 3;
-    case SkillTier.RARE: return 2;
-    case SkillTier.COMMON: return 1;
+    case SkillTier.KINJUTSU: return 5;
+    case SkillTier.FORBIDDEN: return 4;
+    case SkillTier.HIDDEN: return 3;
+    case SkillTier.ADVANCED: return 2;
+    case SkillTier.BASIC: return 1;
     default: return 0;
   }
 }

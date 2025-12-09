@@ -1,14 +1,18 @@
 import { Player, Clan, EquipmentSlot } from '../types';
-import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS } from '../constants';
+import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS, getClanStartingSkills } from '../constants';
 import { calculateDerivedStats, getPlayerFullStats } from '../systems/StatSystem';
 
 /**
  * Create a new player with starting stats for the given clan
+ * Uses the full Jutsu Card System loadout with MAIN, SIDE, TOGGLE, and PASSIVE skills
  */
 export const createPlayer = (clan: Clan): Player => {
   const baseStats = CLAN_STATS[clan];
-  const startSkill = CLAN_START_SKILL[clan];
+  const startingSkills = getClanStartingSkills(clan);
   const derived = calculateDerivedStats(baseStats, {});
+
+  // Initialize skills with level 1
+  const skills = startingSkills.map(skill => ({ ...skill, level: 1 }));
 
   return {
     clan,
@@ -26,7 +30,7 @@ export const createPlayer = (clan: Clan): Player => {
       [EquipmentSlot.SLOT_3]: null,
       [EquipmentSlot.SLOT_4]: null,
     },
-    skills: [SKILLS.BASIC_ATTACK, SKILLS.SHURIKEN, { ...startSkill, level: 1 }],
+    skills,
     activeBuffs: [],
     componentBag: [], // Empty component bag for synthesis system
   };

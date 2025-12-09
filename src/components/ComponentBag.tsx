@@ -10,6 +10,7 @@ interface ComponentBagProps {
   onSellComponent: (item: Item) => void;
   selectedComponent: Item | null;
   onSynthesize?: (componentA: Item, componentB: Item) => void;
+  onEquipFromBag?: (item: Item) => void;
 }
 
 const ComponentBag: React.FC<ComponentBagProps> = ({
@@ -18,8 +19,10 @@ const ComponentBag: React.FC<ComponentBagProps> = ({
   onSellComponent,
   selectedComponent,
   onSynthesize,
+  onEquipFromBag,
 }) => {
   const [synthesisMode, setSynthesisMode] = useState(false);
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
   const getRarityColor = (r: Rarity) => {
     switch (r) {
@@ -39,22 +42,44 @@ const ComponentBag: React.FC<ComponentBagProps> = ({
         if (recipe) {
           onSynthesize(selectedComponent, item);
           setSynthesisMode(false);
+          setActiveMenu(null);
           return;
         }
       }
     }
+    // Toggle action menu for this item
+    setActiveMenu(activeMenu === item.id ? null : item.id);
+    onSelectComponent(item);
+  };
+
+  const handleEquip = (item: Item) => {
+    onEquipFromBag?.(item);
+    setActiveMenu(null);
+    setSynthesisMode(false);
+  };
+
+  const startSynthesis = (item: Item) => {
     onSelectComponent(item);
     setSynthesisMode(true);
+    setActiveMenu(null);
   };
 
   const handleSell = (e: React.MouseEvent, item: Item) => {
     e.stopPropagation();
     onSellComponent(item);
     setSynthesisMode(false);
+    setActiveMenu(null);
+  };
+
+  const handleSellFromMenu = (item: Item) => {
+    onSellComponent(item);
+    setSynthesisMode(false);
+    setActiveMenu(null);
   };
 
   const cancelSynthesis = () => {
     setSynthesisMode(false);
+    setActiveMenu(null);
     onSelectComponent(null as any);
   };
 
@@ -102,82 +127,129 @@ const ComponentBag: React.FC<ComponentBagProps> = ({
         {slots.map((item, index) => {
           const isSelected = selectedComponent?.id === item?.id;
           const canCombine = item && canCombineWithSelected(item);
+          const isMenuOpen = item && activeMenu === item.id && !synthesisMode;
+          const sellValue = item ? Math.floor(item.value * 0.6) : 0;
 
           return (
-            <Tooltip
-              key={index}
-              position="right"
-              content={
-                item ? (
-                  <div className="space-y-2 p-1 max-w-[200px]">
-                    <div className={`font-bold ${getRarityColor(item.rarity)}`}>
-                      {item.icon} {item.name}
-                    </div>
-                    <div className="text-[10px] text-zinc-500">
-                      {item.description}
-                    </div>
-                    <div className="space-y-1 text-[10px] font-mono text-zinc-400 pt-2 border-t border-zinc-800">
-                      {Object.entries(item.stats).map(([key, val]) => (
-                        <div key={key} className="flex justify-between">
-                          <span>{formatStatName(key)}</span>
-                          <span className="text-zinc-200">+{val}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {/* Show compatible recipes */}
-                    {item.componentId && (
-                      <div className="pt-2 border-t border-zinc-800">
-                        <div className="text-[9px] text-zinc-500 mb-1">Can combine into:</div>
-                        {getCompatibleRecipes(item).slice(0, 3).map(recipe => (
-                          <div key={recipe.name} className="text-[9px] text-purple-400">
-                            {recipe.name}
+            <div key={index} className="relative">
+              <Tooltip
+                position="right"
+                content={
+                  item ? (
+                    <div className="space-y-2 p-1 max-w-[200px]">
+                      <div className={`font-bold ${getRarityColor(item.rarity)}`}>
+                        {item.icon} {item.name}
+                      </div>
+                      <div className="text-[10px] text-zinc-500">
+                        {item.description}
+                      </div>
+                      <div className="space-y-1 text-[10px] font-mono text-zinc-400 pt-2 border-t border-zinc-800">
+                        {Object.entries(item.stats).map(([key, val]) => (
+                          <div key={key} className="flex justify-between">
+                            <span>{formatStatName(key)}</span>
+                            <span className="text-zinc-200">+{val}</span>
                           </div>
                         ))}
                       </div>
-                    )}
-                    <div className="text-[10px] text-yellow-600 pt-1 border-t border-zinc-800">
-                      Sell: {Math.floor(item.value * 0.6)} Ryō (60%)
+                      {/* Show compatible recipes */}
+                      {item.componentId && (
+                        <div className="pt-2 border-t border-zinc-800">
+                          <div className="text-[9px] text-zinc-500 mb-1">Can combine into:</div>
+                          {getCompatibleRecipes(item).slice(0, 3).map(recipe => (
+                            <div key={recipe.name} className="text-[9px] text-purple-400">
+                              {recipe.name}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="text-[10px] text-yellow-600 pt-1 border-t border-zinc-800">
+                        Sell: {Math.floor(item.value * 0.6)} Ryō (60%)
+                      </div>
+                      <div className="text-[9px] text-zinc-500 pt-1">Click for actions</div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="text-[10px] text-zinc-500">Empty slot</div>
-                )
-              }
-            >
-              <div
-                onClick={() => item && handleComponentClick(item)}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  if (item) handleSell(e, item);
-                }}
-                className={`
-                  aspect-square border rounded p-1 cursor-pointer transition-all
-                  flex items-center justify-center text-lg
-                  ${item
-                    ? `${isSelected
-                        ? 'border-amber-500 bg-amber-500/20'
-                        : canCombine
-                          ? 'border-green-500 bg-green-500/10 animate-pulse'
-                          : 'border-zinc-700 bg-zinc-800/50 hover:border-zinc-500'
-                      }`
-                    : 'border-zinc-800 bg-zinc-900/30'
-                  }
-                `}
+                  ) : (
+                    <div className="text-[10px] text-zinc-500">Empty slot</div>
+                  )
+                }
               >
-                {item ? (
-                  <span title={item.name}>{item.icon || '?'}</span>
-                ) : (
-                  <span className="text-zinc-700 text-xs">·</span>
-                )}
-              </div>
-            </Tooltip>
+                <div
+                  onClick={() => item && handleComponentClick(item)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    if (item) handleSell(e, item);
+                  }}
+                  className={`
+                    aspect-square border rounded p-1 cursor-pointer transition-all
+                    flex items-center justify-center text-lg
+                    ${item
+                      ? `${isSelected
+                          ? 'border-amber-500 bg-amber-500/20'
+                          : canCombine
+                            ? 'border-green-500 bg-green-500/10 animate-pulse'
+                            : 'border-zinc-700 bg-zinc-800/50 hover:border-zinc-500'
+                        }`
+                      : 'border-zinc-800 bg-zinc-900/30'
+                    }
+                  `}
+                >
+                  {item ? (
+                    <span title={item.name}>{item.icon || '?'}</span>
+                  ) : (
+                    <span className="text-zinc-700 text-xs">·</span>
+                  )}
+                </div>
+              </Tooltip>
+
+              {/* Action Menu */}
+              {isMenuOpen && item && (
+                <div className="absolute left-0 top-full mt-1 z-20 bg-zinc-900 border border-zinc-700 rounded shadow-lg overflow-hidden min-w-[100px]">
+                  {/* Equip button */}
+                  {onEquipFromBag && (
+                    <button
+                      type="button"
+                      onClick={() => handleEquip(item)}
+                      className="w-full px-3 py-1.5 text-left text-[10px] hover:bg-zinc-800 transition-colors text-green-400 hover:text-green-300"
+                    >
+                      Equip
+                    </button>
+                  )}
+                  {/* Synthesize button */}
+                  {onSynthesize && item.componentId && (
+                    <button
+                      type="button"
+                      onClick={() => startSynthesis(item)}
+                      className="w-full px-3 py-1.5 text-left text-[10px] hover:bg-zinc-800 transition-colors text-purple-400 hover:text-purple-300 border-t border-zinc-800"
+                    >
+                      Synthesize
+                    </button>
+                  )}
+                  {/* Sell button */}
+                  <button
+                    type="button"
+                    onClick={() => handleSellFromMenu(item)}
+                    className="w-full px-3 py-1.5 text-left text-[10px] hover:bg-zinc-800 transition-colors flex justify-between items-center text-yellow-400 hover:text-yellow-300 border-t border-zinc-800"
+                  >
+                    <span>Sell</span>
+                    <span className="text-zinc-400">+{sellValue}</span>
+                  </button>
+                  {/* Cancel */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveMenu(null)}
+                    className="w-full px-3 py-1.5 text-left text-[10px] hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-zinc-300 border-t border-zinc-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
 
       {/* Help text */}
       <div className="text-[8px] text-zinc-600 mt-2 text-center">
-        Click to select • Right-click to sell
+        Click for actions • Right-click to quick sell
       </div>
 
       {/* Synthesis preview when two compatible components are selected */}

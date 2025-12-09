@@ -1,5 +1,5 @@
 import React from 'react';
-import { Skill, DamageType } from '../game/types';
+import { Skill, DamageType, ActionType } from '../game/types';
 
 interface SkillCardProps {
   skill: Skill;
@@ -7,15 +7,23 @@ interface SkillCardProps {
   isEffective: boolean;
   canUse: boolean;
   onClick: () => void;
+  /** Whether to show simplified passive display (non-interactive) */
+  showAsPassive?: boolean;
 }
 
-export const SkillCard: React.FC<SkillCardProps> = ({ 
-  skill, 
-  predictedDamage, 
-  isEffective, 
+export const SkillCard: React.FC<SkillCardProps> = ({
+  skill,
+  predictedDamage,
+  isEffective,
   canUse,
-  onClick 
+  onClick,
+  showAsPassive = false
 }) => {
+  const actionType = skill.actionType || ActionType.MAIN;
+  const isPassive = actionType === ActionType.PASSIVE || showAsPassive;
+  const isSide = actionType === ActionType.SIDE;
+  const isToggle = actionType === ActionType.TOGGLE;
+  const isActive = skill.isActive || false;
   // Map skill names to specific background images
   const getSkillBackground = () => {
     const skillName = skill.name.toLowerCase();
@@ -43,15 +51,41 @@ export const SkillCard: React.FC<SkillCardProps> = ({
   
   const bgImage = getSkillBackground();
 
+  // Get border color based on action type
+  const getBorderStyle = () => {
+    if (isPassive) return 'border-zinc-600 opacity-60';
+    if (isToggle && isActive) return 'border-amber-500 ring-2 ring-amber-500/30 animate-pulse';
+    if (isToggle) return 'border-amber-600/70 hover:border-amber-500';
+    if (isSide) return 'border-blue-600/70 hover:border-blue-400';
+    // MAIN default
+    return canUse
+      ? 'border-zinc-700 hover:border-zinc-500'
+      : 'border-zinc-800';
+  };
+
+  // Get action type badge
+  const getActionBadge = () => {
+    if (isPassive) return { text: 'PASSIVE', color: 'bg-zinc-700 text-zinc-300' };
+    if (isToggle) return isActive
+      ? { text: 'ACTIVE', color: 'bg-amber-600 text-amber-100' }
+      : { text: 'TOGGLE', color: 'bg-amber-900/80 text-amber-400' };
+    if (isSide) return { text: 'SIDE', color: 'bg-blue-900/80 text-blue-300' };
+    return null; // No badge for MAIN
+  };
+
+  const actionBadge = getActionBadge();
+  const effectivelyUsable = !isPassive && canUse;
+
   return (
-    <button 
-      onClick={canUse ? onClick : undefined}
+    <button
+      onClick={effectivelyUsable ? onClick : undefined}
       className={`
         relative w-full h-28 rounded-lg overflow-hidden shadow-md border transition-all duration-200 text-left group
-        ${canUse 
-          ? 'border-zinc-700 hover:border-zinc-500 hover:scale-[1.02]' 
-          : 'border-zinc-800 opacity-50 cursor-not-allowed grayscale'}
-        ${isEffective && canUse ? 'ring-1 ring-yellow-500/50' : ''}
+        ${getBorderStyle()}
+        ${!effectivelyUsable && !isPassive ? 'opacity-50 cursor-not-allowed grayscale' : ''}
+        ${effectivelyUsable ? 'hover:scale-[1.02]' : ''}
+        ${isPassive ? 'cursor-default' : ''}
+        ${isEffective && effectivelyUsable ? 'ring-1 ring-yellow-500/50' : ''}
       `}
     >
       {/* LAYER 1: BACKGROUND IMAGE */}
@@ -83,8 +117,17 @@ export const SkillCard: React.FC<SkillCardProps> = ({
                 </span>
             </div>
           </div>
-          <div className="bg-black/60 border border-zinc-800 rounded px-1.5 py-0.5">
-             <span className="text-[8px] text-yellow-600 font-mono">LVL {skill.level || 1}</span>
+          <div className="flex flex-col items-end gap-1">
+            {/* Action Type Badge */}
+            {actionBadge && (
+              <div className={`${actionBadge.color} rounded px-1.5 py-0.5`}>
+                <span className="text-[8px] font-bold uppercase tracking-wider">{actionBadge.text}</span>
+              </div>
+            )}
+            {/* Level Badge */}
+            <div className="bg-black/60 border border-zinc-800 rounded px-1.5 py-0.5">
+              <span className="text-[8px] text-yellow-600 font-mono">LVL {skill.level || 1}</span>
+            </div>
           </div>
         </div>
 
@@ -102,13 +145,24 @@ export const SkillCard: React.FC<SkillCardProps> = ({
 
         {/* Bottom Row: Costs */}
         <div className="flex gap-3 mt-auto text-[10px] font-mono">
-            <span className={skill.chakraCost > 0 ? "text-blue-400 font-bold" : "text-zinc-600"}>
-                {skill.chakraCost > 0 ? `${skill.chakraCost} CP` : '-'}
-            </span>
-            {skill.hpCost > 0 && (
-                <span className="text-red-400 font-bold">
-                    {skill.hpCost} HP
+            {isPassive ? (
+              <span className="text-zinc-500 italic">Always Active</span>
+            ) : (
+              <>
+                <span className={skill.chakraCost > 0 ? "text-blue-400 font-bold" : "text-zinc-600"}>
+                  {skill.chakraCost > 0 ? `${skill.chakraCost} CP` : '-'}
                 </span>
+                {skill.hpCost > 0 && (
+                  <span className="text-red-400 font-bold">
+                    {skill.hpCost} HP
+                  </span>
+                )}
+                {isToggle && skill.upkeepCost && skill.upkeepCost > 0 && (
+                  <span className="text-amber-400 font-bold">
+                    {skill.upkeepCost}/turn
+                  </span>
+                )}
+              </>
             )}
         </div>
       </div>

@@ -1,3 +1,56 @@
+/**
+ * =============================================================================
+ * STAT SYSTEM - Core Character Statistics Engine
+ * =============================================================================
+ *
+ * This system handles all character stat calculations, from base attributes
+ * through equipment and buffs to final derived combat values.
+ *
+ * ## STAT CALCULATION PIPELINE
+ * The order of stat application is critical:
+ * 1. Base Primary Stats (from clan + level ups)
+ * 2. Equipment Bonuses (flat additions from gear)
+ * 3. Passive Skill Bonuses (from PASSIVE action type skills)
+ * 4. Buff Modifiers (multiplicative, applied last)
+ * 5. Derived Stats (calculated from modified primary stats)
+ *
+ * ## PRIMARY STATS (9 Core Attributes)
+ * Organized into 3 categories:
+ *
+ * ### BODY (Physical)
+ * - WILLPOWER: HP pool, HP regen, Guts survival chance
+ * - CHAKRA: Chakra pool size
+ * - STRENGTH: Physical damage, Physical defense (flat + %)
+ *
+ * ### MIND (Mental)
+ * - SPIRIT: Elemental defense (flat + %)
+ * - INTELLIGENCE: Chakra regen, skill requirements
+ * - CALMNESS: Mental defense, Status resistance
+ *
+ * ### TECHNIQUE (Combat Skills)
+ * - SPEED: Melee hit rate, Evasion, Initiative
+ * - ACCURACY: Ranged hit rate, Ranged crit damage
+ * - DEXTERITY: Critical hit chance
+ *
+ * ## DEFENSE SYSTEM
+ * Defense has two components that work together:
+ * - FLAT Defense: Subtracts fixed damage (capped at 60% of incoming damage)
+ * - PERCENT Defense: Reduces remaining damage by % (soft-capped at 75%)
+ *
+ * Percent defense uses diminishing returns formula:
+ *   percentDef = stat / (stat + SOFT_CAP)
+ * This prevents infinite stacking while rewarding investment.
+ *
+ * ## DAMAGE PROPERTIES
+ * Skills can have different penetration behaviors:
+ * - NORMAL: Both flat and % defense apply
+ * - PIERCING: Ignores flat defense, only % applies
+ * - ARMOR_BREAK: Ignores % defense, only flat applies
+ * - TRUE damage (DamageType.TRUE): Bypasses ALL defense
+ *
+ * =============================================================================
+ */
+
 import {
   PrimaryAttributes,
   DerivedStats,
@@ -17,21 +70,178 @@ import {
   EffectType,
   PrimaryStat,
   ElementType,
-  STAT_FORMULAS
+  STAT_FORMULAS,
+  ActionType,
+  PassiveSkillEffect
 } from '../types';
 import { ELEMENTAL_CYCLE } from '../constants';
 
 // ============================================================================
-// DERIVED STATS CALCULATOR
-// Converts Primary Attributes into all Derived Stats
+// PASSIVE SKILL BONUS AGGREGATOR
 // ============================================================================
+
+/**
+ * Aggregated bonuses from all equipped passive skills.
+ * These bonuses are applied AFTER equipment but BEFORE buffs.
+ */
+export interface PassiveBonuses {
+  /** Flat bonuses to primary stats (e.g., +5 Strength) */
+  statBonus: Partial<PrimaryAttributes>;
+  /** Percentage bonus to all outgoing damage (0.1 = +10%) */
+  damageBonus: number;
+  /** Percentage bonus to all defense types (0.1 = +10%) */
+  defenseBonus: number;
+  /** Flat HP regeneration per turn (added to derived hpRegen) */
+  hpRegen: number;
+  /** Flat chakra regeneration per turn (added to derived chakraRegen) */
+  chakraRegen: number;
+}
+
+/**
+ * Collects and sums all passive skill bonuses from a player's skill list.
+ * Only processes skills with ActionType.PASSIVE and a valid passiveEffect.
+ *
+ * @param skills - Array of all player skills (active and passive)
+ * @returns Aggregated PassiveBonuses object with summed values
+ */
+export function aggregatePassiveSkillBonuses(skills: Skill[]): PassiveBonuses {
+  const bonuses: PassiveBonuses = {
+    statBonus: {},
+    damageBonus: 0,
+    defenseBonus: 0,
+    hpRegen: 0,
+    chakraRegen: 0
+  };
+
+  if (!skills || !Array.isArray(skills)) return bonuses;
+
+  skills.forEach(skill => {
+    // Only process PASSIVE action type skills
+    if (skill.actionType !== ActionType.PASSIVE) return;
+    if (!skill.passiveEffect) return;
+
+    const effect = skill.passiveEffect;
+
+    // Aggregate stat bonuses
+    if (effect.statBonus) {
+      Object.entries(effect.statBonus).forEach(([key, value]) => {
+        if (value !== undefined) {
+          const statKey = key as keyof PrimaryAttributes;
+          bonuses.statBonus[statKey] = (bonuses.statBonus[statKey] || 0) + value;
+        }
+      });
+    }
+
+    // Aggregate damage bonus
+    if (effect.damageBonus) {
+      bonuses.damageBonus += effect.damageBonus;
+    }
+
+    // Aggregate defense bonus
+    if (effect.defenseBonus) {
+      bonuses.defenseBonus += effect.defenseBonus;
+    }
+
+    // Aggregate regen bonuses
+    if (effect.regenBonus) {
+      if (effect.regenBonus.hp) {
+        bonuses.hpRegen += effect.regenBonus.hp;
+      }
+      if (effect.regenBonus.chakra) {
+        bonuses.chakraRegen += effect.regenBonus.chakra;
+      }
+    }
+  });
+
+  return bonuses;
+}
+
+// ============================================================================
+// PASSIVE STAT APPLICATOR
+// ============================================================================
+
+/**
+ * Applies passive skill stat bonuses to primary attributes.
+ * Creates a new object (immutable pattern) with bonuses added.
+ *
+ * @param baseStats - Current primary attributes before passive bonuses
+ * @param passiveBonuses - Aggregated bonuses from passive skills
+ * @returns New PrimaryAttributes object with bonuses applied
+ */
+export function applyPassiveBonusesToStats(
+  baseStats: PrimaryAttributes,
+  passiveBonuses: PassiveBonuses
+): PrimaryAttributes {
+  const modified = { ...baseStats };
+
+  if (!passiveBonuses.statBonus) return modified;
+
+  Object.entries(passiveBonuses.statBonus).forEach(([key, value]) => {
+    if (value !== undefined) {
+      const statKey = key as keyof PrimaryAttributes;
+      if (statKey in modified) {
+        modified[statKey] += value;
+      }
+    }
+  });
+
+  return modified;
+}
+
+// ============================================================================
+// DERIVED STATS CALCULATOR
+// ============================================================================
+
+/**
+ * Converts Primary Attributes into all Derived Combat Stats.
+ * This is the core stat calculation function that generates all combat-relevant values.
+ *
+ * ## DERIVED STAT FORMULAS
+ *
+ * ### Resource Pools
+ * - maxHp = 100 + (willpower × 12) + flatHp
+ * - maxChakra = 50 + (chakra × 8) + flatChakra
+ * - hpRegen = floor(maxHp × 1% × (willpower / 20))
+ * - chakraRegen = floor(intelligence × 2)
+ *
+ * ### Defense (3 types, each has flat + %)
+ * - Physical: strength → flat + % (protects vs DamageType.PHYSICAL)
+ * - Elemental: spirit → flat + % (protects vs DamageType.ELEMENTAL)
+ * - Mental: calmness → flat + % (protects vs DamageType.MENTAL)
+ *
+ * Flat Defense: stat × multiplier (linear scaling)
+ * Percent Defense: stat / (stat + SOFT_CAP) (diminishing returns, max 75%)
+ *
+ * ### Hit Rates (base 85%, modified by target speed in combat)
+ * - Melee: 85% + (speed × 0.3) - (defender_speed × 0.5)
+ * - Ranged: 85% + (accuracy × 0.3) - (defender_speed × 0.5)
+ * - Final hit chance clamped to 30-98% range
+ *
+ * ### Evasion (diminishing returns)
+ * - evasion = speed / (speed + 100)
+ *
+ * ### Critical Hits
+ * - critChance = 15% + (dexterity × 0.5) + equipment (max 75%)
+ * - critDamageMelee = 1.5× base
+ * - critDamageRanged = 1.5× + (accuracy × 0.05)
+ * - Super effective hits: +20% crit chance bonus
+ *
+ * ### Combat Stats
+ * - statusResistance = calmness / (calmness + 50)
+ * - gutsChance = willpower / (willpower + 30) (survive lethal hit at 1 HP)
+ * - initiative = 10 + (speed × 0.5)
+ *
+ * @param primary - Modified primary attributes (after equipment/passives/buffs)
+ * @param equipmentBonuses - Direct bonuses from equipment (for flat HP/Chakra/etc)
+ * @returns Complete DerivedStats object ready for combat
+ */
 export function calculateDerivedStats(
   primary: PrimaryAttributes,
   equipmentBonuses: ItemStatBonus = {}
 ): DerivedStats {
   const F = STAT_FORMULAS;
 
-  // Apply equipment bonuses to effective primary stats
+  // Build effective stats by adding equipment bonuses to primary stats
   const effective = {
     willpower: primary.willpower + (equipmentBonuses.willpower || 0),
     chakra: primary.chakra + (equipmentBonuses.chakra || 0),
@@ -44,20 +254,33 @@ export function calculateDerivedStats(
     dexterity: primary.dexterity + (equipmentBonuses.dexterity || 0),
   };
 
-  // Resource Pools
+  // ─────────────────────────────────────────────────────────────────────────
+  // RESOURCE POOLS - HP and Chakra capacity
+  // ─────────────────────────────────────────────────────────────────────────
   const maxHp = F.HP_BASE + (effective.willpower * F.HP_PER_WILLPOWER) + (equipmentBonuses.flatHp || 0);
   const maxChakra = F.CHAKRA_BASE + (effective.chakra * F.CHAKRA_PER_CHAKRA) + (equipmentBonuses.flatChakra || 0);
 
-  // Regeneration
+  // ─────────────────────────────────────────────────────────────────────────
+  // REGENERATION - Per-turn resource recovery
+  // HP regen scales with both max HP AND willpower (double scaling)
+  // Chakra regen is purely intelligence-based
+  // ─────────────────────────────────────────────────────────────────────────
   const hpRegen = Math.floor(maxHp * F.HP_REGEN_PERCENT * (effective.willpower / 20));
   const chakraRegen = Math.floor(effective.intelligence * F.CHAKRA_REGEN_PER_INT);
 
-  // Flat Defense (linear scaling)
+  // ─────────────────────────────────────────────────────────────────────────
+  // FLAT DEFENSE - Linear scaling, subtracts fixed damage amount
+  // Applied FIRST in damage calculation, capped at 60% of incoming damage
+  // ─────────────────────────────────────────────────────────────────────────
   const physicalDefenseFlat = Math.floor(effective.strength * F.FLAT_PHYS_DEF_PER_STR) + (equipmentBonuses.flatPhysicalDef || 0);
   const elementalDefenseFlat = Math.floor(effective.spirit * F.FLAT_ELEM_DEF_PER_SPIRIT) + (equipmentBonuses.flatElementalDef || 0);
   const mentalDefenseFlat = Math.floor(effective.calmness * F.FLAT_MENTAL_DEF_PER_CALM) + (equipmentBonuses.flatMentalDef || 0);
 
-  // Percent Defense (diminishing returns: stat / (stat + SOFT_CAP))
+  // ─────────────────────────────────────────────────────────────────────────
+  // PERCENT DEFENSE - Diminishing returns formula: stat / (stat + SOFT_CAP)
+  // Applied SECOND after flat reduction, hard-capped at 75%
+  // Example: 50 strength with SOFT_CAP=100 → 50/(50+100) = 33% reduction
+  // ─────────────────────────────────────────────────────────────────────────
   const physicalDefensePercent = Math.min(0.75,
     (effective.strength / (effective.strength + F.PHYSICAL_DEF_SOFT_CAP)) + (equipmentBonuses.percentPhysicalDef || 0)
   );
@@ -68,23 +291,37 @@ export function calculateDerivedStats(
     (effective.calmness / (effective.calmness + F.MENTAL_DEF_SOFT_CAP)) + (equipmentBonuses.percentMentalDef || 0)
   );
 
-  // Status & Survival
+  // ─────────────────────────────────────────────────────────────────────────
+  // STATUS & SURVIVAL - Crowd control resistance and death prevention
+  // Both use diminishing returns formulas
+  // ─────────────────────────────────────────────────────────────────────────
   const statusResistance = effective.calmness / (effective.calmness + F.STATUS_RESIST_SOFT_CAP);
   const gutsChance = effective.willpower / (effective.willpower + F.GUTS_SOFT_CAP);
 
-  // Hit Rates (base, modified in combat by target's speed)
+  // ─────────────────────────────────────────────────────────────────────────
+  // HIT RATES - Base accuracy before defender's evasion is applied
+  // In combat, defender's speed reduces these values
+  // ─────────────────────────────────────────────────────────────────────────
   const meleeHitRate = F.BASE_HIT_CHANCE + (effective.speed * 0.3);
   const rangedHitRate = F.BASE_HIT_CHANCE + (effective.accuracy * 0.3);
 
-  // Evasion (diminishing returns)
+  // ─────────────────────────────────────────────────────────────────────────
+  // EVASION - Chance to completely avoid attacks (separate from miss)
+  // Uses diminishing returns, checked AFTER hit roll succeeds
+  // ─────────────────────────────────────────────────────────────────────────
   const evasion = effective.speed / (effective.speed + F.EVASION_SOFT_CAP);
 
-  // Critical
+  // ─────────────────────────────────────────────────────────────────────────
+  // CRITICAL HITS - Chance and multiplier for bonus damage
+  // Ranged attacks get bonus crit damage from accuracy
+  // ─────────────────────────────────────────────────────────────────────────
   const critChance = Math.min(75, F.BASE_CRIT_CHANCE + (effective.dexterity * F.CRIT_PER_DEX) + (equipmentBonuses.critChance || 0));
   const critDamageMelee = F.BASE_CRIT_MULT + (equipmentBonuses.critDamage || 0);
   const critDamageRanged = F.BASE_CRIT_MULT + (effective.accuracy * F.RANGED_CRIT_BONUS_PER_ACC) + (equipmentBonuses.critDamage || 0);
 
-  // Initiative
+  // ─────────────────────────────────────────────────────────────────────────
+  // INITIATIVE - Determines turn order in combat (higher = acts first)
+  // ─────────────────────────────────────────────────────────────────────────
   const initiative = F.INIT_BASE + (effective.speed * F.INIT_PER_SPEED);
 
   return {
@@ -192,23 +429,39 @@ export function applyBuffsToPrimaryStats(
 // ============================================================================
 // FULL CHARACTER STATS CALCULATOR
 // Gets the complete stat picture for a player
+// Calculation order: Base -> Equipment -> Passive Skills -> Buffs
 // ============================================================================
 export function getPlayerFullStats(player: Player): {
   primary: PrimaryAttributes;
   effectivePrimary: PrimaryAttributes;
   derived: DerivedStats;
   equipmentBonuses: ItemStatBonus;
+  passiveBonuses: PassiveBonuses;
 } {
+  // 1. Equipment bonuses
   const equipmentBonuses = aggregateEquipmentBonuses(player.equipment);
+
+  // 2. Passive skill bonuses
+  const passiveBonuses = aggregatePassiveSkillBonuses(player.skills);
+
+  // 3. Apply bonuses in order: Base -> Equipment -> Passive -> Buffs
   const withEquipment = applyEquipmentToPrimaryStats(player.primaryStats, equipmentBonuses);
-  const effectivePrimary = applyBuffsToPrimaryStats(withEquipment, player.activeBuffs);
+  const withPassives = applyPassiveBonusesToStats(withEquipment, passiveBonuses);
+  const effectivePrimary = applyBuffsToPrimaryStats(withPassives, player.activeBuffs);
+
+  // 4. Calculate derived stats
   const derived = calculateDerivedStats(effectivePrimary, equipmentBonuses);
+
+  // 5. Apply passive regen bonuses to derived stats
+  derived.chakraRegen += passiveBonuses.chakraRegen;
+  derived.hpRegen += passiveBonuses.hpRegen;
 
   return {
     primary: player.primaryStats,
     effectivePrimary,
     derived,
-    equipmentBonuses
+    equipmentBonuses,
+    passiveBonuses
   };
 }
 
@@ -233,6 +486,56 @@ export function getEnemyFullStats(enemy: Enemy): {
 // ============================================================================
 // DAMAGE CALCULATOR - THE CORE COMBAT MATH
 // ============================================================================
+
+/**
+ * The core damage calculation function used for all combat attacks.
+ * Handles the complete damage pipeline from raw damage to final result.
+ *
+ * ## DAMAGE CALCULATION PIPELINE (5 Steps)
+ *
+ * ### Step 1: Hit/Miss Check
+ * - AUTO attacks always hit (toggle skills, certain abilities)
+ * - MELEE: hitChance = baseHit + (attacker_speed × 0.3) - (defender_speed × 0.5)
+ * - RANGED: hitChance = baseHit + (attacker_accuracy × 0.3) - (defender_speed × 0.5)
+ * - Hit chance clamped to 30-98% range
+ * - If hit succeeds, separate EVASION check occurs
+ *
+ * ### Step 2: Base Damage
+ * - rawDamage = scalingStat × skill.damageMult
+ * - Scaling stat determined by skill.scalingStat (e.g., STRENGTH, SPIRIT)
+ *
+ * ### Step 3: Elemental Effectiveness
+ * - Element cycle: Fire > Wind > Lightning > Earth > Water > Fire
+ * - Super effective: 1.5× damage multiplier
+ * - Resisted: 0.5× damage multiplier
+ * - Neutral: 1.0× (no change)
+ * - PHYSICAL and MENTAL elements are neutral to all
+ *
+ * ### Step 4: Critical Hit
+ * - Roll against critChance + skill.critBonus
+ * - Super effective attacks get +20% bonus crit chance
+ * - Crit multiplier: 1.5× base (ranged gets bonus from accuracy)
+ *
+ * ### Step 5: Defense Application
+ * - Select defense type based on skill.damageType (Physical/Elemental/Mental)
+ * - TRUE damage bypasses ALL defense
+ * - Super effective hits ignore 50% of % defense (pseudo-penetration)
+ * - Skill penetration further reduces % defense
+ * - Apply damage property modifiers:
+ *   - NORMAL: Flat (max 60% reduction) then % defense
+ *   - PIERCING: Only % defense (ignores flat)
+ *   - ARMOR_BREAK: Only flat defense (ignores %)
+ * - Minimum 1 damage after all reductions
+ *
+ * @param attackerPrimary - Attacker's primary attributes
+ * @param attackerDerived - Attacker's calculated derived stats
+ * @param defenderPrimary - Defender's primary attributes
+ * @param defenderDerived - Defender's calculated derived stats
+ * @param skill - The skill being used for the attack
+ * @param attackerElement - Attacker's elemental affinity
+ * @param defenderElement - Defender's elemental affinity
+ * @returns DamageResult with all calculation details (for combat log)
+ */
 export function calculateDamage(
   attackerPrimary: PrimaryAttributes,
   attackerDerived: DerivedStats,
@@ -382,6 +685,30 @@ export function calculateDamage(
 // ============================================================================
 // GUTS CHECK - Survival mechanic
 // ============================================================================
+
+/**
+ * Checks if a character survives a lethal hit through the "Guts" mechanic.
+ * Guts is a last-stand ability that gives a chance to survive at 1 HP.
+ *
+ * This mechanic is inspired by fighting games where characters can survive
+ * a killing blow with a small amount of health remaining.
+ *
+ * ## Guts Chance Formula
+ * gutsChance = willpower / (willpower + GUTS_SOFT_CAP)
+ * - Uses diminishing returns (same formula as other survival stats)
+ * - Higher willpower = higher survival chance
+ * - Typical range: 0-30% for normal characters
+ *
+ * ## When Guts Triggers
+ * - Only checked when damage would reduce HP to 0 or below
+ * - On success: HP set to 1, character survives
+ * - On failure: HP set to 0, character dies
+ *
+ * @param currentHp - Character's current HP before damage
+ * @param incomingDamage - Amount of damage being dealt
+ * @param gutsChance - Probability of triggering Guts (0.0 to 1.0)
+ * @returns Object with survival status and new HP value
+ */
 export function checkGuts(
   currentHp: number,
   incomingDamage: number,
@@ -404,6 +731,20 @@ export function checkGuts(
 // ============================================================================
 // STATUS RESISTANCE CHECK
 // ============================================================================
+
+/**
+ * Determines if a status effect successfully applies to a target.
+ * Uses the target's status resistance to reduce the application chance.
+ *
+ * ## Status Resistance Formula
+ * effectiveChance = baseChance × (1 - statusResistance)
+ *
+ * Example: 80% stun chance vs 50% resistance = 80% × 0.5 = 40% effective chance
+ *
+ * @param statusChance - Base chance of the status effect (0.0 to 1.0)
+ * @param statusResistance - Target's resistance stat (0.0 to 1.0)
+ * @returns true if status effect applies, false if resisted
+ */
 export function resistStatus(
   statusChance: number,
   statusResistance: number
@@ -453,8 +794,34 @@ export function canLearnSkill(
 
 // ============================================================================
 // DOT DAMAGE CALCULATOR
-// For Bleed, Burn, Poison effects
 // ============================================================================
+
+/**
+ * Calculates damage from Damage-over-Time effects (Bleed, Burn, Poison).
+ * DoT damage has special interactions with defense - it's only partially mitigated.
+ *
+ * ## DoT Defense Interaction
+ * DoT effects receive REDUCED defense mitigation compared to direct attacks:
+ * - Flat defense: Applied at 50% efficiency (half reduction)
+ * - Percent defense: Applied at 50% efficiency
+ * - Minimum damage: 1 (DoTs always deal at least 1 damage)
+ *
+ * ## DoT Types by Damage Type
+ * - PHYSICAL DoTs (Bleed): Mitigated by physical defense
+ * - ELEMENTAL DoTs (Burn): Mitigated by elemental defense
+ * - TRUE DoTs (Poison, Amaterasu): Bypass ALL defense
+ *
+ * ## DoT Damage Properties
+ * - NORMAL: Both flat and % defense apply (at 50% each)
+ * - PIERCING: Only % defense applies (at 50%)
+ * - TRUE: No defense applies
+ *
+ * @param dotValue - Base damage per tick of the DoT effect
+ * @param dotDamageType - Type of damage (defaults to PHYSICAL)
+ * @param dotDamageProperty - Damage property (defaults to NORMAL)
+ * @param defenderDerived - Defender's calculated stats for defense values
+ * @returns Final DoT damage after defense reduction
+ */
 export function calculateDotDamage(
   dotValue: number,
   dotDamageType: DamageType | undefined,

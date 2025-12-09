@@ -84,6 +84,7 @@ export const getEffectColor = (type: EffectType): string => {
     [EffectType.CURSE]: 'text-purple-600',
     [EffectType.REFLECTION]: 'text-cyan-300',
     [EffectType.REGEN]: 'text-green-300',
+    [EffectType.CHAKRA_REGEN]: 'text-blue-300',
   };
   return colors[type] || 'text-zinc-400';
 };
@@ -107,6 +108,7 @@ export const getEffectIcon = (type: EffectType): string => {
     [EffectType.CURSE]: '💀',
     [EffectType.REFLECTION]: '🪞',
     [EffectType.REGEN]: '💗',
+    [EffectType.CHAKRA_REGEN]: '🔋',
   };
   return icons[type] || '•';
 };

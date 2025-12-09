@@ -8,6 +8,8 @@ import {
   CharacterStats,
   Buff,
   Rarity,
+  ActionType,
+  TurnPhaseState,
 } from '../game/types';
 import StatBar from '../components/StatBar';
 import Tooltip from '../components/Tooltip';
@@ -40,6 +42,7 @@ interface CombatProps {
   enemy: Enemy;
   enemyStats: CharacterStats;
   turnState: 'PLAYER' | 'ENEMY_TURN';
+  turnPhase: TurnPhaseState;
   onUseSkill: (skill: Skill) => void;
   onPassTurn: () => void;
   droppedSkill?: Skill | null;
@@ -56,6 +59,7 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
   enemy,
   enemyStats,
   turnState,
+  turnPhase,
   onUseSkill,
   onPassTurn,
   droppedSkill,
@@ -246,13 +250,63 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
       {/* SKILL INTERFACE AREA */}
       <div className="flex-1 p-6 flex flex-col justify-end">
 
-        {/* Skills Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 lg:gap-6 items-end">
-          {player.skills.map(skill => {
+        {/* SIDE Action Counter & Phase Indicator */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-4">
+            {/* Phase Indicator */}
+            <div className="text-[10px] font-mono uppercase tracking-wider">
+              <span className="text-zinc-500">Phase: </span>
+              <span className={turnPhase.phase === 'SIDE' ? 'text-blue-400' : 'text-orange-400'}>
+                {turnPhase.phase}
+              </span>
+            </div>
+            {/* SIDE Actions */}
+            <div className="flex items-center gap-2 px-3 py-1 bg-blue-950/30 border border-blue-800/50 rounded">
+              <span className="text-[10px] font-bold text-blue-300 uppercase">Side Actions:</span>
+              <span className={`text-sm font-mono font-bold ${
+                turnPhase.sideActionsUsed >= turnPhase.maxSideActions ? 'text-red-400' : 'text-blue-400'
+              }`}>
+                {turnPhase.sideActionsUsed}/{turnPhase.maxSideActions}
+              </span>
+            </div>
+          </div>
+          {/* Passive Skills Summary */}
+          {player.skills.filter(s => s.actionType === ActionType.PASSIVE).length > 0 && (
+            <Tooltip
+              content={
+                <div className="space-y-2 p-1 max-w-[280px]">
+                  <div className="text-xs font-bold text-zinc-300 uppercase">Active Passives</div>
+                  {player.skills.filter(s => s.actionType === ActionType.PASSIVE).map(skill => (
+                    <div key={skill.id} className="text-[10px] text-zinc-400">
+                      <span className="text-zinc-200">{skill.name}</span> - {skill.description}
+                    </div>
+                  ))}
+                </div>
+              }
+            >
+              <div className="text-[10px] font-mono text-zinc-500 cursor-help hover:text-zinc-300">
+                {player.skills.filter(s => s.actionType === ActionType.PASSIVE).length} Passives Active
+              </div>
+            </Tooltip>
+          )}
+        </div>
+
+        {/* Skills Row - Grouped by ActionType */}
+        {(() => {
+          // Group skills by ActionType (exclude passives from main grid)
+          const mainSkills = player.skills.filter(s => s.actionType === ActionType.MAIN || !s.actionType);
+          const sideSkills = player.skills.filter(s => s.actionType === ActionType.SIDE);
+          const toggleSkills = player.skills.filter(s => s.actionType === ActionType.TOGGLE);
+
+          const renderSkillCard = (skill: Skill) => {
             const canUse = player.currentChakra >= skill.chakraCost && player.currentHp > skill.hpCost && skill.currentCooldown === 0;
             const isStunned = player.activeBuffs.some(b => b?.effect?.type === EffectType.STUN);
             const isEnemyTurn = turnState === 'ENEMY_TURN';
-            const usable = (canUse || skill.isActive) && !isStunned && !isEnemyTurn;
+
+            // SIDE skills have additional check for remaining actions
+            const sideActionsAvailable = turnPhase.sideActionsUsed < turnPhase.maxSideActions;
+            const isSideSkill = skill.actionType === ActionType.SIDE;
+            const usable = (canUse || skill.isActive) && !isStunned && !isEnemyTurn && (!isSideSkill || sideActionsAvailable);
 
             const prediction = calculateDamage(
               playerStats.effectivePrimary,
@@ -276,6 +330,17 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
                     <div className="font-bold text-zinc-200 flex justify-between items-center">
                       <span>{skill.name}</span>
                       <span className="text-yellow-500 text-xs">Lv.{skill.level || 1}</span>
+                    </div>
+
+                    {/* Action Type */}
+                    <div className="text-[9px] uppercase tracking-wider">
+                      <span className={
+                        skill.actionType === ActionType.SIDE ? 'text-blue-400' :
+                        skill.actionType === ActionType.TOGGLE ? 'text-amber-400' :
+                        'text-zinc-500'
+                      }>
+                        {skill.actionType || 'MAIN'} Action
+                      </span>
                     </div>
 
                     {/* Description */}
@@ -329,9 +394,9 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
                     )}
 
                     {/* Toggle Skill Info */}
-                    {skill.isToggle && (
+                    {(skill.isToggle || skill.actionType === ActionType.TOGGLE) && (
                       <div className="border-t border-zinc-700 pt-2 text-[10px] text-amber-400">
-                        Toggle Skill - {skill.upkeepCost} CP/turn upkeep
+                        Toggle Skill - {skill.upkeepCost || 0} CP/turn upkeep
                       </div>
                     )}
                   </div>
@@ -346,8 +411,46 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
                 />
               </Tooltip>
             );
-          })}
-        </div>
+          };
+
+          return (
+            <div className="space-y-4">
+              {/* SIDE Skills Row (if any) */}
+              {sideSkills.length > 0 && (
+                <div>
+                  <div className="text-[9px] font-bold text-blue-400 uppercase tracking-wider mb-2">
+                    Side Actions (Free)
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                    {sideSkills.map(renderSkillCard)}
+                  </div>
+                </div>
+              )}
+
+              {/* TOGGLE Skills Row (if any) */}
+              {toggleSkills.length > 0 && (
+                <div>
+                  <div className="text-[9px] font-bold text-amber-400 uppercase tracking-wider mb-2">
+                    Toggle Skills
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                    {toggleSkills.map(renderSkillCard)}
+                  </div>
+                </div>
+              )}
+
+              {/* MAIN Skills Row */}
+              <div>
+                <div className="text-[9px] font-bold text-orange-400 uppercase tracking-wider mb-2">
+                  Main Actions (Ends Turn)
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 lg:gap-6">
+                  {mainSkills.map(renderSkillCard)}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Turn Control */}
         <div className="mt-6 flex justify-between items-center border-t border-zinc-800/50 pt-4">

@@ -16,6 +16,7 @@ interface LeftSidebarPanelProps {
   onSelectComponent?: (item: Item) => void;
   onSellComponent?: (item: Item) => void;
   onSynthesize?: (compA: Item, compB: Item) => void;
+  onEquipFromBag?: (item: Item) => void;
   // Equipment panel action props
   onSellEquipped?: (slot: EquipmentSlot, item: Item) => void;
   onUnequipToBag?: (slot: EquipmentSlot, item: Item) => void;
@@ -28,6 +29,7 @@ const LeftSidebarPanel: React.FC<LeftSidebarPanelProps> = ({
   onSelectComponent,
   onSellComponent,
   onSynthesize,
+  onEquipFromBag,
   onSellEquipped,
   onUnequipToBag,
   onDisassembleEquipped,
@@ -70,6 +72,7 @@ const LeftSidebarPanel: React.FC<LeftSidebarPanelProps> = ({
           onSellComponent={onSellComponent}
           selectedComponent={selectedComponent || null}
           onSynthesize={onSynthesize}
+          onEquipFromBag={onEquipFromBag}
         />
       )}
 

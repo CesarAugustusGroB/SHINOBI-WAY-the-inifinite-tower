@@ -1,8 +1,59 @@
 /**
- * Equipment Passive Effect System
+ * =============================================================================
+ * EQUIPMENT PASSIVE SYSTEM - Artifact Combat Effects
+ * =============================================================================
  *
- * Handles processing of artifact passive effects during combat.
- * Passives can trigger at various points: combat_start, on_hit, on_crit, on_kill, turn_start, below_half_hp
+ * This system processes passive effects from equipped artifacts during combat.
+ * Artifacts are the primary source of passive abilities in the game.
+ *
+ * ## TRIGGER CONDITIONS (6 Types)
+ *
+ * | Trigger        | When It Fires                    | Example Effects      |
+ * |----------------|----------------------------------|---------------------|
+ * | combat_start   | Battle begins                    | Shield, Invuln      |
+ * | on_hit         | Player deals damage              | Bleed, Lifesteal    |
+ * | on_crit        | Player lands critical hit        | Pierce, Burn        |
+ * | turn_start     | Player's turn begins             | Regen, Chakra       |
+ * | on_kill        | Player defeats enemy             | Cooldown reset      |
+ * | below_half_hp  | Player HP drops below 50%        | Damage reduction    |
+ *
+ * ## PASSIVE EFFECT TYPES (20+)
+ *
+ * ### Combat Start Effects
+ * - SHIELD_ON_START: Grant shield equal to % of max chakra
+ * - INVULNERABLE_FIRST_TURN: 1 turn of complete immunity
+ * - REFLECT: Return % of damage to attacker
+ * - FREE_FIRST_SKILL: First skill costs no resources
+ *
+ * ### On Hit Effects
+ * - BLEED: Apply physical DoT (piercing damage)
+ * - BURN: Apply elemental DoT
+ * - CHAKRA_DRAIN: Steal chakra from enemy
+ * - LIFESTEAL: Heal % of damage dealt
+ * - SEAL_CHANCE: % chance to stun enemy
+ *
+ * ### On Crit Effects
+ * - PIERCE_DEFENSE: Ignore % of enemy defense
+ * - BURN: Enhanced burn on critical hits
+ *
+ * ### Turn Start Effects
+ * - REGEN: Heal % of max HP per turn
+ * - CHAKRA_RESTORE: Flat chakra recovery
+ *
+ * ### On Kill Effects
+ * - COOLDOWN_RESET_ON_KILL: Reset all skill cooldowns
+ *
+ * ### Conditional Effects
+ * - DAMAGE_REDUCTION: Take less damage when wounded
+ * - COUNTER_ATTACK: % chance to auto-attack when hit
+ * - EXECUTE_THRESHOLD: Special effect below % HP
+ * - GUTS: Survive lethal hit once
+ *
+ * ### Special Effects
+ * - ALL_ELEMENTS: Attacks always super effective
+ * - CLAN_TRAIT_*: Clan-specific bonuses
+ *
+ * =============================================================================
  */
 
 import {

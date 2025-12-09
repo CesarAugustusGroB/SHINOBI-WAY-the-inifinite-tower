@@ -6,6 +6,9 @@ import {
   Buff,
   EffectType,
   GameState,
+  ActionType,
+  TurnPhaseState,
+  createInitialTurnPhaseState,
 } from '../game/types';
 import { getEnemyFullStats } from '../game/systems/StatSystem';
 import {
@@ -14,6 +17,7 @@ import {
   CombatState,
   createCombatState,
   applyApproachEffects,
+  processUpkeep,
 } from '../game/systems/CombatSystem';
 import { ApproachResult, getCombatModifiers } from '../game/systems/ApproachSystem';
 import { CombatRef } from '../scenes/Combat';
@@ -43,6 +47,7 @@ export interface UseCombatReturn {
   enemy: Enemy | null;
   enemyStats: FullStats | null;
   turnState: TurnState;
+  turnPhase: TurnPhaseState;
   combatRef: React.RefObject<CombatRef | null>;
   setEnemy: React.Dispatch<React.SetStateAction<Enemy | null>>;
   setTurnState: React.Dispatch<React.SetStateAction<TurnState>>;
@@ -57,6 +62,7 @@ export interface UseCombatReturn {
   autoCombatEnabled: boolean;
   setAutoCombatEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   autoPassTimeRemaining: number | null;
+  endSidePhase: () => void;  // Manually end SIDE phase and go to MAIN
 }
 
 /**
@@ -82,8 +88,10 @@ export function useCombat({
   // Combat-only state (not shared with exploration)
   const [enemy, setEnemy] = useState<Enemy | null>(null);
   const [turnState, setTurnState] = useState<TurnState>('PLAYER');
+  const [turnPhase, setTurnPhase] = useState<TurnPhaseState>(createInitialTurnPhaseState());
   const [autoCombatEnabled, setAutoCombatEnabled] = useState(false);
   const [autoPassTimeRemaining, setAutoPassTimeRemaining] = useState<number | null>(null);
+  const [upkeepProcessedThisTurn, setUpkeepProcessedThisTurn] = useState(false);
 
   const combatRef = useRef<CombatRef>(null);
 
@@ -104,14 +112,47 @@ export function useCombat({
 
   /**
    * Use a skill during combat
+   * Handles action type logic:
+   * - SIDE: Free action, max 2 per turn, doesn't end turn
+   * - MAIN: Primary action, ends turn
+   * - TOGGLE: Activate/deactivate, ends turn
+   * - PASSIVE: Cannot be "used" (always active)
    */
   const useSkill = useCallback(
     (skill: Skill) => {
       if (!player || !enemy || !playerStats || !enemyStats) return;
 
+      // STUN blocks ALL actions (except PASSIVE which returns early anyway)
+      const isStunned = player.activeBuffs.some(b => b?.effect?.type === EffectType.STUN);
+      if (isStunned) {
+        addLog('You are stunned and cannot act!', 'danger');
+        return;
+      }
+
+      // PASSIVE skills cannot be used directly
+      if (skill.actionType === ActionType.PASSIVE) {
+        addLog('Passive abilities are always active!', 'info');
+        return;
+      }
+
+      // SIDE action check - max 2 per turn
+      if (skill.actionType === ActionType.SIDE) {
+        if (turnPhase.sideActionsUsed >= turnPhase.maxSideActions) {
+          addLog('You have used all your SIDE actions this turn!', 'danger');
+          return;
+        }
+      }
+
       // Handle toggle skills
-      if (skill.isToggle) {
+      if (skill.isToggle || skill.actionType === ActionType.TOGGLE) {
         const isActive = skill.isActive || false;
+
+        // Silence blocks toggle activation (but not deactivation)
+        const isSilenced = player.activeBuffs.some(b => b?.effect?.type === EffectType.SILENCE);
+        if (!isActive && isSilenced) {
+          addLog('Cannot activate - you are Silenced!', 'danger');
+          return;
+        }
 
         // Check chakra cost for activation
         if (!isActive && player.currentChakra < skill.chakraCost) {
@@ -151,11 +192,12 @@ export function useCombat({
 
           return { ...prev, skills: newSkills, activeBuffs: newBuffs, currentChakra: newChakra };
         });
+        // Toggle activation ends turn
         setTurnState('ENEMY_TURN');
         return;
       }
 
-      // Use CombatSystem for regular skills
+      // Use CombatSystem for regular skills (MAIN and SIDE with damage)
       const result = useSkillCombat(
         player,
         playerStats,
@@ -217,10 +259,21 @@ export function useCombat({
       } else if (result.playerDefeated) {
         setGameState(GameState.GAME_OVER);
       } else {
-        setTurnState('ENEMY_TURN');
+        // SIDE actions don't end turn - increment counter and stay in player turn
+        if (skill.actionType === ActionType.SIDE) {
+          setTurnPhase((prev) => ({
+            ...prev,
+            sideActionsUsed: prev.sideActionsUsed + 1,
+          }));
+          addLog(`SIDE action used (${turnPhase.sideActionsUsed + 1}/${turnPhase.maxSideActions})`, 'info');
+          // Stay in player turn
+        } else {
+          // MAIN action ends turn
+          setTurnState('ENEMY_TURN');
+        }
       }
     },
-    [player, enemy, playerStats, enemyStats, combatState, addLog, setPlayer, handleVictory, setGameState, setTurnState]
+    [player, enemy, playerStats, enemyStats, combatState, turnPhase, addLog, setPlayer, handleVictory, setGameState, setTurnState]
   );
 
   /**
@@ -384,10 +437,53 @@ export function useCombat({
     }
   }, [turnState, player, enemy, playerStats, enemyStats, combatState, addLog, setPlayer, handleVictory, setGameState, setTurnState]);
 
+  // Process upkeep when turn changes to PLAYER (after enemy turn)
+  useEffect(() => {
+    if (turnState === 'PLAYER' && player && playerStats && enemy && !upkeepProcessedThisTurn) {
+      // Process toggle upkeep costs
+      const upkeepResult = processUpkeep(player, playerStats);
+
+      // Log upkeep messages
+      upkeepResult.logs.forEach((msg) => {
+        const isDeactivation = msg.includes('deactivated');
+        addLog(msg, isDeactivation ? 'danger' : 'info');
+      });
+
+      // Update player with upkeep results
+      if (upkeepResult.player !== player) {
+        setPlayer(upkeepResult.player);
+      }
+
+      // Reset turn phase for new turn
+      setTurnPhase({
+        phase: 'SIDE',
+        sideActionsUsed: 0,
+        maxSideActions: 2,
+        upkeepProcessed: true,
+      });
+      setUpkeepProcessedThisTurn(true);
+    }
+  }, [turnState, player, playerStats, enemy, upkeepProcessedThisTurn, addLog, setPlayer]);
+
+  // Reset upkeep flag when turn changes to enemy
+  useEffect(() => {
+    if (turnState === 'ENEMY_TURN') {
+      setUpkeepProcessedThisTurn(false);
+    }
+  }, [turnState]);
+
+  /**
+   * Manually end SIDE phase and commit to MAIN phase
+   */
+  const endSidePhase = useCallback(() => {
+    setTurnPhase((prev) => ({ ...prev, phase: 'MAIN' }));
+  }, []);
+
   return {
     enemy,
     enemyStats,
     turnState,
+    turnPhase,
     combatRef,
     setEnemy,
     setTurnState,
@@ -397,5 +493,6 @@ export function useCombat({
     autoCombatEnabled,
     setAutoCombatEnabled,
     autoPassTimeRemaining,
+    endSidePhase,
   };
 }
