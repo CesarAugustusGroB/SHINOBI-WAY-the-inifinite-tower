@@ -1,7 +1,7 @@
 import {
   PrimaryAttributes, PrimaryStat, Clan, ElementType, GameEventDefinition,
   ItemSlot, Rarity, Skill, EffectType, SkillTier, DamageType,
-  DamageProperty, AttackMethod, EnhancedGameEventDefinition
+  DamageProperty, AttackMethod, EnhancedGameEventDefinition, ActionType
 } from '../types';
 import { ACADEMY_ARC_EVENTS } from './events/academyArcEvents';
 import { WAVES_ARC_EVENTS } from './events/wavesArcEvents';
@@ -153,16 +153,17 @@ export const SKILLS: Record<string, Skill> = {
   // ACADEMY / BASIC UTILITY
   // ==========================================
   BASIC_ATTACK: {
-    id: 'basic_atk', 
-    name: 'Taijutsu', 
-    tier: SkillTier.COMMON, 
+    id: 'basic_atk',
+    name: 'Taijutsu',
+    tier: SkillTier.COMMON,
     description: 'A disciplined martial arts strike using raw physical power. Reliable and effective.',
-    chakraCost: 0, 
-    hpCost: 0, 
-    cooldown: 0, 
-    currentCooldown: 0, 
+    actionType: ActionType.MAIN,
+    chakraCost: 0,
+    hpCost: 0,
+    cooldown: 0,
+    currentCooldown: 0,
     damageMult: 2.0,  // BUFFED: Was 1.0 - doubled for better base damage
-    scalingStat: PrimaryStat.STRENGTH, 
+    scalingStat: PrimaryStat.STRENGTH,
     damageType: DamageType.PHYSICAL,
     damageProperty: DamageProperty.NORMAL,
     attackMethod: AttackMethod.MELEE,
@@ -170,16 +171,17 @@ export const SKILLS: Record<string, Skill> = {
   },
   
   SHURIKEN: {
-    id: 'shuriken', 
-    name: 'Shuriken', 
-    tier: SkillTier.COMMON, 
+    id: 'shuriken',
+    name: 'Shuriken',
+    tier: SkillTier.COMMON,
     description: 'A swift throw of sharpened steel stars. Targets weak points for high critical chance.',
-    chakraCost: 0, 
-    hpCost: 0, 
-    cooldown: 1, 
-    currentCooldown: 0, 
+    actionType: ActionType.MAIN,
+    chakraCost: 0,
+    hpCost: 0,
+    cooldown: 1,
+    currentCooldown: 0,
     damageMult: 1.8,  // BUFFED: Was 0.8 - more than doubled
-    scalingStat: PrimaryStat.ACCURACY, 
+    scalingStat: PrimaryStat.ACCURACY,
     damageType: DamageType.PHYSICAL,
     damageProperty: DamageProperty.NORMAL,
     attackMethod: AttackMethod.RANGED,
@@ -192,6 +194,7 @@ export const SKILLS: Record<string, Skill> = {
     name: 'Mud Wall',
     tier: SkillTier.COMMON,
     description: 'Spits mud that hardens into a barricade. Creates a Shield.',
+    actionType: ActionType.SIDE,  // Defensive utility - use before MAIN
     chakraCost: 15,
     hpCost: 0,
     cooldown: 4,
@@ -210,7 +213,8 @@ export const SKILLS: Record<string, Skill> = {
     id: 'phoenix_flower',
     name: 'Phoenix Flower',
     tier: SkillTier.COMMON,
-    description: 'Volleys of small fireballs. Chance to burn.',
+    description: 'Volleys of small fireballs. Chance to burn. (SIDE action exception - deals damage)',
+    actionType: ActionType.SIDE,  // Exception: SIDE action that deals damage
     chakraCost: 20,
     hpCost: 0,
     cooldown: 2,
@@ -237,6 +241,7 @@ export const SKILLS: Record<string, Skill> = {
     name: 'Body Replacement',
     tier: SkillTier.COMMON,
     description: 'Switch places with a log. The log absorbs damage while you reposition.',
+    actionType: ActionType.SIDE,  // Defensive setup
     chakraCost: 10,
     hpCost: 0,
     cooldown: 4,
@@ -258,6 +263,7 @@ export const SKILLS: Record<string, Skill> = {
     name: 'Clone Technique',
     tier: SkillTier.COMMON,
     description: 'Creates illusory copies to distract the enemy. Slight Evasion boost.',
+    actionType: ActionType.SIDE,  // Buff setup
     chakraCost: 5,
     hpCost: 0,
     cooldown: 3,
@@ -276,6 +282,7 @@ export const SKILLS: Record<string, Skill> = {
     name: 'Transformation',
     tier: SkillTier.COMMON,
     description: 'Transform into an object or person for a surprise attack.',
+    actionType: ActionType.SIDE,  // Crit setup buff
     chakraCost: 5,
     hpCost: 0,
     cooldown: 4,
@@ -294,6 +301,7 @@ export const SKILLS: Record<string, Skill> = {
     name: 'Body Flicker',
     tier: SkillTier.COMMON,
     description: 'High-speed movement to close gaps. Greatly boosts Initiative.',
+    actionType: ActionType.SIDE,  // Speed buff setup
     chakraCost: 15,
     hpCost: 0,
     cooldown: 3,
@@ -312,6 +320,7 @@ export const SKILLS: Record<string, Skill> = {
     name: 'Release',
     tier: SkillTier.COMMON,
     description: 'Disrupts chakra flow to break illusions. Boosts Genjutsu Resistance.',
+    actionType: ActionType.SIDE,  // Dispel + buff
     chakraCost: 10,
     hpCost: 0,
     cooldown: 2,
@@ -325,52 +334,54 @@ export const SKILLS: Record<string, Skill> = {
     effects: [{ type: EffectType.BUFF, targetStat: PrimaryStat.CALMNESS, value: 0.5, duration: 3, chance: 1.0 }]
   },
 
-  // ==== RARE ====
+  // ==== RARE / ADVANCED ====
   RASENGAN: {
-    id: 'rasengan', 
-    name: 'Rasengan', 
-    tier: SkillTier.RARE, 
+    id: 'rasengan',
+    name: 'Rasengan',
+    tier: SkillTier.RARE,
     description: 'A swirling sphere of pure wind chakra that grinds into the target. PIERCING damage ignores flat defense.',
-    chakraCost: 35, 
-    hpCost: 0, 
-    cooldown: 3, 
-    currentCooldown: 0, 
+    actionType: ActionType.MAIN,
+    chakraCost: 35,
+    hpCost: 0,
+    cooldown: 3,
+    currentCooldown: 0,
     damageMult: 4.0,  // BUFFED: Was 2.8 - signature move should hit hard
-    scalingStat: PrimaryStat.SPIRIT, 
+    scalingStat: PrimaryStat.SPIRIT,
     damageType: DamageType.ELEMENTAL,
     damageProperty: DamageProperty.PIERCING, // Ignores flat armor!
     attackMethod: AttackMethod.MELEE,
     element: ElementType.WIND,
     requirements: { intelligence: 14 },
-    effects: [{ 
-      type: EffectType.DEBUFF, 
-      targetStat: PrimaryStat.STRENGTH, 
-      value: 0.2, 
-      duration: 3, 
-      chance: 0.5 
+    effects: [{
+      type: EffectType.DEBUFF,
+      targetStat: PrimaryStat.STRENGTH,
+      value: 0.2,
+      duration: 3,
+      chance: 0.5
     }]
   },
-  
+
   FIREBALL: {
-    id: 'fireball', 
-    name: 'Fireball Jutsu', 
-    tier: SkillTier.RARE, 
+    id: 'fireball',
+    name: 'Fireball Jutsu',
+    tier: SkillTier.RARE,
     description: 'A massive, searing projectile of flame. Leaves the target burning.',
-    chakraCost: 25, 
-    hpCost: 0, 
-    cooldown: 3, 
-    currentCooldown: 0, 
+    actionType: ActionType.MAIN,
+    chakraCost: 25,
+    hpCost: 0,
+    cooldown: 3,
+    currentCooldown: 0,
     damageMult: 3.5,  // BUFFED: Was 2.4 - main elemental nuke
-    scalingStat: PrimaryStat.SPIRIT, 
+    scalingStat: PrimaryStat.SPIRIT,
     damageType: DamageType.ELEMENTAL,
     damageProperty: DamageProperty.NORMAL,
     attackMethod: AttackMethod.RANGED,
     element: ElementType.FIRE,
     requirements: { intelligence: 12 },
-    effects: [{ 
-      type: EffectType.BURN, 
-      value: 15, 
-      duration: 3, 
+    effects: [{
+      type: EffectType.BURN,
+      value: 15,
+      duration: 3,
       chance: 0.8,
       damageType: DamageType.ELEMENTAL,
       damageProperty: DamageProperty.NORMAL
@@ -382,6 +393,7 @@ export const SKILLS: Record<string, Skill> = {
     name: '8 Trigrams Rotation',
     tier: SkillTier.EPIC,
     description: 'Expels chakra while spinning to repel attacks. Reflects damage.',
+    actionType: ActionType.SIDE,  // Defensive SIDE action
     chakraCost: 25,
     hpCost: 0,
     cooldown: 4,
@@ -404,6 +416,7 @@ export const SKILLS: Record<string, Skill> = {
     name: 'Byakugan',
     tier: SkillTier.EPIC,
     description: 'The All-Seeing White Eye. Drastically improves Accuracy and Crit Chance.',
+    actionType: ActionType.TOGGLE,  // Toggle ability
     chakraCost: 10,
     hpCost: 0,
     cooldown: 5,
@@ -428,6 +441,7 @@ export const SKILLS: Record<string, Skill> = {
     name: 'Gentle Fist',
     tier: SkillTier.RARE,
     description: 'Precise strikes to chakra points. True damage + Chakra Drain.',
+    actionType: ActionType.MAIN,
     chakraCost: 15,
     hpCost: 0,
     cooldown: 2,
@@ -441,27 +455,28 @@ export const SKILLS: Record<string, Skill> = {
     requirements: { intelligence: 12 },
     effects: [{ type: EffectType.CHAKRA_DRAIN, value: 20, duration: 1, chance: 1.0 }]
   },
-  
+
   SHARINGAN_2TOMOE: {
-    id: 'sharingan_2', 
-    name: 'Sharingan (2-Tomoe)', 
-    tier: SkillTier.RARE, 
+    id: 'sharingan_2',
+    name: 'Sharingan (2-Tomoe)',
+    tier: SkillTier.RARE,
     description: 'Visual prowess that perceives attack trajectories. Toggle: Increases Speed and Dexterity.',
-    chakraCost: 10, 
-    hpCost: 0, 
-    cooldown: 5, 
-    currentCooldown: 0, 
-    damageMult: 0, 
-    scalingStat: PrimaryStat.INTELLIGENCE, 
+    actionType: ActionType.TOGGLE,  // Toggle ability
+    chakraCost: 10,
+    hpCost: 0,
+    cooldown: 5,
+    currentCooldown: 0,
+    damageMult: 0,
+    scalingStat: PrimaryStat.INTELLIGENCE,
     damageType: DamageType.PHYSICAL,
     damageProperty: DamageProperty.NORMAL,
     attackMethod: AttackMethod.AUTO,
     element: ElementType.FIRE,
     requirements: { intelligence: 14, clan: Clan.UCHIHA },
-    isToggle: true, 
+    isToggle: true,
     upkeepCost: 5,
     effects: [
-      { type: EffectType.BUFF, targetStat: PrimaryStat.SPEED, value: 0.3, duration: -1, chance: 1.0 }, 
+      { type: EffectType.BUFF, targetStat: PrimaryStat.SPEED, value: 0.3, duration: -1, chance: 1.0 },
       { type: EffectType.BUFF, targetStat: PrimaryStat.DEXTERITY, value: 0.25, duration: -1, chance: 1.0 }
     ]
   },

@@ -188,11 +188,27 @@ export enum Rarity {
 }
 
 export enum SkillTier {
+  // Legacy tiers (kept for backward compatibility)
   COMMON = 'Common',
   RARE = 'Rare',
   EPIC = 'Epic',
   LEGENDARY = 'Legendary',
-  FORBIDDEN = 'Forbidden'
+  FORBIDDEN = 'Forbidden',
+  // New tier system (Part 1 Naruto)
+  BASIC = 'Basic',
+  ADVANCED = 'Advanced',
+  HIDDEN = 'Hidden',
+  KINJUTSU = 'Kinjutsu'
+}
+
+// ============================================================================
+// ACTION TYPE SYSTEM - Determines when/how skills can be used
+// ============================================================================
+export enum ActionType {
+  MAIN = 'Main',       // Ends your turn - primary attacks and jutsu
+  TOGGLE = 'Toggle',   // Activate once (ends turn), pays upkeep each turn
+  SIDE = 'Side',       // Free action BEFORE Main, max 2 per turn
+  PASSIVE = 'Passive'  // Always active, no action required
 }
 
 // Legacy ItemSlot - kept for migration compatibility
@@ -339,20 +355,33 @@ export interface SkillRequirements {
   clan?: Clan;            // Clan restriction
 }
 
+// Passive skill effect for PASSIVE action type skills
+export interface PassiveSkillEffect {
+  statBonus?: Partial<PrimaryAttributes>;
+  damageBonus?: number;          // % bonus to all damage dealt
+  defenseBonus?: number;         // % bonus to all defense
+  regenBonus?: { hp?: number; chakra?: number };  // Per-turn regeneration
+  specialEffect?: string;        // Unique effect identifier
+}
+
 export interface Skill {
   id: string;
   name: string;
   tier: SkillTier;
   description: string;
-  
+
+  // ACTION TYPE (NEW) - Determines when/how skill can be used
+  actionType?: ActionType;       // MAIN/TOGGLE/SIDE/PASSIVE (default: MAIN)
+  sideActionLimit?: number;      // Max uses per turn for SIDE skills (default: 1)
+
   // Costs
   chakraCost: number;
   hpCost: number;
-  
+
   // Cooldown
   cooldown: number;
   currentCooldown: number;
-  
+
   // Damage Calculation
   damageMult: number;
   scalingStat: PrimaryStat;     // Which stat scales the damage
@@ -362,27 +391,31 @@ export interface Skill {
 
   // Element (for elemental interactions)
   element: ElementType;
-  
+
   // Toggle Skills (like Sharingan)
   isToggle?: boolean;
   isActive?: boolean;
   upkeepCost?: number;
-  
+
   // Effects applied on hit
   effects?: EffectDefinition[];
-  
+
   // Bonuses
   critBonus?: number;           // Extra % crit chance
   penetration?: number;         // % defense ignored (0-1)
-  
+
   // Requirements
   requirements?: SkillRequirements;
+
+  // Passive skill effect (for PASSIVE action type)
+  passiveEffect?: PassiveSkillEffect;
 
   // Upgrade tracking
   level?: number;
 
   // Visual
   image?: string;
+  icon?: string;                // Emoji/icon for quick reference
 }
 
 // ============================================================================

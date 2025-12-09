@@ -1,0 +1,32 @@
+[
+    {
+        "id": "example-id-123456789",
+        "title": "Template Project Title",
+        "repoUrl": "https://github.com/username/repository",
+        "description": "Brief description of the project's purpose and goals.",
+        "scope": "e.g., MVP, Phase 1",
+        "goal": "Primary goal to achieve.",
+        "lastUpdated": "2023-12-09T12:00:00.000Z",
+        "features": [
+            {
+                "id": "feature-id-001",
+                "name": "Main Feature Name",
+                "state": "BACKLOG",
+                "notes": "Implementation details or notes.",
+                "isExpanded": false,
+                "contextFiles": [],
+                "subfeatures": [
+                    {
+                        "id": "subfeature-id-001",
+                        "name": "Sub-task or Component",
+                        "state": "CREATING",
+                        "notes": "Specific detail about this sub-task.",
+                        "isExpanded": false,
+                        "contextFiles": [],
+                        "subfeatures": []
+                    }
+                ]
+            }
+        ]
+    }
+]
