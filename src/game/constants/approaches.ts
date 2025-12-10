@@ -45,13 +45,14 @@ export const APPROACH_DEFINITIONS: Record<ApproachType, ApproachOption> = {
   },
 
   // ============================================================================
-  // STEALTH AMBUSH - Sneak attack for massive first-hit damage
+  // STEALTH AMBUSH - Sneak attack for first-hit damage bonus
   // Requires Speed, scales with Dexterity
+  // BALANCE: Nerfed from 2.5x to 2.0x, removed guaranteed first turn
   // ============================================================================
   [ApproachType.STEALTH_AMBUSH]: {
     type: ApproachType.STEALTH_AMBUSH,
     name: 'Silent Strike',
-    description: 'Move through the shadows. If successful, your first attack deals 2.5x damage and you\'re guaranteed to act first.',
+    description: 'Move through the shadows. If successful, your first attack deals 2x damage and you gain a large initiative bonus.',
 
     requirements: {
       minStat: { stat: PrimaryStat.SPEED, value: 12 },  // Base requirement
@@ -66,14 +67,14 @@ export const APPROACH_DEFINITIONS: Record<ApproachType, ApproachOption> = {
     },
 
     successEffects: {
-      initiativeBonus: 999,         // Guaranteed first
-      guaranteedFirst: true,
-      firstHitMultiplier: 2.5,      // First hit deals 2.5x damage
+      initiativeBonus: 50,          // High initiative, but not guaranteed
+      guaranteedFirst: false,       // No longer guaranteed (nerfed)
+      firstHitMultiplier: 2.0,      // First hit deals 2x damage (nerfed from 2.5x)
       playerBuffs: [
         {
           type: EffectType.BUFF,
           targetStat: PrimaryStat.DEXTERITY,
-          value: 0.3,               // +30% DEX for first turn
+          value: 0.15,              // +15% DEX for first turn (nerfed from 30%)
           duration: 1,
           chance: 1.0,
         }
@@ -82,7 +83,7 @@ export const APPROACH_DEFINITIONS: Record<ApproachType, ApproachOption> = {
         {
           type: EffectType.STUN,
           duration: 1,
-          chance: 0.30,             // 30% chance to stun from surprise
+          chance: 0.15,             // 15% chance to stun from surprise (nerfed from 30%)
         }
       ],
       skipCombat: false,

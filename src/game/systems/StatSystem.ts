@@ -609,12 +609,15 @@ export function calculateDamage(
   // STEP 4: CRITICAL HIT
   // ========================================
   let effectiveCritChance = attackerDerived.critChance + (skill.critBonus || 0);
-  
-  // BONUS: Super Effective hits get +20% Crit Chance
+
+  // BONUS: Super Effective hits get +10% Crit Chance (reduced from 20%)
   if (result.elementMultiplier > 1.0) {
-    effectiveCritChance += 20;
+    effectiveCritChance += 10;
   }
-  
+
+  // Cap effective crit chance at 95% (always some uncertainty)
+  effectiveCritChance = Math.min(95, effectiveCritChance);
+
   if (Math.random() * 100 < effectiveCritChance) {
     result.isCrit = true;
     const critMult = skill.attackMethod === AttackMethod.RANGED 
@@ -645,10 +648,8 @@ export function calculateDamage(
     percentDef = defenderDerived.mentalDefensePercent;
   }
 
-  // BONUS: Super Effective hits ignore 50% of percent defense (Pseudo-penetration)
-  if (result.elementMultiplier > 1.0) {
-    percentDef = percentDef * 0.5;
-  }
+  // NOTE: Super effective defense ignore removed for balance
+  // Super effective now only grants +10% crit chance bonus
 
   // Apply penetration if skill has it
   if (skill.penetration) {

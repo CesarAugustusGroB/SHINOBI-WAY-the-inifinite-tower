@@ -1933,7 +1933,8 @@ export const SKILLS: Record<string, Skill> = {
     element: ElementType.LIGHTNING,
     requirements: { intelligence: 16 },
     critBonus: 15,
-    penetration: 0.2 // Also ignores 20% of % defense
+    penetration: 0.2, // Also ignores 20% of % defense
+    image: '/assets/skill_chidori.png'
   },
   
   CHIDORI_STREAM: {

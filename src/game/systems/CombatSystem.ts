@@ -73,10 +73,24 @@ import {
   calculateDotDamage
 } from './StatSystem';
 import { CombatModifiers } from './ApproachSystem';
+import { selectEnemySkill } from './EnemyAISystem';
 import { combatLog, logDamage, logFlowCheckpoint } from '../utils/combatDebug';
 
 /** Generates a random 7-character ID for buff tracking */
 const generateId = () => Math.random().toString(36).substring(2, 9);
+
+/**
+ * Decrements buff durations and removes expired buffs.
+ * Buffs with duration -1 are permanent and never expire.
+ *
+ * @param buffs - Array of active buffs
+ * @returns New array with durations decremented and expired buffs removed
+ */
+function tickBuffDurations(buffs: Buff[]): Buff[] {
+  return buffs
+    .filter(b => b?.duration > 1 || b?.duration === -1)
+    .map(b => b.duration === -1 ? b : { ...b, duration: b.duration - 1 });
+}
 
 // ============================================================================
 // DAMAGE MITIGATION HELPER
@@ -143,19 +157,20 @@ const applyMitigation = (
     return { finalDamage: 0, reflectedDamage: 0, updatedBuffs: currentBuffs, messages: [`${targetName} is Invulnerable!`] };
   }
 
-  // 2. Check Curse (Damage Amplification)
+  // 2. Check Reflection (Thorns) - Calculate BEFORE curse amplifies damage
+  // This prevents cursed targets from reflecting bonus damage back to attackers
+  const reflect = currentBuffs.find(b => b?.effect?.type === EffectType.REFLECTION);
+  if (reflect?.effect?.value) {
+    reflected = Math.floor(damage * reflect.effect.value);
+    if (reflected > 0) messages.push(`${targetName} reflects ${reflected} damage!`);
+  }
+
+  // 3. Check Curse (Damage Amplification) - Applied after reflection calculation
   const curse = currentBuffs.find(b => b?.effect?.type === EffectType.CURSE);
   if (curse?.effect?.value) {
     const bonusDmg = Math.floor(damage * curse.effect.value);
     damage += bonusDmg;
     messages.push(`${targetName} takes extra damage from Curse!`);
-  }
-
-  // 3. Check Reflection (Thorns)
-  const reflect = currentBuffs.find(b => b?.effect?.type === EffectType.REFLECTION);
-  if (reflect?.effect?.value) {
-    reflected = Math.floor(damage * reflect.effect.value);
-    if (reflected > 0) messages.push(`${targetName} reflects ${reflected} damage!`);
   }
 
   // 4. Check Shields (Damage Absorption)
@@ -744,6 +759,9 @@ export const processEnemyTurn = (
   let updatedEnemy = { ...enemy };
   const logs: string[] = [];
 
+  // Track if guts has been used this turn (can only trigger once per turn)
+  let gutsTriggeredThisTurn = false;
+
   // 1. Process DoTs & REGEN on ENEMY
   updatedEnemy.activeBuffs.forEach(buff => {
     if (!buff?.effect) return; // Skip malformed buffs
@@ -760,7 +778,7 @@ export const processEnemyTurn = (
       logs.push(`${enemy.name} regenerated ${healAmt} HP.`);
     }
   });
-  updatedEnemy.activeBuffs = updatedEnemy.activeBuffs.filter(b => b?.duration > 1 || b?.duration === -1).map(b => b.duration === -1 ? b : { ...b, duration: b.duration - 1 });
+  updatedEnemy.activeBuffs = tickBuffDurations(updatedEnemy.activeBuffs);
 
   // 2. Process DoTs & REGEN on PLAYER
   updatedPlayer.activeBuffs.forEach(buff => {
@@ -784,7 +802,7 @@ export const processEnemyTurn = (
       logs.push(`You regenerated ${healAmt} HP.`);
     }
   });
-  updatedPlayer.activeBuffs = updatedPlayer.activeBuffs.filter(b => b?.duration > 1 || b?.duration === -1).map(b => b.duration === -1 ? b : { ...b, duration: b.duration - 1 });
+  updatedPlayer.activeBuffs = tickBuffDurations(updatedPlayer.activeBuffs);
 
   // Check deaths from DoT
   if (updatedEnemy.currentHp <= 0) {
@@ -801,8 +819,25 @@ export const processEnemyTurn = (
   }
 
   if (updatedPlayer.currentHp <= 0) {
-    const gutsResult = checkGuts(updatedPlayer.currentHp, 0, playerStats.derived.gutsChance);
-    if (!gutsResult.survived) {
+    if (!gutsTriggeredThisTurn) {
+      const gutsResult = checkGuts(updatedPlayer.currentHp, 0, playerStats.derived.gutsChance);
+      if (!gutsResult.survived) {
+        return {
+          newPlayerHp: updatedPlayer.currentHp,
+          newPlayerBuffs: updatedPlayer.activeBuffs,
+          newEnemyHp: updatedEnemy.currentHp,
+          newEnemyBuffs: updatedEnemy.activeBuffs,
+          logMessages: logs,
+          playerDefeated: true,
+          enemyDefeated: false,
+          playerSkills: updatedPlayer.skills
+        };
+      }
+      updatedPlayer.currentHp = 1;
+      gutsTriggeredThisTurn = true;
+      logs.push("GUTS! You survived a fatal blow!");
+    } else {
+      // Guts already used this turn, player dies
       return {
         newPlayerHp: updatedPlayer.currentHp,
         newPlayerBuffs: updatedPlayer.activeBuffs,
@@ -814,8 +849,6 @@ export const processEnemyTurn = (
         playerSkills: updatedPlayer.skills
       };
     }
-    updatedPlayer.currentHp = 1;
-    logs.push("GUTS! You survived a fatal blow!");
   }
 
   // Enemy action
@@ -829,7 +862,13 @@ export const processEnemyTurn = (
     updatedEnemy.currentHp -= confusionDmg;
     logs.push(`${enemy.name} hurt itself in confusion for ${confusionDmg} damage!`);
   } else {
-    const skill = updatedEnemy.skills[Math.floor(Math.random() * updatedEnemy.skills.length)];
+    // Use AI-based skill selection instead of random
+    const skill = selectEnemySkill({
+      enemy: updatedEnemy,
+      enemyStats,
+      player: updatedPlayer,
+      playerStats
+    });
     const damageResult = calculateDamage(
       enemyStats.effectivePrimary,
       enemyStats.derived,
@@ -850,12 +889,36 @@ export const processEnemyTurn = (
       const finalDmg = mitigation.finalDamage;
       updatedPlayer.activeBuffs = mitigation.updatedBuffs;
 
+      // Store HP before damage for guts message check
+      const hpBeforeDamage = updatedPlayer.currentHp;
+
       // Check Guts before applying lethal damage
       const gutsResult = checkGuts(updatedPlayer.currentHp, finalDmg, playerStats.derived.gutsChance);
-      
-      if (!gutsResult.survived) {
+
+      // Check if damage would be lethal
+      const wouldBeLethal = hpBeforeDamage - finalDmg <= 0;
+
+      if (wouldBeLethal && !gutsTriggeredThisTurn) {
+        if (!gutsResult.survived) {
+          return {
+            newPlayerHp: updatedPlayer.currentHp - finalDmg,
+            newPlayerBuffs: updatedPlayer.activeBuffs,
+            newEnemyHp: updatedEnemy.currentHp,
+            newEnemyBuffs: updatedEnemy.activeBuffs,
+            logMessages: logs,
+            playerDefeated: true,
+            enemyDefeated: false,
+            playerSkills: updatedPlayer.skills
+          };
+        }
+        // Guts triggered - survive at 1 HP
+        updatedPlayer.currentHp = 1;
+        gutsTriggeredThisTurn = true;
+        logs.push("GUTS! You survived a fatal blow!");
+      } else if (wouldBeLethal && gutsTriggeredThisTurn) {
+        // Guts already used this turn, player dies
         return {
-          newPlayerHp: updatedPlayer.currentHp,
+          newPlayerHp: updatedPlayer.currentHp - finalDmg,
           newPlayerBuffs: updatedPlayer.activeBuffs,
           newEnemyHp: updatedEnemy.currentHp,
           newEnemyBuffs: updatedEnemy.activeBuffs,
@@ -864,11 +927,9 @@ export const processEnemyTurn = (
           enemyDefeated: false,
           playerSkills: updatedPlayer.skills
         };
-      }
-      
-      updatedPlayer.currentHp = gutsResult.newHp;
-      if (gutsResult.newHp === 1 && (updatedPlayer.currentHp - finalDmg <= 0)) {
-        logs.push("GUTS! You survived a fatal blow!");
+      } else {
+        // Non-lethal damage, apply normally
+        updatedPlayer.currentHp = gutsResult.newHp;
       }
 
       let msg = `${enemy.name} used ${skill.name} for ${finalDmg} dmg!`;
@@ -948,8 +1009,25 @@ export const processEnemyTurn = (
     }
 
     if (updatedPlayer.currentHp <= 0) {
-      const gutsResult = checkGuts(updatedPlayer.currentHp, 0, playerStats.derived.gutsChance);
-      if (!gutsResult.survived) {
+      if (!gutsTriggeredThisTurn) {
+        const gutsResult = checkGuts(updatedPlayer.currentHp, 0, playerStats.derived.gutsChance);
+        if (!gutsResult.survived) {
+          return {
+            newPlayerHp: updatedPlayer.currentHp,
+            newPlayerBuffs: updatedPlayer.activeBuffs,
+            newEnemyHp: updatedEnemy.currentHp,
+            newEnemyBuffs: updatedEnemy.activeBuffs,
+            logMessages: logs,
+            playerDefeated: true,
+            enemyDefeated: false,
+            playerSkills: updatedPlayer.skills
+          };
+        }
+        updatedPlayer.currentHp = 1;
+        gutsTriggeredThisTurn = true;
+        logs.push("GUTS! You survived the hazard!");
+      } else {
+        // Guts already used this turn, player dies
         return {
           newPlayerHp: updatedPlayer.currentHp,
           newPlayerBuffs: updatedPlayer.activeBuffs,
@@ -961,8 +1039,6 @@ export const processEnemyTurn = (
           playerSkills: updatedPlayer.skills
         };
       }
-      updatedPlayer.currentHp = 1;
-      logs.push("GUTS! You survived the hazard!");
     }
   }
 
