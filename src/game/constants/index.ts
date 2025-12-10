@@ -114,8 +114,8 @@ export const CLAN_STATS: Record<Clan, PrimaryAttributes> = {
 // ============================================================================
 export const CLAN_GROWTH: Record<Clan, Partial<PrimaryAttributes>> = {
   [Clan.UZUMAKI]: { 
-    willpower: 4, chakra: 3, strength: 1, spirit: 1, 
-    intelligence: 1, calmness: 2, speed: 1, accuracy: 1, dexterity: 1 
+    willpower: 4, chakra: 3, strength: 1, spirit: 3, 
+    intelligence: 1, calmness: 1, speed: 1, accuracy: 1, dexterity: 1 
   },
   [Clan.UCHIHA]: { 
     willpower: 1, chakra: 2, strength: 1, spirit: 3, 
@@ -123,10 +123,10 @@ export const CLAN_GROWTH: Record<Clan, Partial<PrimaryAttributes>> = {
   },
   [Clan.HYUGA]: { 
     willpower: 2, chakra: 1, strength: 2, spirit: 1, 
-    intelligence: 1, calmness: 2, speed: 2, accuracy: 3, dexterity: 2 
+    intelligence: 2, calmness: 2, speed: 2, accuracy: 3, dexterity: 2 
   },
   [Clan.LEE]: { 
-    willpower: 3, chakra: 0, strength: 4, spirit: 0, 
+    willpower: 3, chakra: 0, strength: 3, spirit: 0, 
     intelligence: 0, calmness: 1, speed: 4, accuracy: 1, dexterity: 2 
   },
   [Clan.YAMANAKA]: { 

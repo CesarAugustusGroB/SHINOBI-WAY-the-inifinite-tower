@@ -1,296 +1,356 @@
 ---
 name: skill-creator
-description: Create new jutsu/skills for SHINOBI WAY game. Use when user wants to add abilities, techniques, jutsu, or combat skills. Guides through all parameters and generates TypeScript code.
+description: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Claude's capabilities with specialized knowledge, workflows, or tool integrations.
+license: Complete terms in LICENSE.txt
 ---
 
-# Skill Creator - SHINOBI WAY Jutsu Generator
+# Skill Creator
 
-This skill helps create new game skills (jutsu) for the SHINOBI WAY: THE INFINITE TOWER roguelike game.
+This skill provides guidance for creating effective skills.
 
-## When to Use
+## About Skills
 
-Activate when the user wants to:
+Skills are modular, self-contained packages that extend Claude's capabilities by providing
+specialized knowledge, workflows, and tools. Think of them as "onboarding guides" for specific
+domains or tasks—they transform Claude from a general-purpose agent into a specialized agent
+equipped with procedural knowledge that no model can fully possess.
 
-- Create a new jutsu or skill
-- Add a new ability or technique
-- Design a combat skill
-- Balance or modify existing skills
+### What Skills Provide
 
-## Workflow
+1. Specialized workflows - Multi-step procedures for specific domains
+2. Tool integrations - Instructions for working with specific file formats or APIs
+3. Domain expertise - Company-specific knowledge, schemas, business logic
+4. Bundled resources - Scripts, references, and assets for complex and repetitive tasks
 
-### Step 1: Gather Basic Info
+## Core Principles
 
-Ask the user for:
+### Concise is Key
 
-1. **Skill Name** - The jutsu name (e.g., "Fireball Jutsu", "Chidori")
-2. **Skill ID** - Lowercase with underscores (e.g., `fireball`, `chidori_stream`)
-3. **Tier** - BASIC, ADVANCED, HIDDEN, FORBIDDEN, or KINJUTSU
-4. **Description** - Flavor text explaining what the skill does
+The context window is a public good. Skills share the context window with everything else Claude needs: system prompt, conversation history, other Skills' metadata, and the actual user request.
 
-**Tier Guidelines:**
+**Default assumption: Claude is already very smart.** Only add context Claude doesn't already have. Challenge each piece of information: "Does Claude really need this explanation?" and "Does this paragraph justify its token cost?"
 
-| Tier | Rank | INT Req | Description |
-|------|------|---------|-------------|
-| BASIC | E-D | 0-6 | Academy fundamentals, taijutsu, basic tools |
-| ADVANCED | C-B | 8-12 | Chunin-level techniques, elemental jutsu |
-| HIDDEN | B-A | 14-18 | Jonin/Clan secret techniques |
-| FORBIDDEN | A-S | 16-20 | Dangerous, high-risk techniques |
-| KINJUTSU | S+ | 20-24 | Ultimate forbidden arts |
+Prefer concise examples over verbose explanations.
 
-### Step 2: Determine Action Type
+### Set Appropriate Degrees of Freedom
 
-Ask the user which action type:
+Match the level of specificity to the task's fragility and variability:
 
-- **MAIN**: Ends your turn - primary attacks and jutsu (default)
-- **TOGGLE**: Activate once (ends turn), pays upkeep cost per turn
-- **SIDE**: Free action BEFORE Main, max 2 per turn (setup/utility)
-- **PASSIVE**: Always active, no action required (permanent bonuses)
+**High freedom (text-based instructions)**: Use when multiple approaches are valid, decisions depend on context, or heuristics guide the approach.
 
-**Action Type Rules:**
+**Medium freedom (pseudocode or scripts with parameters)**: Use when a preferred pattern exists, some variation is acceptable, or configuration affects behavior.
 
-| Type | Turn Cost | Limit | Use Case |
-|------|-----------|-------|----------|
-| MAIN | Ends turn | 1/turn | Attacks, damage jutsu |
-| TOGGLE | Ends turn to activate | Upkeep/turn | Sharingan, Gates, stances |
-| SIDE | Free | 2/turn | Buffs, shields, setup |
-| PASSIVE | None | Always on | Permanent stat bonuses |
+**Low freedom (specific scripts, few parameters)**: Use when operations are fragile and error-prone, consistency is critical, or a specific sequence must be followed.
 
-### Step 3: Determine Element & Damage Type
+Think of Claude as exploring a path: a narrow bridge with cliffs needs specific guardrails (low freedom), while an open field allows many routes (high freedom).
 
-**Element** (for elemental interactions):
+### Anatomy of a Skill
 
-- FIRE, WIND, LIGHTNING, EARTH, WATER (elemental cycle: Fire > Wind > Lightning > Earth > Water > Fire)
-- PHYSICAL (taijutsu)
-- MENTAL (genjutsu)
+Every skill consists of a required SKILL.md file and optional bundled resources:
 
-**Damage Type** (determines which defense applies):
-
-- PHYSICAL - mitigated by Strength
-- ELEMENTAL - mitigated by Spirit
-- MENTAL - mitigated by Calmness
-- TRUE - bypasses ALL defenses (FORBIDDEN/KINJUTSU only)
-
-**Damage Property**:
-
-- NORMAL - subject to both flat and % defenses
-- PIERCING - ignores flat defense, only % applies
-- ARMOR_BREAK - ignores % defense, only flat applies
-
-**Attack Method**:
-
-- MELEE - hit chance uses Speed vs Speed
-- RANGED - hit chance uses Accuracy vs Speed
-- AUTO - always hits (genjutsu, some DoTs)
-
-### Step 4: Set Costs & Cooldown
-
-- **chakraCost**: Chakra consumed (0 for taijutsu, 15-150 for jutsu)
-- **hpCost**: HP sacrificed (usually 0, used for forbidden/physical techniques)
-- **cooldown**: Turns before reuse (0-10, higher for powerful skills)
-- **upkeepCost**: For TOGGLE skills, CP or HP paid each turn while active
-
-### Step 5: Damage Scaling
-
-- **damageMult**: Base multiplier (1.5-10.0 range based on tier)
-
-| Tier | Zero-Cost | Low (5-15) | Medium (20-40) | High (50+) |
-|------|-----------|------------|----------------|------------|
-| BASIC | 1.5-2.2x | 2.0-2.5x | 2.5-3.0x | N/A |
-| ADVANCED | N/A | 2.5-3.0x | 3.0-3.5x | 3.5-4.0x |
-| HIDDEN | N/A | 3.0-3.5x | 3.5-4.5x | 4.5-5.0x |
-| FORBIDDEN | N/A | N/A | 4.0-5.0x | 5.0-7.0x |
-| KINJUTSU | N/A | N/A | 5.0-6.0x | 6.0-10.0x |
-
-- **scalingStat**: Which stat scales damage
-  - STRENGTH - taijutsu
-  - SPIRIT - ninjutsu/elemental
-  - SPEED - fast attacks
-  - ACCURACY - ranged/precision
-  - CALMNESS - genjutsu
-  - INTELLIGENCE - complex jutsu
-
-### Step 6: Effects (Optional)
-
-Add status effects on hit. See [skill-interface.md](skill-interface.md) for all effect types.
-
-Common patterns:
-
-- **DoT**: BURN, BLEED, POISON with value (damage), duration, chance
-- **CC**: STUN, CONFUSION, SILENCE with duration, chance
-- **Buff**: BUFF with targetStat, value (multiplier), duration
-- **Debuff**: DEBUFF with targetStat, value (reduction), duration
-- **Shield**: SHIELD with value (HP absorbed), duration
-- **Drain**: CHAKRA_DRAIN with value
-
-### Step 7: Requirements (Optional)
-
-- **intelligence**: Minimum INT to learn (see tier guidelines)
-- **clan**: Restrict to specific clan (Clan.UCHIHA, etc.)
-
-### Step 8: Special Properties (Optional)
-
-- **critBonus**: Extra crit chance % (5-30)
-- **penetration**: % defense ignored (0-0.5)
-- **isToggle**: True for stance skills (auto-set if actionType is TOGGLE)
-- **upkeepCost**: Chakra/HP per turn while toggle active
-- **sideActionLimit**: Max uses per turn for SIDE skills (default 1)
-- **passiveEffect**: For PASSIVE skills, define stat bonuses
-
-### Step 9: Skill Image (Optional)
-
-Ask if the user has a background image for the skill.
-
-- **image**: Path to the skill image relative to project root
-- Format: `/assets/skill_[skill_id].png`
-- Example: `/assets/skill_fireball.png`
-
-## Output Format
-
-Generate TypeScript code ready to add to `src/game/constants/index.ts`:
-
-```typescript
-SKILL_NAME: {
-  id: 'skill_id',
-  name: 'Skill Display Name',
-  tier: SkillTier.TIER,
-  description: 'Flavor text description.',
-  actionType: ActionType.MAIN,  // MAIN/TOGGLE/SIDE/PASSIVE
-  chakraCost: 0,
-  hpCost: 0,
-  cooldown: 0,
-  currentCooldown: 0,
-  damageMult: 0.0,
-  scalingStat: PrimaryStat.STAT,
-  damageType: DamageType.TYPE,
-  damageProperty: DamageProperty.PROPERTY,
-  attackMethod: AttackMethod.METHOD,
-  element: ElementType.ELEMENT,
-  requirements: { intelligence: 0 },
-  effects: [{ type: EffectType.TYPE, value: 0, duration: 0, chance: 0.0 }],
-  image: '/assets/skill_skill_id.png'
-},
+```
+skill-name/
+├── SKILL.md (required)
+│   ├── YAML frontmatter metadata (required)
+│   │   ├── name: (required)
+│   │   └── description: (required)
+│   └── Markdown instructions (required)
+└── Bundled Resources (optional)
+    ├── scripts/          - Executable code (Python/Bash/etc.)
+    ├── references/       - Documentation intended to be loaded into context as needed
+    └── assets/           - Files used in output (templates, icons, fonts, etc.)
 ```
 
-### TOGGLE Skill Output
+#### SKILL.md (required)
 
-```typescript
-TOGGLE_SKILL: {
-  id: 'toggle_id',
-  name: 'Toggle Skill Name',
-  tier: SkillTier.HIDDEN,
-  description: 'Toggle description.',
-  actionType: ActionType.TOGGLE,
-  chakraCost: 10,        // Activation cost
-  hpCost: 0,
-  cooldown: 5,
-  currentCooldown: 0,
-  damageMult: 0,
-  scalingStat: PrimaryStat.INTELLIGENCE,
-  damageType: DamageType.PHYSICAL,
-  damageProperty: DamageProperty.NORMAL,
-  attackMethod: AttackMethod.AUTO,
-  element: ElementType.PHYSICAL,
-  isToggle: true,
-  upkeepCost: 5,         // Cost per turn while active
-  effects: [
-    { type: EffectType.BUFF, targetStat: PrimaryStat.SPEED, value: 0.3, duration: -1, chance: 1.0 }
-  ]
-},
+Every SKILL.md consists of:
+
+- **Frontmatter** (YAML): Contains `name` and `description` fields. These are the only fields that Claude reads to determine when the skill gets used, thus it is very important to be clear and comprehensive in describing what the skill is, and when it should be used.
+- **Body** (Markdown): Instructions and guidance for using the skill. Only loaded AFTER the skill triggers (if at all).
+
+#### Bundled Resources (optional)
+
+##### Scripts (`scripts/`)
+
+Executable code (Python/Bash/etc.) for tasks that require deterministic reliability or are repeatedly rewritten.
+
+- **When to include**: When the same code is being rewritten repeatedly or deterministic reliability is needed
+- **Example**: `scripts/rotate_pdf.py` for PDF rotation tasks
+- **Benefits**: Token efficient, deterministic, may be executed without loading into context
+- **Note**: Scripts may still need to be read by Claude for patching or environment-specific adjustments
+
+##### References (`references/`)
+
+Documentation and reference material intended to be loaded as needed into context to inform Claude's process and thinking.
+
+- **When to include**: For documentation that Claude should reference while working
+- **Examples**: `references/finance.md` for financial schemas, `references/mnda.md` for company NDA template, `references/policies.md` for company policies, `references/api_docs.md` for API specifications
+- **Use cases**: Database schemas, API documentation, domain knowledge, company policies, detailed workflow guides
+- **Benefits**: Keeps SKILL.md lean, loaded only when Claude determines it's needed
+- **Best practice**: If files are large (>10k words), include grep search patterns in SKILL.md
+- **Avoid duplication**: Information should live in either SKILL.md or references files, not both. Prefer references files for detailed information unless it's truly core to the skill—this keeps SKILL.md lean while making information discoverable without hogging the context window. Keep only essential procedural instructions and workflow guidance in SKILL.md; move detailed reference material, schemas, and examples to references files.
+
+##### Assets (`assets/`)
+
+Files not intended to be loaded into context, but rather used within the output Claude produces.
+
+- **When to include**: When the skill needs files that will be used in the final output
+- **Examples**: `assets/logo.png` for brand assets, `assets/slides.pptx` for PowerPoint templates, `assets/frontend-template/` for HTML/React boilerplate, `assets/font.ttf` for typography
+- **Use cases**: Templates, images, icons, boilerplate code, fonts, sample documents that get copied or modified
+- **Benefits**: Separates output resources from documentation, enables Claude to use files without loading them into context
+
+#### What to Not Include in a Skill
+
+A skill should only contain essential files that directly support its functionality. Do NOT create extraneous documentation or auxiliary files, including:
+
+- README.md
+- INSTALLATION_GUIDE.md
+- QUICK_REFERENCE.md
+- CHANGELOG.md
+- etc.
+
+The skill should only contain the information needed for an AI agent to do the job at hand. It should not contain auxilary context about the process that went into creating it, setup and testing procedures, user-facing documentation, etc. Creating additional documentation files just adds clutter and confusion.
+
+### Progressive Disclosure Design Principle
+
+Skills use a three-level loading system to manage context efficiently:
+
+1. **Metadata (name + description)** - Always in context (~100 words)
+2. **SKILL.md body** - When skill triggers (<5k words)
+3. **Bundled resources** - As needed by Claude (Unlimited because scripts can be executed without reading into context window)
+
+#### Progressive Disclosure Patterns
+
+Keep SKILL.md body to the essentials and under 500 lines to minimize context bloat. Split content into separate files when approaching this limit. When splitting out content into other files, it is very important to reference them from SKILL.md and describe clearly when to read them, to ensure the reader of the skill knows they exist and when to use them.
+
+**Key principle:** When a skill supports multiple variations, frameworks, or options, keep only the core workflow and selection guidance in SKILL.md. Move variant-specific details (patterns, examples, configuration) into separate reference files.
+
+**Pattern 1: High-level guide with references**
+
+```markdown
+# PDF Processing
+
+## Quick start
+
+Extract text with pdfplumber:
+[code example]
+
+## Advanced features
+
+- **Form filling**: See [FORMS.md](FORMS.md) for complete guide
+- **API reference**: See [REFERENCE.md](REFERENCE.md) for all methods
+- **Examples**: See [EXAMPLES.md](EXAMPLES.md) for common patterns
 ```
 
-### SIDE Skill Output
+Claude loads FORMS.md, REFERENCE.md, or EXAMPLES.md only when needed.
 
-```typescript
-SIDE_SKILL: {
-  id: 'side_id',
-  name: 'Side Skill Name',
-  tier: SkillTier.BASIC,
-  description: 'Setup/utility description.',
-  actionType: ActionType.SIDE,
-  chakraCost: 5,
-  hpCost: 0,
-  cooldown: 3,
-  currentCooldown: 0,
-  damageMult: 0,         // Usually 0 for SIDE skills
-  scalingStat: PrimaryStat.DEXTERITY,
-  damageType: DamageType.PHYSICAL,
-  damageProperty: DamageProperty.NORMAL,
-  attackMethod: AttackMethod.AUTO,
-  element: ElementType.PHYSICAL,
-  effects: [{ type: EffectType.SHIELD, value: 30, duration: 1, chance: 1.0 }]
-},
+**Pattern 2: Domain-specific organization**
+
+For Skills with multiple domains, organize content by domain to avoid loading irrelevant context:
+
+```
+bigquery-skill/
+├── SKILL.md (overview and navigation)
+└── reference/
+    ├── finance.md (revenue, billing metrics)
+    ├── sales.md (opportunities, pipeline)
+    ├── product.md (API usage, features)
+    └── marketing.md (campaigns, attribution)
 ```
 
-### PASSIVE Skill Output
+When a user asks about sales metrics, Claude only reads sales.md.
 
-```typescript
-PASSIVE_SKILL: {
-  id: 'passive_id',
-  name: 'Passive Skill Name',
-  tier: SkillTier.BASIC,
-  description: 'Permanent bonus description.',
-  actionType: ActionType.PASSIVE,
-  chakraCost: 0,
-  hpCost: 0,
-  cooldown: 0,
-  currentCooldown: 0,
-  damageMult: 0,
-  scalingStat: PrimaryStat.STRENGTH,
-  damageType: DamageType.PHYSICAL,
-  damageProperty: DamageProperty.NORMAL,
-  attackMethod: AttackMethod.AUTO,
-  element: ElementType.PHYSICAL,
-  passiveEffect: {
-    damageBonus: 0.1,    // +10% damage
-    regenBonus: { chakra: 3 }  // +3 CP/turn
-  }
-},
+Similarly, for skills supporting multiple frameworks or variants, organize by variant:
+
+```
+cloud-deploy/
+├── SKILL.md (workflow + provider selection)
+└── references/
+    ├── aws.md (AWS deployment patterns)
+    ├── gcp.md (GCP deployment patterns)
+    └── azure.md (Azure deployment patterns)
 ```
 
-## Reference Files
+When the user chooses AWS, Claude only reads aws.md.
 
-- [skill-interface.md](skill-interface.md) - Full Skill interface and enum definitions
-- [examples.md](examples.md) - Example skills from the game
+**Pattern 3: Conditional details**
 
-## Balance Guidelines
+Show basic content, link to advanced content:
 
-### Damage by Tier
+```markdown
+# DOCX Processing
 
-| Tier | Chakra Cost | Cooldown | Damage Mult | Notes |
-|------|-------------|----------|-------------|-------|
-| BASIC | 0-20 | 0-3 | 1.5-2.5x | Basic, reliable, spammable |
-| ADVANCED | 15-40 | 2-4 | 2.5-3.5x | Signature elemental moves |
-| HIDDEN | 25-50 | 3-5 | 3.5-5.0x | Powerful clan techniques |
-| FORBIDDEN | 40-80 | 4-6 | 4.5-6.0x | Risky, HP costs common |
-| KINJUTSU | 50-150 | 6-99 | 5.0-10.0x | Ultimate, once per fight |
+## Creating documents
 
-### Cooldown Standards
+Use docx-js for new documents. See [DOCX-JS.md](DOCX-JS.md).
 
-| Skill Type | CD Range | Reason |
-|------------|----------|--------|
-| Basic attacks | 0-1 | Spammable fallback |
-| Low utility | 2-3 | Frequent use |
-| Strong damage | 3-4 | Moderate pacing |
-| Powerful effects | 4-6 | Strategic timing |
-| Ultimate skills | 6-10 | Once per fight |
-| One-time use | 99 | Single use |
+## Editing documents
 
-### SIDE Action Rules
+For simple edits, modify the XML directly.
 
-1. **No direct damage** - Exception: Phoenix Flower (weak chip)
-2. **Max 2 per turn** - Prevents infinite buff stacking
-3. **Setup focus** - Designed to enhance MAIN actions
-4. **Long cooldowns** (3-5 turns) - Can't spam same buff
+**For tracked changes**: See [REDLINING.md](REDLINING.md)
+**For OOXML details**: See [OOXML.md](OOXML.md)
+```
 
-### TOGGLE Balance
+Claude reads REDLINING.md or OOXML.md only when the user needs those features.
 
-1. **Activation costs turn** - Opportunity cost to enable
-2. **Meaningful upkeep** - 5-10 CP or HP per turn
-3. **Counter-play exists** - Silence/Chakra Drain shuts them down
-4. **Strong but unsustainable** - Resource drain forces decisions
+**Important guidelines:**
 
-### PASSIVE Balance
+- **Avoid deeply nested references** - Keep references one level deep from SKILL.md. All reference files should link directly from SKILL.md.
+- **Structure longer reference files** - For files longer than 100 lines, include a table of contents at the top so Claude can see the full scope when previewing.
 
-1. **Small but meaningful bonuses** - +5-10% stats, +3-5 regen
-2. **Stat requirements** - Gate powerful passives behind stat thresholds
-3. **Slot-limited** - Players can only equip 2-3 passives
+## Skill Creation Process
+
+Skill creation involves these steps:
+
+1. Understand the skill with concrete examples
+2. Plan reusable skill contents (scripts, references, assets)
+3. Initialize the skill (run init_skill.py)
+4. Edit the skill (implement resources and write SKILL.md)
+5. Package the skill (run package_skill.py)
+6. Iterate based on real usage
+
+Follow these steps in order, skipping only if there is a clear reason why they are not applicable.
+
+### Step 1: Understanding the Skill with Concrete Examples
+
+Skip this step only when the skill's usage patterns are already clearly understood. It remains valuable even when working with an existing skill.
+
+To create an effective skill, clearly understand concrete examples of how the skill will be used. This understanding can come from either direct user examples or generated examples that are validated with user feedback.
+
+For example, when building an image-editor skill, relevant questions include:
+
+- "What functionality should the image-editor skill support? Editing, rotating, anything else?"
+- "Can you give some examples of how this skill would be used?"
+- "I can imagine users asking for things like 'Remove the red-eye from this image' or 'Rotate this image'. Are there other ways you imagine this skill being used?"
+- "What would a user say that should trigger this skill?"
+
+To avoid overwhelming users, avoid asking too many questions in a single message. Start with the most important questions and follow up as needed for better effectiveness.
+
+Conclude this step when there is a clear sense of the functionality the skill should support.
+
+### Step 2: Planning the Reusable Skill Contents
+
+To turn concrete examples into an effective skill, analyze each example by:
+
+1. Considering how to execute on the example from scratch
+2. Identifying what scripts, references, and assets would be helpful when executing these workflows repeatedly
+
+Example: When building a `pdf-editor` skill to handle queries like "Help me rotate this PDF," the analysis shows:
+
+1. Rotating a PDF requires re-writing the same code each time
+2. A `scripts/rotate_pdf.py` script would be helpful to store in the skill
+
+Example: When designing a `frontend-webapp-builder` skill for queries like "Build me a todo app" or "Build me a dashboard to track my steps," the analysis shows:
+
+1. Writing a frontend webapp requires the same boilerplate HTML/React each time
+2. An `assets/hello-world/` template containing the boilerplate HTML/React project files would be helpful to store in the skill
+
+Example: When building a `big-query` skill to handle queries like "How many users have logged in today?" the analysis shows:
+
+1. Querying BigQuery requires re-discovering the table schemas and relationships each time
+2. A `references/schema.md` file documenting the table schemas would be helpful to store in the skill
+
+To establish the skill's contents, analyze each concrete example to create a list of the reusable resources to include: scripts, references, and assets.
+
+### Step 3: Initializing the Skill
+
+At this point, it is time to actually create the skill.
+
+Skip this step only if the skill being developed already exists, and iteration or packaging is needed. In this case, continue to the next step.
+
+When creating a new skill from scratch, always run the `init_skill.py` script. The script conveniently generates a new template skill directory that automatically includes everything a skill requires, making the skill creation process much more efficient and reliable.
+
+Usage:
+
+```bash
+scripts/init_skill.py <skill-name> --path <output-directory>
+```
+
+The script:
+
+- Creates the skill directory at the specified path
+- Generates a SKILL.md template with proper frontmatter and TODO placeholders
+- Creates example resource directories: `scripts/`, `references/`, and `assets/`
+- Adds example files in each directory that can be customized or deleted
+
+After initialization, customize or remove the generated SKILL.md and example files as needed.
+
+### Step 4: Edit the Skill
+
+When editing the (newly-generated or existing) skill, remember that the skill is being created for another instance of Claude to use. Include information that would be beneficial and non-obvious to Claude. Consider what procedural knowledge, domain-specific details, or reusable assets would help another Claude instance execute these tasks more effectively.
+
+#### Learn Proven Design Patterns
+
+Consult these helpful guides based on your skill's needs:
+
+- **Multi-step processes**: See references/workflows.md for sequential workflows and conditional logic
+- **Specific output formats or quality standards**: See references/output-patterns.md for template and example patterns
+
+These files contain established best practices for effective skill design.
+
+#### Start with Reusable Skill Contents
+
+To begin implementation, start with the reusable resources identified above: `scripts/`, `references/`, and `assets/` files. Note that this step may require user input. For example, when implementing a `brand-guidelines` skill, the user may need to provide brand assets or templates to store in `assets/`, or documentation to store in `references/`.
+
+Added scripts must be tested by actually running them to ensure there are no bugs and that the output matches what is expected. If there are many similar scripts, only a representative sample needs to be tested to ensure confidence that they all work while balancing time to completion.
+
+Any example files and directories not needed for the skill should be deleted. The initialization script creates example files in `scripts/`, `references/`, and `assets/` to demonstrate structure, but most skills won't need all of them.
+
+#### Update SKILL.md
+
+**Writing Guidelines:** Always use imperative/infinitive form.
+
+##### Frontmatter
+
+Write the YAML frontmatter with `name` and `description`:
+
+- `name`: The skill name
+- `description`: This is the primary triggering mechanism for your skill, and helps Claude understand when to use the skill.
+  - Include both what the Skill does and specific triggers/contexts for when to use it.
+  - Include all "when to use" information here - Not in the body. The body is only loaded after triggering, so "When to Use This Skill" sections in the body are not helpful to Claude.
+  - Example description for a `docx` skill: "Comprehensive document creation, editing, and analysis with support for tracked changes, comments, formatting preservation, and text extraction. Use when Claude needs to work with professional documents (.docx files) for: (1) Creating new documents, (2) Modifying or editing content, (3) Working with tracked changes, (4) Adding comments, or any other document tasks"
+
+Do not include any other fields in YAML frontmatter.
+
+##### Body
+
+Write instructions for using the skill and its bundled resources.
+
+### Step 5: Packaging a Skill
+
+Once development of the skill is complete, it must be packaged into a distributable .skill file that gets shared with the user. The packaging process automatically validates the skill first to ensure it meets all requirements:
+
+```bash
+scripts/package_skill.py <path/to/skill-folder>
+```
+
+Optional output directory specification:
+
+```bash
+scripts/package_skill.py <path/to/skill-folder> ./dist
+```
+
+The packaging script will:
+
+1. **Validate** the skill automatically, checking:
+
+   - YAML frontmatter format and required fields
+   - Skill naming conventions and directory structure
+   - Description completeness and quality
+   - File organization and resource references
+
+2. **Package** the skill if validation passes, creating a .skill file named after the skill (e.g., `my-skill.skill`) that includes all files and maintains the proper directory structure for distribution. The .skill file is a zip file with a .skill extension.
+
+If validation fails, the script will report the errors and exit without creating a package. Fix any validation errors and run the packaging command again.
+
+### Step 6: Iterate
+
+After testing the skill, users may request improvements. Often this happens right after using the skill, with fresh context of how the skill performed.
+
+**Iteration workflow:**
+
+1. Use the skill on real tasks
+2. Notice struggles or inefficiencies
+3. Identify how SKILL.md or bundled resources should be updated
+4. Implement changes and test again

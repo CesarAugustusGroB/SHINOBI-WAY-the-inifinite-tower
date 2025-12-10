@@ -174,6 +174,105 @@ enum Rarity { COMMON, RARE, EPIC, LEGENDARY, CURSED }
   - `disassemble(artifact)` - Break artifact back into components (50% value)
   - `addToBag(player, item)` - Store item in bag
 
+## Core Game Mechanics
+
+### Stat Calculation Pipeline
+
+Stats are calculated in order (each step builds on the previous):
+
+```text
+Base Stats → Equipment Bonuses → Passive Skill Bonuses → Active Buffs → Derived Stats
+```
+
+**Derived Stats** (calculated in `StatSystem.ts`):
+
+| Derived Stat | Formula |
+|--------------|---------|
+| Max HP | `willpower × 10 + strength × 2` |
+| Max Chakra | `chakra × 8 + spirit × 2` |
+| Physical ATK | `strength × 2 + dexterity × 0.5` |
+| Elemental ATK | `spirit × 2 + intelligence × 0.5` |
+| Mental ATK | `intelligence × 1.5 + calmness × 1` |
+| Crit Rate | `dexterity × 0.5 + accuracy × 0.3` (capped 75%) |
+| Crit Damage | `150% + (dexterity × 0.5)%` |
+
+### Defense System
+
+Defense has two components with soft-cap diminishing returns:
+
+```typescript
+flatDefense = willpower × 0.5 + strength × 0.3
+percentDefense = calmness × 0.2 + willpower × 0.1 (capped 60%)
+
+// Soft-cap formula for flat reduction:
+effectiveFlat = flatDef × (100 / (100 + flatDef))
+```
+
+### Combat Damage Flow
+
+**Turn Order:**
+
+1. DoT Processing (Bleed, Burn, Poison tick)
+2. Stun Check (skip turn if stunned)
+3. Skill Selection & Execution
+4. Post-action Effects (Guts survival check)
+
+**Damage Mitigation Pipeline** (processed in order):
+
+1. Invulnerability → blocks all damage
+2. Curse Mark → doubles incoming damage
+3. Reflection → returns % to attacker
+4. Shield → absorbs damage first
+
+### Enemy Scaling Formula
+
+```typescript
+floorMult = 1 + (floor × 0.08)     // +8% per floor
+diffMult = 0.75 + (difficulty / 100) // 75%-175% based on difficulty
+totalScaling = floorMult × diffMult
+```
+
+**Example:** Floor 10, Difficulty 50 → `1.8 × 1.25 = 2.25×` base stats
+
+### Enemy Archetypes
+
+| Archetype | High Stats | Combat Style |
+|-----------|------------|--------------|
+| TANK | Willpower 22, Strength 18 | High HP, defense |
+| ASSASSIN | Speed 22, Dexterity 18 | Fast, high crit |
+| BALANCED | All stats 12-14 | No weaknesses |
+| CASTER | Spirit 22, Chakra 18 | Elemental damage |
+| GENJUTSU | Calmness 22, Intelligence 18 | Mental attacks |
+
+### Exit Room Probability
+
+```typescript
+minRooms = min(3 + floor, 18)  // Required rooms before exit can spawn
+baseChance = 20%               // After minRooms cleared
+perRoomBonus = 10%             // Additional chance per extra room
+```
+
+### Equipment Passive Triggers
+
+| Trigger | When It Fires |
+|---------|---------------|
+| `combat_start` | Battle begins |
+| `on_hit` | Player deals damage |
+| `on_crit` | Player lands critical hit |
+| `turn_start` | Player's turn begins |
+| `on_kill` | Player defeats enemy |
+| `below_half_hp` | Player HP drops below 50% |
+
+### Story Arcs by Floor
+
+| Floor | Arc Name | Biome |
+|-------|----------|-------|
+| 1-10 | Academy Graduation | Village Hidden in Leaves |
+| 11-25 | Land of Waves | Mist Covered Bridge |
+| 26-50 | Chunin Exams | Forest of Death |
+| 51-75 | Sasuke Retrieval | Valley of the End |
+| 76+ | Great Ninja War | Divine Tree Roots |
+
 ## Common Development Tasks
 
 ### Adding a New Skill
