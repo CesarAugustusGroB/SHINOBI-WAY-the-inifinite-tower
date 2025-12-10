@@ -73,6 +73,7 @@ import {
   calculateDotDamage
 } from './StatSystem';
 import { CombatModifiers } from './ApproachSystem';
+import { combatLog, logDamage, logFlowCheckpoint } from '../utils/combatDebug';
 
 /** Generates a random 7-character ID for buff tracking */
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -405,6 +406,14 @@ export const useSkill = (
   skill: Skill,
   combatState?: CombatState
 ): CombatResult | null => {
+  logFlowCheckpoint('useSkill START', {
+    skill: skill.name,
+    playerHp: player.currentHp,
+    playerChakra: player.currentChakra,
+    enemyHp: enemy.currentHp,
+    enemyName: enemy.name
+  });
+
   // Resource check
   if (player.currentChakra < skill.chakraCost || player.currentHp <= skill.hpCost) {
     return {
@@ -503,6 +512,15 @@ export const useSkill = (
     else if (damageResult.elementMultiplier < 1) logMsg += " Resisted.";
     if (damageResult.isCrit) logMsg += " CRITICAL!";
 
+    // Debug: Log damage dealt
+    logDamage('Player', enemy.name, finalDamageToEnemy, {
+      baseDamage: damageResult.finalDamage,
+      isCrit: damageResult.isCrit,
+      elementMultiplier: damageResult.elementMultiplier,
+      enemyHpBefore: enemy.currentHp,
+      enemyHpAfter: newEnemyHp
+    });
+
     // Apply effects
     if (skill.effects) {
       skill.effects.forEach(eff => {
@@ -535,7 +553,7 @@ export const useSkill = (
   // Update cooldowns
   const newSkills = player.skills.map(s => s.id === skill.id ? { ...s, currentCooldown: s.cooldown + 1 } : s);
 
-  return {
+  const result: CombatResult = {
     damageDealt: finalDamageToEnemy,
     newEnemyHp,
     newPlayerHp,
@@ -548,6 +566,15 @@ export const useSkill = (
     enemyDefeated: newEnemyHp <= 0,
     playerDefeated: newPlayerHp <= 0
   };
+
+  logFlowCheckpoint('useSkill END', {
+    damageDealt: result.damageDealt,
+    enemyDefeated: result.enemyDefeated,
+    playerDefeated: result.playerDefeated,
+    newEnemyHp: result.newEnemyHp
+  });
+
+  return result;
 };
 
 // ============================================================================
@@ -708,6 +735,11 @@ export const processEnemyTurn = (
   enemyStats: CharacterStats,
   combatState?: CombatState
 ): EnemyTurnResult => {
+  combatLog('turn', `=== ENEMY TURN START: ${enemy.name} ===`, {
+    enemyHp: enemy.currentHp,
+    playerHp: player.currentHp
+  });
+
   let updatedPlayer = { ...player };
   let updatedEnemy = { ...enemy };
   const logs: string[] = [];
@@ -934,7 +966,7 @@ export const processEnemyTurn = (
     }
   }
 
-  return {
+  const finalResult: EnemyTurnResult = {
     newPlayerHp: updatedPlayer.currentHp,
     newPlayerBuffs: updatedPlayer.activeBuffs,
     newEnemyHp: updatedEnemy.currentHp,
@@ -944,6 +976,15 @@ export const processEnemyTurn = (
     enemyDefeated: false,
     playerSkills: updatedPlayer.skills
   };
+
+  combatLog('turn', `=== ENEMY TURN END ===`, {
+    playerHpAfter: finalResult.newPlayerHp,
+    enemyHpAfter: finalResult.newEnemyHp,
+    playerDefeated: finalResult.playerDefeated,
+    enemyDefeated: finalResult.enemyDefeated
+  });
+
+  return finalResult;
 };
 
 export const passTurn = (): void => {

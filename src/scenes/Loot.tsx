@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Item, Skill, Player, SkillTier, Rarity, EquipmentSlot, DamageType, MAX_BAG_SLOTS, SLOT_MAPPING } from '../game/types';
 import { Scroll, Package } from 'lucide-react';
 import Tooltip from '../components/Tooltip';
@@ -42,6 +42,22 @@ const Loot: React.FC<LootProps> = ({
   getDamageTypeColor,
   isProcessing = false
 }) => {
+  // Keyboard shortcut: SPACE/ENTER to leave all
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' || e.code === 'Enter') {
+        // Don't trigger if user is typing in an input or if processing
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+        if (isProcessing) return;
+        e.preventDefault();
+        onLeaveAll();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onLeaveAll, isProcessing]);
+
   // Check if bag has space
   const bagHasSpace = player ? player.componentBag.length < MAX_BAG_SLOTS : false;
   const bagSlotCount = player?.componentBag.length || 0;

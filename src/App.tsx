@@ -57,6 +57,7 @@ import ApproachSelector from './components/ApproachSelector';
 import BranchingExplorationMap from './components/BranchingExplorationMap';
 import PlayerHUD from './components/PlayerHUD';
 import RewardModal from './components/RewardModal';
+import { logVictory, logRewardModal, logFlowCheckpoint } from './game/utils/combatDebug';
 
 // Import the parchment background styles
 import './App.css';
@@ -127,6 +128,12 @@ const App: React.FC = () => {
 
   // Victory handler for combat hook
   const handleCombatVictory = useCallback((defeatedEnemy: Enemy, combatStateAtVictory: CombatState | null) => {
+    logFlowCheckpoint('handleCombatVictory START', {
+      enemy: defeatedEnemy.name,
+      tier: defeatedEnemy.tier,
+      floor
+    });
+
     addLog("Enemy Defeated!", 'gain');
 
     // Determine if this was an elite challenge (check pendingArtifact)
@@ -194,7 +201,15 @@ const App: React.FC = () => {
       return updatedPlayer;
     });
 
+    // Log victory rewards
+    logVictory(defeatedEnemy.name, {
+      xpGain: expGain,
+      ryoGain: ryoGain,
+      levelUp: !!levelUpInfo
+    });
+
     // Show reward modal instead of returning to map immediately
+    logRewardModal('show', { xpGain: expGain, ryoGain: ryoGain, levelUp: !!levelUpInfo });
     setCombatReward({
       expGain,
       ryoGain,
@@ -202,6 +217,7 @@ const App: React.FC = () => {
     });
 
     // Set game state to branching explore so the modal shows on the map
+    logFlowCheckpoint('Transitioning to BRANCHING_EXPLORE with reward modal');
     setTimeout(() => {
       setGameState(GameState.BRANCHING_EXPLORE);
     }, 100);
@@ -675,15 +691,19 @@ const App: React.FC = () => {
 
   // Close reward modal - check for pending artifact from elite challenge
   const handleRewardClose = () => {
+    logRewardModal('close');
     setCombatReward(null);
 
     // If there's a pending artifact from elite challenge, show loot screen
     if (pendingArtifact) {
+      logFlowCheckpoint('Pending artifact found - showing LOOT screen', { artifact: pendingArtifact.name });
       setDroppedItems([pendingArtifact]);
       setDroppedSkill(null);
       setPendingArtifact(null);
       addLog('The artifact guardian has fallen! Claim your prize.', 'loot');
       setGameState(GameState.LOOT);
+    } else {
+      logFlowCheckpoint('No pending artifact - staying on BRANCHING_EXPLORE');
     }
   };
 

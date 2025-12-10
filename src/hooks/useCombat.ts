@@ -22,6 +22,14 @@ import {
 import { ApproachResult, getCombatModifiers } from '../game/systems/ApproachSystem';
 import { CombatRef } from '../scenes/Combat';
 import { TIMING } from '../game/config';
+import {
+  logSceneEnter,
+  logSceneExit,
+  logTurnChange,
+  logPlayerAction,
+  logFlowCheckpoint,
+  logCombatStart,
+} from '../game/utils/combatDebug';
 
 export type TurnState = 'PLAYER' | 'ENEMY_TURN';
 
@@ -106,7 +114,14 @@ export function useCombat({
    */
   const handleVictory = useCallback(() => {
     if (enemy) {
-      onVictory(enemy, combatState);
+      logSceneExit('COMBAT', `Victory over ${enemy.name}`);
+      logFlowCheckpoint('handleVictory called', { enemy: enemy.name, tier: enemy.tier });
+      // Store enemy reference before clearing state
+      const defeatedEnemy = enemy;
+      // Clear enemy state immediately to prevent re-triggering
+      setEnemy(null);
+      setTurnState('PLAYER');
+      onVictory(defeatedEnemy, combatState);
     }
   }, [enemy, combatState, onVictory]);
 
@@ -121,6 +136,10 @@ export function useCombat({
   const useSkill = useCallback(
     (skill: Skill) => {
       if (!player || !enemy || !playerStats || !enemyStats) return;
+
+      logPlayerAction(skill.name, {
+        enemyHpBefore: enemy.currentHp
+      });
 
       // STUN blocks ALL actions (except PASSIVE which returns early anyway)
       const isStunned = player.activeBuffs.some(b => b?.effect?.type === EffectType.STUN);
@@ -286,6 +305,13 @@ export function useCombat({
       playerAfterCosts: Player,
       terrain: any
     ) => {
+      logSceneEnter('COMBAT', {
+        enemy: newEnemy.name,
+        enemyTier: newEnemy.tier,
+        enemyHp: newEnemy.currentHp,
+        approach: result.approach
+      });
+
       const modifiers = getCombatModifiers(result);
       const { player: preparedPlayer, enemy: preparedEnemy, logs: effectLogs } = applyApproachEffects(
         playerAfterCosts,
@@ -305,6 +331,20 @@ export function useCombat({
       setTurnState('PLAYER');
       setGameState(GameState.COMBAT);
       addLog(`Engaged: ${newEnemy.name}`, 'danger');
+
+      logCombatStart(
+        {
+          name: preparedPlayer.clan || 'Player',
+          hp: preparedPlayer.currentHp,
+          maxHp: preparedPlayer.currentHp, // Will be recalculated with stats
+          chakra: preparedPlayer.currentChakra
+        },
+        {
+          name: preparedEnemy.name,
+          hp: preparedEnemy.currentHp,
+          tier: preparedEnemy.tier
+        }
+      );
     },
     [addLog, setPlayer, setGameState]
   );
@@ -352,8 +392,18 @@ export function useCombat({
 
   // Enemy turn effect
   useEffect(() => {
-    if (turnState === 'ENEMY_TURN' && player && enemy && playerStats && enemyStats) {
+    // Safety guard: don't process if enemy is null or already defeated
+    if (turnState === 'ENEMY_TURN' && player && enemy && enemy.currentHp > 0 && playerStats && enemyStats) {
+      logTurnChange('PLAYER', 'ENEMY_TURN', 'Player action completed');
+
       const timer = setTimeout(() => {
+        // Double-check enemy is still valid (may have been cleared)
+        if (!enemy || enemy.currentHp <= 0) {
+          logFlowCheckpoint('Enemy turn cancelled - enemy already defeated or cleared');
+          setTurnState('PLAYER');
+          return;
+        }
+        logFlowCheckpoint('Processing enemy turn', { enemy: enemy.name });
         const result = processEnemyTurn(
           player,
           playerStats,
@@ -423,12 +473,15 @@ export function useCombat({
         );
 
         if (result.enemyDefeated) {
+          logFlowCheckpoint('Enemy defeated - calling handleVictory', { enemy: enemy.name });
           handleVictory();
           setTurnState('PLAYER'); // Stop the effect from re-running
           return;
         } else if (result.playerDefeated) {
+          logFlowCheckpoint('Player defeated - GAME OVER');
           setGameState(GameState.GAME_OVER);
         } else {
+          logTurnChange('ENEMY_TURN', 'PLAYER', 'Enemy turn completed');
           setTurnState('PLAYER');
         }
       }, TIMING.ENEMY_TURN_DELAY);

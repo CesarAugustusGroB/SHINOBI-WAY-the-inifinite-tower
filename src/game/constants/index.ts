@@ -29,15 +29,15 @@ export const ELEMENTAL_CYCLE: Record<ElementType, ElementType> = {
   [ElementType.MENTAL]: ElementType.MENTAL,
 };
 
-// Helper to check effectiveness (1.5 = Strong, 0.5 = Weak, 1.0 = Neutral)
+// Helper to check effectiveness (1.2 = Strong, 0.8 = Weak, 1.0 = Neutral)
 export const getElementEffectiveness = (attacker: ElementType, defender: ElementType): number => {
   if (attacker === ElementType.PHYSICAL || attacker === ElementType.MENTAL) return 1.0;
 
   // Standard Cycle (Attacker beats Defender)
-  if (ELEMENTAL_CYCLE[attacker] === defender) return 1.5;
+  if (ELEMENTAL_CYCLE[attacker] === defender) return 1.2;
 
   // Reverse Cycle (Defender beats Attacker -> Resistance)
-  if (ELEMENTAL_CYCLE[defender] === attacker) return 0.5;
+  if (ELEMENTAL_CYCLE[defender] === attacker) return 0.8;
 
   return 1.0;
 };

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   BranchingFloor,
   BranchingRoom,
@@ -50,11 +50,59 @@ const BranchingExplorationMap: React.FC<BranchingExplorationMapProps> = ({
   };
 
   // Handle enter button
-  const handleEnterRoom = () => {
-    if (selectedRoom && selectedRoom.isAccessible) {
+  const handleEnterRoom = useCallback(() => {
+    if (selectedRoom && selectedRoom.isAccessible && !selectedRoom.isCleared) {
       onRoomEnter(selectedRoom);
     }
-  };
+  }, [selectedRoom, onRoomEnter]);
+
+  // Keyboard shortcuts: SPACE/ENTER to enter room, 1/2 to select child nodes
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      // Number keys 1-2 to select child rooms
+      if (e.code === 'Digit1' || e.code === 'Digit2') {
+        e.preventDefault();
+        const index = e.code === 'Digit1' ? 0 : 1;
+        const childRoom = childRooms[index];
+        if (childRoom) {
+          setSelectedRoomId(childRoom.id);
+          onRoomSelect(childRoom);
+        }
+        return;
+      }
+
+      // Only handle Space and Enter for entering rooms
+      if (e.code !== 'Space' && e.code !== 'Enter') return;
+
+      e.preventDefault();
+
+      // If a room is already selected and accessible, enter it
+      // This works for both child rooms AND the current/parent room
+      if (selectedRoom && selectedRoom.isAccessible && !selectedRoom.isCleared) {
+        handleEnterRoom();
+        return;
+      }
+
+      // If current room is selected but not fully cleared, enter it
+      // (currentRoom may be accessible but have remaining activities)
+      if (selectedRoom && currentRoom && selectedRoom.id === currentRoom.id && !selectedRoom.isCleared) {
+        onRoomEnter(selectedRoom);
+        return;
+      }
+
+      // Otherwise, select the current/parent room if it has remaining activities
+      if (currentRoom && !currentRoom.isCleared) {
+        setSelectedRoomId(currentRoom.id);
+        onRoomSelect(currentRoom);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedRoom, currentRoom, childRooms, handleEnterRoom, onRoomEnter, onRoomSelect]);
 
   // Get arc-based background
   const getArcBackground = (): string => {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Skill,
   SkillTier,
@@ -59,6 +59,21 @@ const ScrollDiscovery: React.FC<ScrollDiscoveryProps> = ({
   onLearnScroll,
   onSkip,
 }) => {
+  // Keyboard shortcut: SPACE/ENTER to leave scrolls
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' || e.code === 'Enter') {
+        // Don't trigger if user is typing in an input
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+        e.preventDefault();
+        onSkip();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onSkip]);
+
   const chakraCost = scrollDiscovery.cost?.chakra || 0;
   const canAfford = player.currentChakra >= chakraCost;
 

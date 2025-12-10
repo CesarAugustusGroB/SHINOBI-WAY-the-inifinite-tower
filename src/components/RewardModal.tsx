@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Swords, Sparkles, Coins, TrendingUp } from 'lucide-react';
 
 interface RewardModalProps {
@@ -30,6 +30,21 @@ const RewardModal: React.FC<RewardModalProps> = ({
   levelUp,
   onClose,
 }) => {
+  // Keyboard shortcut: SPACE/ENTER to continue
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' || e.code === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+
+    // Use capture phase to intercept before other handlers
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in">
       <div className="bg-zinc-900 border-2 border-zinc-700 rounded-lg max-w-md w-full overflow-hidden">
