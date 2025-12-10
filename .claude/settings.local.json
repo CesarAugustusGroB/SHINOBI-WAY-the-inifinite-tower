@@ -8,7 +8,9 @@
       "Bash(npm run simulate:progression:quick:*)",
       "Bash(npm run simulate:quick:*)",
       "Bash(npm run build:quick:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Skill(skill-creator)",
+      "Bash(git commit:*)"
     ],
     "deny": [
       "Write(*.md)",
