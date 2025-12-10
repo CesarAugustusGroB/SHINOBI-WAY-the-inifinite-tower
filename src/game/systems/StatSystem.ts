@@ -598,9 +598,9 @@ export function calculateDamage(
   // ========================================
   if (skill.element !== ElementType.PHYSICAL && skill.element !== ElementType.MENTAL) {
     if (ELEMENTAL_CYCLE[skill.element] === defenderElement) {
-      result.elementMultiplier = 1.5; // Super effective
+      result.elementMultiplier = 1.2; // Super effective
     } else if (ELEMENTAL_CYCLE[defenderElement] === skill.element) {
-      result.elementMultiplier = 0.5; // Resisted
+      result.elementMultiplier = 0.8; // Resisted
     }
   }
   result.rawDamage = Math.floor(result.rawDamage * result.elementMultiplier);

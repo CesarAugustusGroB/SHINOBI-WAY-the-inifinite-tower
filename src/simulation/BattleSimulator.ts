@@ -37,6 +37,11 @@ import {
 import { EnemyArchetype, generateSimEnemy } from './EnemyArchetypes';
 import { createBuildFromConfig } from './BuildGenerator';
 import { selectBestSkill, AIStrategy, selectSkillByStrategy } from './SkillSelectionAI';
+import {
+  generateId,
+  applyMitigation as applyMitigationCalc,
+  tickBuffDurations,
+} from '../game/systems/CombatCalculationSystem';
 
 /**
  * Calculate approach success based on player stats and approach type
@@ -85,7 +90,7 @@ function calculateApproachSuccess(
 // COMBAT HELPERS
 // ============================================================================
 
-const generateId = () => Math.random().toString(36).substring(2, 9);
+// generateId imported from CombatCalculationSystem
 
 /**
  * Create a simulation-ready player from build config
@@ -135,49 +140,20 @@ function toSimCombatant(entity: Player | Enemy, derived: DerivedStats): SimComba
 
 /**
  * Apply mitigation (shields, invuln, curses, reflection)
+ * Wrapper around shared CombatCalculationSystem.applyMitigation
  */
 function applyMitigation(
   buffs: Buff[],
-  damage: number
+  damage: number,
+  targetName: string = 'target'
 ): { finalDamage: number; reflectedDamage: number; updatedBuffs: Buff[] } {
-  let dmg = damage;
-  let reflected = 0;
-  let currentBuffs = [...buffs];
-
-  // Invulnerability blocks all
-  if (currentBuffs.some(b => b?.effect?.type === EffectType.INVULNERABILITY)) {
-    return { finalDamage: 0, reflectedDamage: 0, updatedBuffs: currentBuffs };
-  }
-
-  // Curse amplifies
-  const curse = currentBuffs.find(b => b?.effect?.type === EffectType.CURSE);
-  if (curse?.effect?.value) {
-    dmg += Math.floor(dmg * curse.effect.value);
-  }
-
-  // Reflection
-  const reflect = currentBuffs.find(b => b?.effect?.type === EffectType.REFLECTION);
-  if (reflect?.effect?.value) {
-    reflected = Math.floor(dmg * reflect.effect.value);
-  }
-
-  // Shield absorption
-  const shieldIndex = currentBuffs.findIndex(b => b?.effect?.type === EffectType.SHIELD);
-  if (shieldIndex !== -1 && dmg > 0) {
-    const shield = { ...currentBuffs[shieldIndex] };
-    const shieldVal = shield.effect?.value || 0;
-
-    if (shieldVal >= dmg) {
-      shield.effect.value = shieldVal - dmg;
-      currentBuffs[shieldIndex] = shield;
-      dmg = 0;
-    } else {
-      dmg -= shieldVal;
-      currentBuffs.splice(shieldIndex, 1);
-    }
-  }
-
-  return { finalDamage: dmg, reflectedDamage: reflected, updatedBuffs: currentBuffs };
+  const result = applyMitigationCalc(buffs, damage, targetName);
+  // Drop messages for simulation (not needed for metrics)
+  return {
+    finalDamage: result.finalDamage,
+    reflectedDamage: result.reflectedDamage,
+    updatedBuffs: result.updatedBuffs
+  };
 }
 
 /**
@@ -211,10 +187,8 @@ function processBuffs(
     }
   }
 
-  // Decrement durations
-  const newBuffs = buffs
-    .filter(b => b?.duration > 1 || b?.duration === -1)
-    .map(b => b.duration === -1 ? b : { ...b, duration: b.duration - 1 });
+  // Decrement durations using shared function
+  const newBuffs = tickBuffDurations(buffs);
 
   return { newHp: hp, newBuffs, dotDamage };
 }

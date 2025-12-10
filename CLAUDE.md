@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Coding Guidelines
+
+- Do not create tests unless explicitly asked to do so
+
 ## Project Overview
 
 **SHINOBI WAY: THE INFINITE TOWER** is a Naruto-themed roguelike dungeon crawler built with React + TypeScript + Vite. Players climb a procedurally-generated tower with branching room exploration, manage a 9-stat character system, engage in turn-based combat with elemental interactions, and collect procedurally-generated loot.

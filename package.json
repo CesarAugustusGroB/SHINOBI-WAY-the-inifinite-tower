@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "simulate": "npx tsx src/simulation/index.ts",
     "simulate:quick": "npx tsx src/simulation/index.ts --quick",
     "simulate:progression": "npx tsx src/simulation/index.ts --progression",
@@ -25,6 +27,7 @@
     "@vitejs/plugin-react": "^5.0.0",
     "tsx": "^4.19.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "vite": "^6.2.0",
+    "vitest": "^4.0.15"
   }
 }

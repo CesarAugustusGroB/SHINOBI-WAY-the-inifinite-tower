@@ -1407,7 +1407,8 @@ export const SKILLS: Record<string, Skill> = {
     attackMethod: AttackMethod.AUTO,
     element: ElementType.MENTAL,
     requirements: { intelligence: 18 },
-    effects: [{ type: EffectType.CONFUSION, duration: 3, chance: 1.0 }]
+    effects: [{ type: EffectType.CONFUSION, duration: 3, chance: 1.0 }],
+    image: '/assets/skill_mind_body_disturbing.png'
   },
 
   // ==========================================
