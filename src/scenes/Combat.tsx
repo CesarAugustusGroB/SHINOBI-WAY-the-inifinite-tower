@@ -30,6 +30,14 @@ import {
   getBuffDescription,
   getCategoryRanks,
   getRankColor,
+  getDetailedEffectMechanics,
+  getEffectTip,
+  getEffectSeverity,
+  getSeverityColor,
+  isPositiveEffect,
+  getAttackMethodDescription,
+  getDamagePropertyDescription,
+  getDamageTypeDescription,
 } from '../game/utils/tooltipFormatters';
 
 export interface CombatRef {
@@ -213,34 +221,83 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
 
             {/* RIGHT: Active Buffs */}
             <div className="flex flex-col items-end gap-2">
-              {enemy.activeBuffs.filter(b => b?.effect).map(buff => (
-                <Tooltip
-                  key={buff.id}
-                  content={
-                    <div className="space-y-2 p-1 max-w-[220px]">
-                      <div className="font-bold text-zinc-200 flex items-center gap-2">
-                        <span className={getEffectColor(buff.effect?.type)}>{getEffectIcon(buff.effect?.type)}</span>
-                        <span>{buff.name}</span>
-                      </div>
-                      <div className="text-xs text-zinc-400">{getBuffDescription(buff)}</div>
-                      <div className="border-t border-zinc-700 pt-2 text-[10px] text-zinc-500 space-y-0.5">
-                        <div className="flex justify-between">
-                          <span>Source</span>
-                          <span className="text-zinc-300">{buff.source}</span>
+              {enemy.activeBuffs.filter(b => b?.effect).map(buff => {
+                const isPositive = buff.effect ? isPositiveEffect(buff.effect.type) : false;
+                const severity = getEffectSeverity(buff);
+                const mechanics = getDetailedEffectMechanics(buff);
+                const tip = buff.effect ? getEffectTip(buff.effect.type) : '';
+
+                return (
+                  <Tooltip
+                    key={buff.id}
+                    content={
+                      <div className="space-y-2 p-1 max-w-[260px]">
+                        {/* Header */}
+                        <div className="flex items-center gap-2">
+                          <span className={`text-lg ${buff.effect ? getEffectColor(buff.effect.type) : 'text-zinc-400'}`}>
+                            {buff.effect ? getEffectIcon(buff.effect.type) : '✨'}
+                          </span>
+                          <div>
+                            <div className={`font-bold uppercase text-sm ${isPositive ? 'text-green-400' : getSeverityColor(severity)}`}>
+                              {buff.name}
+                            </div>
+                            <div className="text-[9px] text-zinc-500 uppercase tracking-wider">
+                              {isPositive ? 'Enemy Buff' : 'Your Debuff on Enemy'}
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex justify-between">
-                          <span>Remaining</span>
-                          <span className="text-zinc-300">{buff.duration} {buff.duration === 1 ? 'turn' : 'turns'}</span>
+
+                        {/* Description */}
+                        <div className="text-xs text-zinc-300 border-t border-zinc-700 pt-2">
+                          {getBuffDescription(buff)}
                         </div>
+
+                        {/* Mechanics Breakdown */}
+                        <div className="border-t border-zinc-700 pt-2">
+                          <div className="text-[9px] text-zinc-500 uppercase tracking-wider mb-1">Mechanics</div>
+                          <div className="space-y-0.5">
+                            {mechanics.map((mechanic, i) => (
+                              <div key={i} className="text-[10px] text-zinc-400 flex items-start gap-1">
+                                <span className="text-zinc-600">•</span>
+                                <span>{mechanic}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Source & Duration */}
+                        <div className="border-t border-zinc-700 pt-2 flex justify-between text-[10px]">
+                          <div>
+                            <span className="text-zinc-500">Source: </span>
+                            <span className="text-zinc-300">{buff.source || 'Unknown'}</span>
+                          </div>
+                          <div>
+                            <span className="text-zinc-500">Remaining: </span>
+                            <span className={buff.duration <= 1 ? 'text-amber-400 font-bold' : 'text-zinc-300'}>
+                              {buff.duration === -1 ? 'Permanent' : `${buff.duration} turn${buff.duration !== 1 ? 's' : ''}`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Strategic Tip */}
+                        {tip && (
+                          <div className="border-t border-zinc-700 pt-2 text-[10px] text-amber-400/80 italic">
+                            Tip: {tip}
+                          </div>
+                        )}
                       </div>
+                    }
+                  >
+                    <div className={`px-2 py-1 text-[10px] font-mono uppercase tracking-wider shadow-lg backdrop-blur-sm cursor-help transition-colors ${
+                      isPositive
+                        ? 'bg-green-950/80 border border-green-500/30 text-green-200 hover:border-green-400/50'
+                        : 'bg-red-950/80 border border-red-500/30 text-red-200 hover:border-red-400/50'
+                    }`}>
+                      {buff.name} <span className={isPositive ? 'text-green-500' : 'text-red-500'}>[{buff.duration}]</span>
                     </div>
-                  }
-                >
-                  <div className="px-2 py-1 bg-red-950/80 border border-red-500/30 text-[10px] text-red-200 font-mono uppercase tracking-wider shadow-lg backdrop-blur-sm">
-                    {buff.name} <span className="text-red-500">[{buff.duration}]</span>
-                  </div>
-                </Tooltip>
-              ))}
+                  </Tooltip>
+                );
+              })}
             </div>
           </div>
         }
@@ -324,45 +381,80 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
             return (
               <Tooltip
                 key={skill.id}
+                position="top"
                 content={
-                  <div className="space-y-2 p-1 max-w-[280px]">
+                  <div className="space-y-2 p-1 max-w-[300px]">
                     {/* Header */}
-                    <div className="font-bold text-zinc-200 flex justify-between items-center">
-                      <span>{skill.name}</span>
-                      <span className="text-yellow-500 text-xs">Lv.{skill.level || 1}</span>
-                    </div>
-
-                    {/* Action Type */}
-                    <div className="text-[9px] uppercase tracking-wider">
-                      <span className={
-                        skill.actionType === ActionType.SIDE ? 'text-blue-400' :
-                        skill.actionType === ActionType.TOGGLE ? 'text-amber-400' :
-                        'text-zinc-500'
-                      }>
-                        {skill.actionType || 'MAIN'} Action
-                      </span>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-bold text-zinc-200">{skill.name}</div>
+                        <div className="text-[9px] uppercase tracking-wider flex items-center gap-2">
+                          <span className="text-zinc-500">{skill.tier}</span>
+                          <span className={
+                            skill.actionType === ActionType.SIDE ? 'text-blue-400' :
+                            skill.actionType === ActionType.TOGGLE ? 'text-amber-400' :
+                            'text-orange-400'
+                          }>
+                            {skill.actionType || 'MAIN'} Action
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-yellow-500 text-xs font-bold">Lv.{skill.level || 1}</span>
                     </div>
 
                     {/* Description */}
-                    <div className="text-xs text-zinc-400 italic">{skill.description}</div>
+                    <div className="text-xs text-zinc-400 italic border-t border-zinc-700 pt-2">{skill.description}</div>
 
-                    {/* Core Stats */}
-                    <div className="border-t border-zinc-700 pt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] font-mono">
-                      <div className="flex justify-between">
-                        <span className="text-zinc-500">Scales</span>
-                        <span className={getStatColor(skill.scalingStat)}>{formatScalingStat(skill.scalingStat)}</span>
+                    {/* Damage Section */}
+                    <div className="border-t border-zinc-700 pt-2">
+                      <div className="text-[9px] text-zinc-500 uppercase tracking-wider mb-1">Damage</div>
+                      <div className="space-y-1 text-[10px]">
+                        {/* Scaling */}
+                        <div className="flex items-center gap-2">
+                          <span className={`font-bold ${getStatColor(skill.scalingStat)}`}>
+                            {Math.round(skill.damageMult * 100)}% {formatScalingStat(skill.scalingStat)}
+                          </span>
+                          <span className="text-zinc-600">scaling</span>
+                        </div>
+                        {/* Damage Type & Property */}
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                          <span className={getDamageTypeColor(skill.damageType)}>{skill.damageType}</span>
+                          <span className={getElementColor(skill.element)}>{skill.element}</span>
+                          {skill.damageProperty && skill.damageProperty !== 'Normal' && (
+                            <span className="text-red-400">{skill.damageProperty}</span>
+                          )}
+                        </div>
+                        {/* Mechanics Explanations */}
+                        <div className="text-[9px] text-zinc-500 space-y-0.5 mt-1">
+                          <div>• {getDamageTypeDescription(skill.damageType)}</div>
+                          {skill.damageProperty && skill.damageProperty !== 'Normal' && (
+                            <div>• {getDamagePropertyDescription(skill.damageProperty)}</div>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-zinc-500">Element</span>
-                        <span className={getElementColor(skill.element)}>{skill.element}</span>
+                    </div>
+
+                    {/* Hit Chance Section */}
+                    <div className="border-t border-zinc-700 pt-2">
+                      <div className="text-[9px] text-zinc-500 uppercase tracking-wider mb-1">Hit Chance</div>
+                      <div className="text-[10px] text-zinc-400">
+                        <span className="text-zinc-300">{skill.attackMethod}</span> - {getAttackMethodDescription(skill.attackMethod)}
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-zinc-500">Attack</span>
-                        <span className="text-zinc-300">{skill.attackMethod}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-zinc-500">Type</span>
-                        <span className={getDamageTypeColor(skill.damageType)}>{skill.damageType}</span>
+                    </div>
+
+                    {/* Costs & Cooldown */}
+                    <div className="border-t border-zinc-700 pt-2">
+                      <div className="text-[9px] text-zinc-500 uppercase tracking-wider mb-1">Cost</div>
+                      <div className="flex flex-wrap gap-3 text-[10px]">
+                        <span className={skill.chakraCost > 0 ? 'text-blue-400' : 'text-zinc-600'}>
+                          {skill.chakraCost} CP
+                        </span>
+                        {skill.hpCost > 0 && (
+                          <span className="text-red-400">{skill.hpCost} HP</span>
+                        )}
+                        <span className={skill.cooldown > 0 ? 'text-zinc-300' : 'text-zinc-600'}>
+                          {skill.cooldown > 0 ? `${skill.cooldown} turn cooldown` : 'No cooldown'}
+                        </span>
                       </div>
                     </div>
 
@@ -399,6 +491,26 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
                         Toggle Skill - {skill.upkeepCost || 0} CP/turn upkeep
                       </div>
                     )}
+
+                    {/* Damage Preview vs Enemy */}
+                    <div className="border-t border-zinc-700 pt-2 bg-zinc-800/50 -mx-1 px-2 py-1 rounded">
+                      <div className="text-[9px] text-zinc-500 uppercase tracking-wider mb-1">vs {enemy.name}</div>
+                      <div className="flex items-center justify-between">
+                        <div className="text-[10px]">
+                          <span className="text-zinc-400">Predicted: </span>
+                          <span className={`font-bold ${isSuperEffective ? 'text-yellow-400' : 'text-zinc-200'}`}>
+                            {prediction.finalDamage} dmg
+                          </span>
+                          {prediction.isCrit && <span className="text-yellow-500 ml-1">(CRIT)</span>}
+                        </div>
+                        {isSuperEffective && (
+                          <span className="text-[9px] text-yellow-400 font-bold">SUPER EFFECTIVE!</span>
+                        )}
+                        {effectiveness < 1.0 && (
+                          <span className="text-[9px] text-zinc-500">Resisted</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 }
               >

@@ -313,3 +313,283 @@ export const formatStatName = (key: string): string => {
   };
   return names[key] || key.toUpperCase();
 };
+
+// ============================================================================
+// DETAILED EFFECT MECHANICS - For enhanced tooltips
+// ============================================================================
+
+export type EffectCategory = 'dot' | 'control' | 'defensive' | 'stat' | 'resource' | 'utility';
+
+/**
+ * Categorizes effects for UI grouping and styling
+ */
+export const getEffectCategory = (type: EffectType): EffectCategory => {
+  switch (type) {
+    case EffectType.DOT:
+    case EffectType.BLEED:
+    case EffectType.BURN:
+    case EffectType.POISON:
+      return 'dot';
+    case EffectType.STUN:
+    case EffectType.CONFUSION:
+    case EffectType.SILENCE:
+      return 'control';
+    case EffectType.SHIELD:
+    case EffectType.INVULNERABILITY:
+    case EffectType.REFLECTION:
+    case EffectType.REGEN:
+      return 'defensive';
+    case EffectType.BUFF:
+    case EffectType.DEBUFF:
+    case EffectType.CURSE:
+      return 'stat';
+    case EffectType.HEAL:
+    case EffectType.DRAIN:
+    case EffectType.CHAKRA_DRAIN:
+    case EffectType.CHAKRA_REGEN:
+      return 'resource';
+    default:
+      return 'utility';
+  }
+};
+
+/**
+ * Returns which defense stat mitigates a damage type
+ */
+export const getDamageTypeDefense = (damageType?: DamageType): string => {
+  switch (damageType) {
+    case DamageType.PHYSICAL:
+      return 'Strength (Physical Defense)';
+    case DamageType.ELEMENTAL:
+      return 'Spirit (Elemental Defense)';
+    case DamageType.MENTAL:
+      return 'Calmness (Mental Defense)';
+    case DamageType.TRUE:
+      return 'None (True damage)';
+    default:
+      return 'Physical Defense';
+  }
+};
+
+/**
+ * Calculates total DoT damage over duration
+ */
+export const calculateDoTTotal = (value: number, duration: number): number => {
+  return Math.floor(value * duration);
+};
+
+/**
+ * Returns detailed mechanical breakdown for a buff/effect
+ */
+export const getDetailedEffectMechanics = (buff: Buff): string[] => {
+  if (!buff?.effect) return ['Unknown effect'];
+
+  const { type, value, duration, targetStat, damageType, damageProperty } = buff.effect;
+  const mechanics: string[] = [];
+
+  switch (type) {
+    case EffectType.DOT:
+    case EffectType.BLEED:
+    case EffectType.BURN:
+    case EffectType.POISON:
+      mechanics.push(`${value} damage per turn`);
+      if (damageType) {
+        mechanics.push(`${damageType} damage type`);
+        mechanics.push(`Mitigated by: ${getDamageTypeDefense(damageType)}`);
+      }
+      if (duration > 0) {
+        mechanics.push(`Total damage: ${calculateDoTTotal(value || 0, duration)} over ${duration} turns`);
+      }
+      if (damageProperty === DamageProperty.PIERCING) {
+        mechanics.push('Piercing: Ignores flat defense');
+      }
+      break;
+
+    case EffectType.STUN:
+      mechanics.push('Skips entire turn');
+      mechanics.push('Cannot use any skills');
+      mechanics.push('Cannot pass turn early');
+      break;
+
+    case EffectType.CONFUSION:
+      mechanics.push('50% chance to hurt self');
+      mechanics.push('Self-damage: 50% of Strength');
+      mechanics.push('Can still act normally 50% of time');
+      break;
+
+    case EffectType.SILENCE:
+      mechanics.push('Cannot use skills with CP cost');
+      mechanics.push('Free skills still usable');
+      mechanics.push('Basic attack remains available');
+      break;
+
+    case EffectType.BUFF:
+      mechanics.push(`+${Math.round((value || 0) * 100)}% ${formatScalingStat(targetStat!)}`);
+      mechanics.push('Applied after equipment bonuses');
+      mechanics.push('Stacks with other buffs');
+      break;
+
+    case EffectType.DEBUFF:
+      mechanics.push(`-${Math.round((value || 0) * 100)}% ${formatScalingStat(targetStat!)}`);
+      mechanics.push('Reduces effective stat value');
+      mechanics.push('Can reduce to minimum of 1');
+      break;
+
+    case EffectType.SHIELD:
+      mechanics.push(`Absorbs next ${value} damage`);
+      mechanics.push('Consumed before HP');
+      mechanics.push('Breaks when depleted');
+      mechanics.push('Does not stack (replaces)');
+      break;
+
+    case EffectType.INVULNERABILITY:
+      mechanics.push('Blocks ALL incoming damage');
+      mechanics.push('Includes True damage');
+      mechanics.push('DoT still ticks but deals 0');
+      break;
+
+    case EffectType.CURSE:
+      mechanics.push(`+${Math.round((value || 0) * 100)}% damage taken`);
+      mechanics.push('Applied before defense');
+      mechanics.push('Amplifies ALL damage types');
+      break;
+
+    case EffectType.REFLECTION:
+      mechanics.push(`Returns ${Math.round((value || 0) * 100)}% damage to attacker`);
+      mechanics.push('Calculated before shield absorbs');
+      mechanics.push('Cannot reflect reflected damage');
+      break;
+
+    case EffectType.REGEN:
+      mechanics.push(`+${value} HP per turn`);
+      mechanics.push('Heals at turn start');
+      mechanics.push(`Total heal: ${calculateDoTTotal(value || 0, duration)} over ${duration} turns`);
+      break;
+
+    case EffectType.CHAKRA_DRAIN:
+      mechanics.push(`-${value} CP per turn`);
+      mechanics.push('Drains at turn start');
+      mechanics.push('Cannot reduce below 0');
+      break;
+
+    case EffectType.CHAKRA_REGEN:
+      mechanics.push(`+${value} CP per turn`);
+      mechanics.push('Restores at turn start');
+      mechanics.push('Capped at max chakra');
+      break;
+
+    case EffectType.HEAL:
+      mechanics.push(`Restores ${value} HP instantly`);
+      mechanics.push('Capped at max HP');
+      break;
+
+    case EffectType.DRAIN:
+      mechanics.push(`Steals ${value} HP from target`);
+      mechanics.push('Heals attacker for same amount');
+      break;
+
+    default:
+      mechanics.push('Effect details unknown');
+  }
+
+  return mechanics;
+};
+
+/**
+ * Returns strategic tips for countering or utilizing effects
+ */
+export const getEffectTip = (type: EffectType): string => {
+  switch (type) {
+    case EffectType.DOT:
+    case EffectType.BLEED:
+      return 'Physical defense reduces bleed damage';
+    case EffectType.BURN:
+      return 'Spirit stat reduces fire damage';
+    case EffectType.POISON:
+      return 'Often ignores some defense - high HP helps';
+    case EffectType.STUN:
+      return 'Calmness increases status resistance';
+    case EffectType.CONFUSION:
+      return 'Low Strength reduces self-damage';
+    case EffectType.SILENCE:
+      return 'Keep a 0-cost skill as backup';
+    case EffectType.SHIELD:
+      return 'Shield absorbs DoT damage too';
+    case EffectType.INVULNERABILITY:
+      return 'Use to survive burst damage';
+    case EffectType.CURSE:
+      return 'Very dangerous - prioritize removing';
+    case EffectType.REFLECTION:
+      return 'Makes enemies hesitate to attack';
+    case EffectType.REGEN:
+      return 'Stacks well with high Willpower';
+    case EffectType.BUFF:
+    case EffectType.DEBUFF:
+      return 'Duration can be extended by some skills';
+    default:
+      return '';
+  }
+};
+
+/**
+ * Returns the effect's severity level for UI styling
+ */
+export const getEffectSeverity = (buff: Buff): 'low' | 'medium' | 'high' | 'critical' => {
+  if (!buff?.effect) return 'low';
+
+  const { type, value, duration } = buff.effect;
+  const category = getEffectCategory(type);
+
+  // Control effects are always high severity
+  if (category === 'control') {
+    return type === EffectType.STUN ? 'critical' : 'high';
+  }
+
+  // DoTs scale by total damage
+  if (category === 'dot') {
+    const totalDmg = calculateDoTTotal(value || 0, duration);
+    if (totalDmg >= 100) return 'critical';
+    if (totalDmg >= 50) return 'high';
+    if (totalDmg >= 25) return 'medium';
+    return 'low';
+  }
+
+  // Curse is always high
+  if (type === EffectType.CURSE) return 'high';
+
+  // Defensive buffs
+  if (category === 'defensive') {
+    if (type === EffectType.INVULNERABILITY) return 'critical';
+    return 'medium';
+  }
+
+  return 'low';
+};
+
+/**
+ * Returns color class based on effect severity
+ */
+export const getSeverityColor = (severity: 'low' | 'medium' | 'high' | 'critical'): string => {
+  switch (severity) {
+    case 'critical': return 'text-red-400';
+    case 'high': return 'text-orange-400';
+    case 'medium': return 'text-yellow-400';
+    case 'low': return 'text-zinc-400';
+  }
+};
+
+/**
+ * Returns whether this effect is beneficial or harmful
+ */
+export const isPositiveEffect = (type: EffectType): boolean => {
+  const positiveEffects = [
+    EffectType.BUFF,
+    EffectType.HEAL,
+    EffectType.SHIELD,
+    EffectType.INVULNERABILITY,
+    EffectType.REFLECTION,
+    EffectType.REGEN,
+    EffectType.CHAKRA_REGEN,
+  ];
+  return positiveEffects.includes(type);
+};
