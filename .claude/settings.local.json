@@ -10,7 +10,9 @@
       "Bash(npm run build:quick:*)",
       "Bash(cd:*)",
       "Skill(skill-creator)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npx -p typescript tsc --noEmit)",
+      "Bash(npm install)"
     ],
     "deny": [
       "Write(*.md)",
