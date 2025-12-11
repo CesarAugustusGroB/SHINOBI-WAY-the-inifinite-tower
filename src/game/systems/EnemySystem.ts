@@ -33,12 +33,12 @@
  * totalScaling = floorMult × diffMult
  *
  * - floorMult = 1 + (floor × 0.08)  // +8% per floor
- * - diffMult = 0.75 + (difficulty / 100)  // 0.75 to 1.75 based on difficulty
+ * - diffMult = 0.50 + (difficulty / 200)  // 0.50 to 1.0 based on difficulty
  *
- * Example: Floor 10, Difficulty 50
+ * Example: Floor 10, Difficulty 40 (default)
  * - floorMult = 1 + (10 × 0.08) = 1.8
- * - diffMult = 0.75 + 0.5 = 1.25
- * - totalScaling = 1.8 × 1.25 = 2.25× base stats
+ * - diffMult = 0.50 + 0.20 = 0.70
+ * - totalScaling = 1.8 × 0.70 = 1.26× base stats
  *
  * ## ENEMY TYPES
  *
@@ -123,8 +123,8 @@ export const generateEnemy = (currentFloor: number, type: 'NORMAL' | 'ELITE' | '
   // Calculate scaling multipliers
   // Floor scaling: +8% per floor (floor 10 = 1.8×, floor 50 = 5×)
   const floorMult = 1 + (currentFloor * 0.08);
-  // Difficulty scaling: 75% to 175% based on difficulty value
-  const diffMult = 0.75 + (diff / 100);
+  // Difficulty scaling: 50% to 100% based on difficulty value
+  const diffMult = 0.50 + (diff / 200);
   const totalScaling = floorMult * diffMult;
 
   if (type === 'BOSS') {

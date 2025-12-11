@@ -73,6 +73,7 @@ src/
 │   │   ├── EnemyAISystem.ts       # Enemy skill selection AI
 │   │   ├── LootSystem.ts          # Item/skill generation
 │   │   ├── BranchingFloorSystem.ts # 1→2→4 branching room system
+│   │   ├── EliteChallengeSystem.ts # Elite challenge escape mechanics
 │   │   ├── EnemySystem.ts         # Enemy generation, story arcs
 │   │   ├── ApproachSystem.ts      # Combat approach mechanics
 │   │   ├── EquipmentPassiveSystem.ts # Equipment passive triggers
@@ -97,6 +98,7 @@ src/
 │   ├── CharacterSelect.tsx
 │   ├── Combat.tsx
 │   ├── Event.tsx
+│   ├── EliteChallenge.tsx         # Elite challenge fight vs escape screen
 │   ├── Loot.tsx
 │   ├── Merchant.tsx
 │   ├── Training.tsx
@@ -116,8 +118,8 @@ Located in `src/game/types.ts`:
 enum GameState {
   MENU,
   CHAR_SELECT,
-  EXPLORE_MAP,        // Legacy node map (kept for compatibility)
-  BRANCHING_EXPLORE,  // Primary branching room exploration view
+  EXPLORE,            // Branching room exploration view
+  ELITE_CHALLENGE,    // Elite challenge choice screen (fight vs escape)
   COMBAT,
   LOOT,
   MERCHANT,
@@ -259,11 +261,11 @@ Skill Input → CombatCalculation (pure math) → CombatActionResult → CombatW
 
 ```typescript
 floorMult = 1 + (floor × 0.08)     // +8% per floor
-diffMult = 0.75 + (difficulty / 100) // 75%-175% based on difficulty
+diffMult = 0.50 + (difficulty / 200) // 50%-100% based on difficulty
 totalScaling = floorMult × diffMult
 ```
 
-**Example:** Floor 10, Difficulty 50 → `1.8 × 1.25 = 2.25×` base stats
+**Example:** Floor 10, Difficulty 40 (default) → `1.8 × 0.70 = 1.26×` base stats
 
 ### Enemy Archetypes
 
@@ -315,7 +317,7 @@ perRoomBonus = 10%             // Additional chance per extra room
 ### Adding Events
 
 1. Create event in appropriate arc file (`src/game/constants/events/`)
-2. Use `GameEventDefinition` interface
+2. Use `GameEvent` interface
 3. Include `allowedArcs` array if arc-specific
 
 ### Modifying Game Balance

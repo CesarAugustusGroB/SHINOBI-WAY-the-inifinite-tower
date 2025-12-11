@@ -61,13 +61,13 @@
  */
 
 import {
-  EnhancedEventChoice,
+  EventChoice,
   EventOutcome,
   Player,
   RequirementCheck,
   EventCost,
   PrimaryStat,
-  EnhancedGameEventDefinition,
+  GameEvent,
   CharacterStats,
 } from '../types';
 
@@ -157,7 +157,7 @@ export const getDisabledReason = (
  * Applies clan bonuses if applicable
  */
 export const rollOutcome = (
-  choice: EnhancedEventChoice,
+  choice: EventChoice,
   player: Player,
 ): EventOutcome => {
   let outcomes = [...choice.outcomes];
@@ -262,7 +262,7 @@ export const applyOutcomeEffects = (
  */
 export const resolveEventChoice = (
   player: Player,
-  choice: EnhancedEventChoice,
+  choice: EventChoice,
   playerStats: any,
 ): {
   success: boolean;
@@ -317,7 +317,7 @@ export const resolveEventChoice = (
 /**
  * Check if an event is valid for a story arc
  */
-export const isEventValidForArc = (event: EnhancedGameEventDefinition, arcName: string): boolean => {
+export const isEventValidForArc = (event: GameEvent, arcName: string): boolean => {
   if (!event.allowedArcs || event.allowedArcs.length === 0) {
     return true; // No restrictions
   }
@@ -329,8 +329,8 @@ export const isEventValidForArc = (event: EnhancedGameEventDefinition, arcName: 
  * Filter events by arc
  */
 export const getEventsForArc = (
-  allEvents: EnhancedGameEventDefinition[],
+  allEvents: GameEvent[],
   arcName: string,
-): EnhancedGameEventDefinition[] => {
+): GameEvent[] => {
   return allEvents.filter((event) => isEventValidForArc(event, arcName));
 };

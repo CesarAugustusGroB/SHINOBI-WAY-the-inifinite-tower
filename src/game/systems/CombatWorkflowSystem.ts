@@ -70,6 +70,13 @@ import {
   getTerrainElementAmplification,
   applyTerrainHazard,
 } from './CombatCalculationSystem';
+import {
+  processPassivesOnHit,
+  processPassivesOnTurnStart,
+  checkExecuteThreshold,
+  shouldCounterAttack,
+  checkGutsPassive,
+} from './EquipmentPassiveSystem';
 
 // ============================================================================
 // TYPES
@@ -87,6 +94,10 @@ export interface CombatState {
   xpMultiplier: number;
   terrain: TerrainDefinition | null;
   approachApplied: boolean;
+  /** From FREE_FIRST_SKILL artifact passive - first skill costs no resources */
+  skipFirstSkillCost: boolean;
+  /** Tracks if artifact GUTS passive has been used this combat (one-time) */
+  artifactGutsUsed: boolean;
 }
 
 /**
@@ -146,6 +157,8 @@ export interface EnemyTurnResult {
   enemyDefeated: boolean;
   /** Updated player skills with cooldowns reduced */
   playerSkills: Skill[];
+  /** True if artifact GUTS passive was triggered this turn (caller should update combatState) */
+  artifactGutsTriggered?: boolean;
 }
 
 // ============================================================================
@@ -167,6 +180,8 @@ export function createCombatState(
     xpMultiplier: modifiers?.xpMultiplier || 1.0,
     terrain: terrain || null,
     approachApplied: false,
+    skipFirstSkillCost: false,
+    artifactGutsUsed: false,
   };
 }
 
@@ -282,7 +297,9 @@ export const useSkill = (
 
   // Execute attack
   let newPlayerHp = player.currentHp - skill.hpCost;
-  let newPlayerChakra = player.currentChakra - skill.chakraCost;
+  // Check for FREE_FIRST_SKILL artifact passive - skip chakra cost on first turn
+  const skipCost = combatState?.skipFirstSkillCost && combatState?.isFirstTurn;
+  let newPlayerChakra = skipCost ? player.currentChakra : player.currentChakra - skill.chakraCost;
 
   const damageResult = calculateDamage(
     playerStats.effectivePrimary,
@@ -327,7 +344,32 @@ export const useSkill = (
     finalDamageToEnemy = mitigation.finalDamage;
     newEnemyBuffs = mitigation.updatedBuffs;
 
+    // Check execute threshold (instant kill at low HP)
+    const enemyMaxHp = enemyStats.derived.maxHp;
+    if (checkExecuteThreshold(player, enemy, enemyMaxHp)) {
+      finalDamageToEnemy = enemy.currentHp; // Kill
+    }
+
     newEnemyHp -= finalDamageToEnemy;
+
+    // Process artifact on-hit passives (bleed, burn, lifesteal, etc.)
+    const onHitResult = processPassivesOnHit(player, enemy, finalDamageToEnemy, damageResult.isCrit);
+
+    // Apply DoT debuffs from artifact passives to enemy
+    const newPassiveDebuffs = onHitResult.enemy.activeBuffs.filter(
+      b => !enemy.activeBuffs.some(existing => existing.id === b.id)
+    );
+    newEnemyBuffs = [...newEnemyBuffs, ...newPassiveDebuffs];
+
+    // Apply lifesteal healing from artifact passives
+    if (onHitResult.healToPlayer > 0) {
+      newPlayerHp = Math.min(playerStats.derived.maxHp, newPlayerHp + onHitResult.healToPlayer);
+    }
+
+    // Apply chakra restore from artifact passives
+    if (onHitResult.chakraRestored > 0) {
+      newPlayerChakra = Math.min(playerStats.derived.maxChakra, newPlayerChakra + onHitResult.chakraRestored);
+    }
 
     // Handle Reflection
     if (mitigation.reflectedDamage > 0) {
@@ -337,6 +379,11 @@ export const useSkill = (
 
     // Construct Log Message
     logMsg = `Used ${skill.name} for ${finalDamageToEnemy} dmg`;
+    // Add execute message
+    if (checkExecuteThreshold(player, enemy, enemyMaxHp) && enemy.currentHp <= enemyMaxHp * 0.2) {
+      logMsg += " EXECUTE!";
+    }
+    if (skipCost) logMsg += " FREE!";
     if (firstHitApplied) logMsg += " AMBUSH!";
     if (mitigation.messages.length > 0) {
       logMsg += ` [${mitigation.messages.join(', ')}]`;
@@ -345,6 +392,10 @@ export const useSkill = (
     if (damageResult.elementMultiplier > 1) logMsg += " SUPER EFFECTIVE!";
     else if (damageResult.elementMultiplier < 1) logMsg += " Resisted.";
     if (damageResult.isCrit) logMsg += " CRITICAL!";
+    // Add artifact passive logs
+    if (onHitResult.logs.length > 0) {
+      logMsg += ` [${onHitResult.logs.join(', ')}]`;
+    }
 
     // Debug: Log damage dealt
     logDamage('Player', enemy.name, finalDamageToEnemy, {
@@ -416,10 +467,12 @@ export const useSkill = (
  * - Deducts toggle skill upkeep costs (chakra or HP)
  * - Auto-deactivates toggles if player can't afford upkeep
  * - Applies passive skill regeneration bonuses
+ * - Applies artifact turn-start passives (regen, chakra restore)
  */
 export function processUpkeep(
   player: Player,
-  playerStats: CharacterStats
+  playerStats: CharacterStats,
+  enemy?: Enemy
 ): UpkeepResult {
   let updatedPlayer = { ...player };
   const logs: string[] = [];
@@ -473,6 +526,30 @@ export function processUpkeep(
         logs.push(`${skill.name}: +${chakraAmount} CP`);
       }
     }
+  }
+
+  // Apply artifact turn-start passives (REGEN, CHAKRA_RESTORE)
+  if (enemy) {
+    const turnStartResult = processPassivesOnTurnStart(updatedPlayer, enemy);
+
+    // Apply regen from artifact passives
+    if (turnStartResult.healToPlayer > 0) {
+      const healAmount = Math.min(turnStartResult.healToPlayer, playerStats.derived.maxHp - updatedPlayer.currentHp);
+      if (healAmount > 0) {
+        updatedPlayer.currentHp += healAmount;
+      }
+    }
+
+    // Apply chakra restore from artifact passives
+    if (turnStartResult.chakraRestored > 0) {
+      const chakraAmount = Math.min(turnStartResult.chakraRestored, playerStats.derived.maxChakra - updatedPlayer.currentChakra);
+      if (chakraAmount > 0) {
+        updatedPlayer.currentChakra += chakraAmount;
+      }
+    }
+
+    // Add artifact passive logs
+    logs.push(...turnStartResult.logs);
   }
 
   return {
@@ -551,6 +628,10 @@ export const processEnemyTurn = (
 
   // Track if guts has been used this turn (can only trigger once per turn)
   let gutsTriggeredThisTurn = false;
+  // Track if artifact guts was triggered (to inform caller to update combatState)
+  let artifactGutsTriggered = false;
+  // Check if player has artifact guts passive
+  const artifactGuts = checkGutsPassive(updatedPlayer);
 
   // 1. Process DoTs & REGEN on ENEMY
   updatedEnemy.activeBuffs.forEach(buff => {
@@ -682,29 +763,37 @@ export const processEnemyTurn = (
       // Store HP before damage for guts message check
       const hpBeforeDamage = updatedPlayer.currentHp;
 
-      // Check Guts before applying lethal damage
-      const gutsResult = checkGuts(updatedPlayer.currentHp, finalDmg, playerStats.derived.gutsChance);
-
       // Check if damage would be lethal
       const wouldBeLethal = hpBeforeDamage - finalDmg <= 0;
 
       if (wouldBeLethal && !gutsTriggeredThisTurn) {
-        if (!gutsResult.survived) {
-          return {
-            newPlayerHp: updatedPlayer.currentHp - finalDmg,
-            newPlayerBuffs: updatedPlayer.activeBuffs,
-            newEnemyHp: updatedEnemy.currentHp,
-            newEnemyBuffs: updatedEnemy.activeBuffs,
-            logMessages: logs,
-            playerDefeated: true,
-            enemyDefeated: false,
-            playerSkills: updatedPlayer.skills
-          };
+        // First check artifact guts (guaranteed, one-time per combat)
+        if (artifactGuts.hasGuts && !combatState?.artifactGutsUsed) {
+          const healHp = Math.floor(playerStats.derived.maxHp * (artifactGuts.healPercent / 100));
+          updatedPlayer.currentHp = Math.max(1, healHp);
+          gutsTriggeredThisTurn = true;
+          artifactGutsTriggered = true;
+          logs.push(`${artifactGuts.source}: GUTS! Survived with ${artifactGuts.healPercent}% HP!`);
+        } else {
+          // Fall back to stat-based guts (chance-based)
+          const gutsResult = checkGuts(updatedPlayer.currentHp, finalDmg, playerStats.derived.gutsChance);
+          if (!gutsResult.survived) {
+            return {
+              newPlayerHp: updatedPlayer.currentHp - finalDmg,
+              newPlayerBuffs: updatedPlayer.activeBuffs,
+              newEnemyHp: updatedEnemy.currentHp,
+              newEnemyBuffs: updatedEnemy.activeBuffs,
+              logMessages: logs,
+              playerDefeated: true,
+              enemyDefeated: false,
+              playerSkills: updatedPlayer.skills
+            };
+          }
+          // Stat guts triggered - survive at 1 HP
+          updatedPlayer.currentHp = 1;
+          gutsTriggeredThisTurn = true;
+          logs.push("GUTS! You survived a fatal blow!");
         }
-        // Guts triggered - survive at 1 HP
-        updatedPlayer.currentHp = 1;
-        gutsTriggeredThisTurn = true;
-        logs.push("GUTS! You survived a fatal blow!");
       } else if (wouldBeLethal && gutsTriggeredThisTurn) {
         // Guts already used this turn, player dies
         return {
@@ -719,6 +808,7 @@ export const processEnemyTurn = (
         };
       } else {
         // Non-lethal damage, apply normally
+        const gutsResult = checkGuts(updatedPlayer.currentHp, finalDmg, playerStats.derived.gutsChance);
         updatedPlayer.currentHp = gutsResult.newHp;
       }
 
@@ -746,6 +836,15 @@ export const processEnemyTurn = (
             }
           }
         });
+      }
+
+      // Check for counter attack from artifact passive
+      const counterCheck = shouldCounterAttack(updatedPlayer);
+      if (counterCheck.shouldCounter) {
+        // Counter with strength-based damage (similar to confusion damage formula)
+        const counterDamage = Math.floor(playerStats.effectivePrimary.strength * 2);
+        updatedEnemy.currentHp -= counterDamage;
+        logs.push(`${counterCheck.source}: Counter attack for ${counterDamage} damage!`);
       }
     }
   }
@@ -840,7 +939,8 @@ export const processEnemyTurn = (
     logMessages: logs,
     playerDefeated: false,
     enemyDefeated: false,
-    playerSkills: updatedPlayer.skills
+    playerSkills: updatedPlayer.skills,
+    artifactGutsTriggered,
   };
 
   combatLog('turn', `=== ENEMY TURN END ===`, {

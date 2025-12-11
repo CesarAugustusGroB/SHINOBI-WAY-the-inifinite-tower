@@ -76,7 +76,6 @@ import {
   Player,
   Enemy,
   Item,
-  GameEventDefinition,
   PrimaryStat,
   ACTIVITY_ORDER,
 } from '../types';
@@ -90,7 +89,7 @@ import {
   selectRandomRoomType,
   getRoomTypeConfig,
 } from '../constants/roomTypes';
-import { ENHANCED_EVENTS } from '../constants';
+import { EVENTS } from '../constants';
 
 // ============================================================================
 // ID GENERATION
@@ -226,12 +225,12 @@ function generateActivities(
 
   // Event - Use enhanced events with requirements, costs, and weighted outcomes
   if (config.hasEvent) {
-    const arcEvents = ENHANCED_EVENTS.filter(
+    const arcEvents = EVENTS.filter(
       e => !e.allowedArcs || e.allowedArcs.includes(arc)
     );
     const event = arcEvents.length > 0
       ? arcEvents[Math.floor(Math.random() * arcEvents.length)]
-      : ENHANCED_EVENTS[0];
+      : EVENTS[0];
 
     if (event) {
       activities.event = {
@@ -359,7 +358,7 @@ function generateActivities(
  * @param difficulty - Difficulty modifier (extra +15 applied)
  * @returns Enhanced Enemy with Guardian tier and boosted stats
  */
-function generateSemiBoss(floor: number, difficulty: number): Enemy {
+function generateGuardian(floor: number, difficulty: number): Enemy {
   const enemy = generateEnemy(floor, 'ELITE', difficulty + 15);
 
   // Apply Guardian stat multipliers
@@ -502,7 +501,7 @@ export function generateChildrenForRoom(
       // Replace activities with semi-boss (components only, artifacts from Elite Challenges)
       childRoom.activities = {
         combat: {
-          enemy: generateSemiBoss(floor, difficulty),
+          enemy: generateGuardian(floor, difficulty),
           modifiers: [CombatModifierType.NONE],
           completed: false,
         },

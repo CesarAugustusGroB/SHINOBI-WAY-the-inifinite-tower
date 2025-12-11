@@ -1,6 +1,6 @@
-import { EnhancedGameEventDefinition, PrimaryStat, Rarity, RiskLevel } from '../../types';
+import { GameEvent, PrimaryStat, Rarity, RiskLevel } from '../../types';
 
-export const WAR_ARC_EVENTS: EnhancedGameEventDefinition[] = [
+export const WAR_ARC_EVENTS: GameEvent[] = [
   {
     id: 'white_zetsu_paranoia',
     title: 'White Zetsu Paranoia',

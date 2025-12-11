@@ -3,7 +3,7 @@ import {
   GameState, Player, Clan, Skill, Enemy, Item, Rarity, DamageType,
   ApproachType, BranchingRoom, PrimaryStat, TrainingActivity, TrainingIntensity,
   EquipmentSlot, MAX_BAG_SLOTS, ScrollDiscoveryActivity,
-  EnhancedGameEventDefinition, EnhancedEventChoice, EventOutcome
+  GameEvent, EventChoice, EventOutcome
 } from './game/types';
 import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS } from './game/constants';
 import {
@@ -48,12 +48,14 @@ import MainMenu from './scenes/MainMenu';
 import CharacterSelect from './scenes/CharacterSelect';
 import Combat from './scenes/Combat';
 import Event from './scenes/Event';
+import EliteChallenge from './scenes/EliteChallenge';
 import Loot from './scenes/Loot';
 import Merchant from './scenes/Merchant';
 import Training from './scenes/Training';
 import ScrollDiscovery from './scenes/ScrollDiscovery';
 import GameOver from './scenes/GameOver';
 import GameGuide from './scenes/GameGuide';
+import { attemptEliteEscape } from './game/systems/EliteChallengeSystem';
 import LeftSidebarPanel from './components/LeftSidebarPanel';
 import ApproachSelector from './components/ApproachSelector';
 import BranchingExplorationMap from './components/BranchingExplorationMap';
@@ -61,6 +63,12 @@ import PlayerHUD from './components/PlayerHUD';
 import RewardModal from './components/RewardModal';
 import EventResultModal from './components/EventResultModal';
 import { logVictory, logRewardModal, logFlowCheckpoint } from './game/utils/combatDebug';
+import {
+  logRoomEnter, logRoomExit, logRoomSelect,
+  logActivityStart, logActivityComplete,
+  logModalOpen, logModalClose,
+  logStateChange, logExplorationCheckpoint, logFloorChange
+} from './game/utils/explorationDebug';
 
 // Import the parchment background styles
 import './App.css';
@@ -73,13 +81,13 @@ const App: React.FC = () => {
   const [player, setPlayer] = useState<Player | null>(null);
   const [droppedItems, setDroppedItems] = useState<Item[]>([]);
   const [droppedSkill, setDroppedSkill] = useState<Skill | null>(null);
-  const [activeEvent, setActiveEvent] = useState<EnhancedGameEventDefinition | null>(null);
+  const [activeEvent, setActiveEvent] = useState<GameEvent | null>(null);
   const [eventOutcome, setEventOutcome] = useState<{
     message: string;
     outcome: EventOutcome;
     logType: 'gain' | 'danger' | 'info' | 'loot';
   } | null>(null);
-  const [difficulty, setDifficulty] = useState<number>(20);
+  const [difficulty, setDifficulty] = useState<number>(40);
   const [isProcessingLoot, setIsProcessingLoot] = useState(false);
   const [merchantItems, setMerchantItems] = useState<Item[]>([]);
   const [merchantDiscount, setMerchantDiscount] = useState<number>(0);
@@ -87,6 +95,11 @@ const App: React.FC = () => {
   const [scrollDiscoveryData, setScrollDiscoveryData] = useState<ScrollDiscoveryActivity | null>(null);
   const [pendingArtifact, setPendingArtifact] = useState<Item | null>(null);
   const [selectedComponent, setSelectedComponent] = useState<Item | null>(null);
+  const [eliteChallengeData, setEliteChallengeData] = useState<{
+    enemy: Enemy;
+    artifact: Item;
+    room: BranchingRoom;
+  } | null>(null);
   const [combatReward, setCombatReward] = useState<{
     expGain: number;
     ryoGain: number;
@@ -227,7 +240,7 @@ const App: React.FC = () => {
     // Set game state to branching explore so the modal shows on the map
     logFlowCheckpoint('Transitioning to BRANCHING_EXPLORE with reward modal');
     setTimeout(() => {
-      setGameState(GameState.BRANCHING_EXPLORE);
+      setGameState(GameState.EXPLORE);
     }, 100);
   }, [branchingFloor, floor, addLog, pendingArtifact]);
 
@@ -361,11 +374,12 @@ const App: React.FC = () => {
     const newBranchingFloor = generateBranchingFloor(1, difficulty, newPlayer);
     setBranchingFloor(newBranchingFloor);
     setSelectedBranchingRoom(null);
-    setGameState(GameState.BRANCHING_EXPLORE);
+    setGameState(GameState.EXPLORE);
   };
 
   // Cancel approach selection
   const handleApproachCancel = () => {
+    logModalClose('ApproachSelector', 'cancelled');
     setShowApproachSelector(false);
     setSelectedBranchingRoom(null);
   };
@@ -373,6 +387,7 @@ const App: React.FC = () => {
   // Handle approach selection for BRANCHING exploration combat
   const handleBranchingApproachSelect = (approach: ApproachType) => {
     if (!player || !playerStats || !selectedBranchingRoom || !branchingFloor) return;
+    logModalClose('ApproachSelector', `selected: ${approach}`);
 
     // Check for elite challenge first, then regular combat
     const eliteChallenge = selectedBranchingRoom.activities.eliteChallenge;
@@ -392,6 +407,7 @@ const App: React.FC = () => {
     );
 
     setApproachResult(result);
+    logExplorationCheckpoint('Approach result', { approach, success: result.success, skipCombat: result.skipCombat });
     addLog(result.description, result.success ? 'gain' : 'info');
 
     // Apply costs
@@ -400,6 +416,7 @@ const App: React.FC = () => {
 
     if (result.skipCombat) {
       // Successfully bypassed combat - mark as completed
+      logExplorationCheckpoint('Combat bypassed via approach');
       addLog('You slip past undetected!', 'gain');
       setShowApproachSelector(false);
 
@@ -442,6 +459,7 @@ const App: React.FC = () => {
     setCombatState(newCombatState);
 
     // Set up combat
+    logStateChange('EXPLORE', 'COMBAT', 'approach selected - entering combat');
     setPlayer(preparedPlayer);
     setEnemy(preparedEnemy);
     setTurnState('PLAYER');
@@ -456,6 +474,7 @@ const App: React.FC = () => {
 
   // Handle selecting a room in branching exploration
   const handleBranchingRoomSelect = (room: BranchingRoom) => {
+    logRoomSelect(room.id, room.name);
     setSelectedBranchingRoom(room);
   };
 
@@ -472,9 +491,11 @@ const App: React.FC = () => {
     if (!currentRoom) return;
 
     const activity = getCurrentActivity(currentRoom);
+    logRoomEnter(room.id, room.name, activity);
 
     if (!activity) {
       // Room is already cleared or has no activities
+      logExplorationCheckpoint('Room already cleared', { roomId: room.id });
       addLog(`You enter ${currentRoom.name}. Nothing remains here.`, 'info');
       return;
     }
@@ -483,6 +504,8 @@ const App: React.FC = () => {
     switch (activity) {
       case 'combat':
         if (currentRoom.activities.combat) {
+          logActivityStart(currentRoom.id, 'combat', { enemy: currentRoom.activities.combat.enemy.name });
+          logModalOpen('ApproachSelector', { roomId: currentRoom.id, enemy: currentRoom.activities.combat.enemy.name });
           // Show approach selector for combat
           setSelectedBranchingRoom(currentRoom);
           setShowApproachSelector(true);
@@ -492,6 +515,8 @@ const App: React.FC = () => {
 
       case 'merchant':
         if (currentRoom.activities.merchant) {
+          logActivityStart(currentRoom.id, 'merchant', { itemCount: currentRoom.activities.merchant.items.length });
+          logStateChange('EXPLORE', 'MERCHANT', 'merchant activity');
           setMerchantItems(currentRoom.activities.merchant.items);
           setMerchantDiscount(currentRoom.activities.merchant.discountPercent || 0);
           setSelectedBranchingRoom(currentRoom);
@@ -502,6 +527,8 @@ const App: React.FC = () => {
 
       case 'event':
         if (currentRoom.activities.event) {
+          logActivityStart(currentRoom.id, 'event', { eventId: currentRoom.activities.event.definition.id });
+          logStateChange('EXPLORE', 'EVENT', 'event activity');
           setActiveEvent(currentRoom.activities.event.definition);
           setGameState(GameState.EVENT);
         }
@@ -509,6 +536,7 @@ const App: React.FC = () => {
 
       case 'rest':
         if (currentRoom.activities.rest) {
+          logActivityStart(currentRoom.id, 'rest', { healPercent: currentRoom.activities.rest.healPercent });
           const restData = currentRoom.activities.rest;
           const hpHeal = Math.floor(playerStats.derived.maxHp * (restData.healPercent / 100));
           const chakraHeal = Math.floor(playerStats.derived.maxChakra * (restData.chakraRestorePercent / 100));
@@ -523,11 +551,14 @@ const App: React.FC = () => {
 
           const updatedFloorAfterRest = completeActivity(updatedFloor, room.id, 'rest');
           setBranchingFloor(updatedFloorAfterRest);
+          logActivityComplete(currentRoom.id, 'rest');
         }
         break;
 
       case 'training':
         if (currentRoom.activities.training && !currentRoom.activities.training.completed) {
+          logActivityStart(currentRoom.id, 'training', { options: currentRoom.activities.training.options.map(o => o.stat) });
+          logStateChange('EXPLORE', 'TRAINING', 'training activity');
           setTrainingData(currentRoom.activities.training);
           setSelectedBranchingRoom(currentRoom);
           setGameState(GameState.TRAINING);
@@ -537,6 +568,8 @@ const App: React.FC = () => {
 
       case 'scrollDiscovery':
         if (currentRoom.activities.scrollDiscovery && !currentRoom.activities.scrollDiscovery.completed) {
+          logActivityStart(currentRoom.id, 'scrollDiscovery', { scrollCount: currentRoom.activities.scrollDiscovery.availableScrolls.length });
+          logStateChange('EXPLORE', 'SCROLL_DISCOVERY', 'scroll discovery activity');
           setScrollDiscoveryData(currentRoom.activities.scrollDiscovery);
           setSelectedBranchingRoom(currentRoom);
           setGameState(GameState.SCROLL_DISCOVERY);
@@ -547,17 +580,24 @@ const App: React.FC = () => {
       case 'eliteChallenge':
         if (currentRoom.activities.eliteChallenge && !currentRoom.activities.eliteChallenge.completed) {
           const challenge = currentRoom.activities.eliteChallenge;
-          // Store the artifact for victory reward
-          setPendingArtifact(challenge.artifact);
-          setSelectedBranchingRoom(currentRoom);
-          setShowApproachSelector(true);
-          addLog(`A ${challenge.enemy.name} guards a sealed artifact! Defeat it to claim the prize.`, 'danger');
+          logActivityStart(currentRoom.id, 'eliteChallenge', { enemy: challenge.enemy.name, artifact: challenge.artifact.name });
+          logStateChange('EXPLORE', 'ELITE_CHALLENGE', 'elite challenge activity');
+          // Show elite challenge choice screen
+          setEliteChallengeData({
+            enemy: challenge.enemy,
+            artifact: challenge.artifact,
+            room: currentRoom,
+          });
+          setGameState(GameState.ELITE_CHALLENGE);
+          addLog(`An artifact guardian bars your path...`, 'danger');
         }
         break;
 
       case 'treasure':
         if (currentRoom.activities.treasure) {
           const treasure = currentRoom.activities.treasure;
+          logActivityStart(currentRoom.id, 'treasure', { itemCount: treasure.items.length, ryo: treasure.ryo });
+          logStateChange('EXPLORE', 'LOOT', 'treasure activity');
           setDroppedItems(treasure.items);
           setDroppedSkill(null);
           if (treasure.ryo > 0) {
@@ -566,13 +606,14 @@ const App: React.FC = () => {
           }
           const updatedFloorAfterTreasure = completeActivity(updatedFloor, room.id, 'treasure');
           setBranchingFloor(updatedFloorAfterTreasure);
+          logActivityComplete(currentRoom.id, 'treasure');
           setGameState(GameState.LOOT);
         }
         break;
     }
   };
 
-  const handleEventChoice = (choice: EnhancedEventChoice) => {
+  const handleEventChoice = (choice: EventChoice) => {
     if (!player || !playerStats) return;
 
     // Use the EventSystem to resolve the choice
@@ -630,15 +671,17 @@ const App: React.FC = () => {
 
     // Return to map (modal will show as overlay)
     setActiveEvent(null);
-    setGameState(GameState.BRANCHING_EXPLORE);
+    setGameState(GameState.EXPLORE);
   };
 
   // Handle closing the event outcome modal
   const handleEventOutcomeClose = () => {
+    logModalClose('EventOutcomeModal');
     // Mark event as completed
     if (branchingFloor) {
       const currentRoom = getCurrentRoom(branchingFloor);
       if (currentRoom) {
+        logActivityComplete(currentRoom.id, 'event');
         const updatedFloor = completeActivity(branchingFloor, currentRoom.id, 'event');
         setBranchingFloor(updatedFloor);
       }
@@ -648,6 +691,7 @@ const App: React.FC = () => {
 
   const nextFloor = () => {
     const nextFloorNum = floor + 1;
+    logFloorChange(floor, nextFloorNum);
     setFloor(nextFloorNum);
     setPlayer(p => {
       if (!p) return null;
@@ -673,26 +717,30 @@ const App: React.FC = () => {
       return updatedPlayer;
     });
 
-    setGameState(GameState.BRANCHING_EXPLORE);
+    setGameState(GameState.EXPLORE);
   };
 
   // Return to exploration map after loot/events (without advancing floor)
   const returnToMap = () => {
+    logRoomExit(selectedBranchingRoom?.id || 'unknown', 'returnToMap');
+    logStateChange(gameState.toString(), 'EXPLORE', 'returnToMap');
     setDroppedItems([]);
     setDroppedSkill(null);
     setEnemy(null);
     setSelectedBranchingRoom(null);
-    setGameState(GameState.BRANCHING_EXPLORE);
+    setGameState(GameState.EXPLORE);
   };
 
   // Close reward modal - check for pending artifact from elite challenge
   const handleRewardClose = () => {
     logRewardModal('close');
+    logModalClose('RewardModal', pendingArtifact ? 'showing loot' : 'staying on map');
     setCombatReward(null);
 
     // If there's a pending artifact from elite challenge, show loot screen
     if (pendingArtifact) {
       logFlowCheckpoint('Pending artifact found - showing LOOT screen', { artifact: pendingArtifact.name });
+      logStateChange('EXPLORE', 'LOOT', 'elite challenge artifact');
       setDroppedItems([pendingArtifact]);
       setDroppedSkill(null);
       setPendingArtifact(null);
@@ -875,6 +923,23 @@ const App: React.FC = () => {
     addLog(`Moved ${item.name} to bag.`, 'info');
   };
 
+  // Unequip component and start synthesis mode
+  const startSynthesisEquipped = (slot: EquipmentSlot, item: Item) => {
+    if (!player || !item.isComponent) return;
+    if (player.componentBag.length >= MAX_BAG_SLOTS) {
+      addLog('Component bag is full!', 'danger');
+      return;
+    }
+    // Move to bag and select for synthesis
+    setPlayer(prev => prev ? {
+      ...prev,
+      equipment: { ...prev.equipment, [slot]: null },
+      componentBag: [...prev.componentBag, item]
+    } : null);
+    setSelectedComponent(item);
+    addLog(`Select another component to synthesize with ${item.name}.`, 'info');
+  };
+
   // Disassemble artifact into components
   const handleDisassembleEquipped = (slot: EquipmentSlot, item: Item) => {
     if (!player || item.isComponent || !item.recipe) return;
@@ -897,6 +962,114 @@ const App: React.FC = () => {
       componentBag: [...prev.componentBag, ...components]
     } : null);
     addLog(`Disassembled ${item.name} into ${components[0].name} + ${components[1].name}!`, 'loot');
+  };
+
+  // ============================================================================
+  // DRAG-AND-DROP HANDLERS
+  // ============================================================================
+
+  // Reorder items within the component bag
+  const reorderBag = (fromIndex: number, toIndex: number) => {
+    if (!player) return;
+    if (fromIndex === toIndex) return;
+
+    const newBag = [...player.componentBag];
+    const [movedItem] = newBag.splice(fromIndex, 1);
+    newBag.splice(toIndex, 0, movedItem);
+
+    setPlayer({ ...player, componentBag: newBag });
+  };
+
+  // Equip item from bag to a specific slot via drag
+  const dragBagToEquip = (item: Item, bagIndex: number, targetSlot: EquipmentSlot) => {
+    if (!player) return;
+
+    const existingItem = player.equipment[targetSlot];
+
+    // Remove dragged item from bag
+    const newBag = player.componentBag.filter((_, i) => i !== bagIndex);
+
+    // If target slot has an item, move it to the bag position we just freed
+    if (existingItem) {
+      // Check if existing item is a component (can go to bag)
+      if (existingItem.isComponent) {
+        newBag.splice(bagIndex, 0, existingItem);
+        addLog(`Swapped ${item.name} with ${existingItem.name}.`, 'info');
+      } else {
+        // Artifact in slot - can't swap, just equip if bag not full
+        addLog(`Equipped ${item.name}. ${existingItem.name} remains equipped.`, 'info');
+        return; // Don't allow swap with artifact
+      }
+    } else {
+      addLog(`Equipped ${item.name}.`, 'loot');
+    }
+
+    setPlayer({
+      ...player,
+      componentBag: newBag,
+      equipment: { ...player.equipment, [targetSlot]: item }
+    });
+    setSelectedComponent(null);
+  };
+
+  // Unequip item from equipment to bag via drag
+  const dragEquipToBag = (item: Item, slot: EquipmentSlot, targetBagIndex?: number) => {
+    if (!player) return;
+
+    // Only components can be unequipped to bag
+    if (!item.isComponent) {
+      addLog('Only components can be moved to bag.', 'danger');
+      return;
+    }
+
+    // Check bag space
+    if (player.componentBag.length >= MAX_BAG_SLOTS) {
+      addLog('Component bag is full!', 'danger');
+      return;
+    }
+
+    const newBag = [...player.componentBag];
+    if (targetBagIndex !== undefined && targetBagIndex >= 0 && targetBagIndex <= newBag.length) {
+      // Insert at specific position
+      newBag.splice(targetBagIndex, 0, item);
+    } else {
+      // Append to end
+      newBag.push(item);
+    }
+
+    setPlayer({
+      ...player,
+      equipment: { ...player.equipment, [slot]: null },
+      componentBag: newBag
+    });
+    addLog(`Moved ${item.name} to bag.`, 'info');
+  };
+
+  // Swap items between two equipment slots
+  const swapEquipment = (fromSlot: EquipmentSlot, toSlot: EquipmentSlot) => {
+    if (!player) return;
+    if (fromSlot === toSlot) return;
+
+    const fromItem = player.equipment[fromSlot];
+    const toItem = player.equipment[toSlot];
+
+    // At least one slot must have an item
+    if (!fromItem && !toItem) return;
+
+    setPlayer({
+      ...player,
+      equipment: {
+        ...player.equipment,
+        [fromSlot]: toItem,
+        [toSlot]: fromItem
+      }
+    });
+
+    if (fromItem && toItem) {
+      addLog(`Swapped ${fromItem.name} and ${toItem.name}.`, 'info');
+    } else if (fromItem) {
+      addLog(`Moved ${fromItem.name} to another slot.`, 'info');
+    }
   };
 
   const buyItem = (item: Item) => {
@@ -929,13 +1102,15 @@ const App: React.FC = () => {
 
   const leaveMerchant = () => {
     if (branchingFloor && selectedBranchingRoom) {
+      logActivityComplete(selectedBranchingRoom.id, 'merchant');
       const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'merchant');
       setBranchingFloor(updatedFloor);
     }
+    logStateChange('MERCHANT', 'EXPLORE', 'left merchant');
     setMerchantItems([]);
     setMerchantDiscount(0);
     setSelectedBranchingRoom(null);
-    setGameState(GameState.BRANCHING_EXPLORE);
+    setGameState(GameState.EXPLORE);
     addLog('The merchant waves goodbye.', 'info');
   };
 
@@ -968,22 +1143,26 @@ const App: React.FC = () => {
     addLog(`${intensityLabel} training complete! ${stat} +${gain}`, 'gain');
 
     // Mark training as complete and return to map
+    logActivityComplete(selectedBranchingRoom.id, 'training');
+    logStateChange('TRAINING', 'EXPLORE', 'training complete');
     const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'training');
     setBranchingFloor(updatedFloor);
     setTrainingData(null);
     setSelectedBranchingRoom(null);
-    setGameState(GameState.BRANCHING_EXPLORE);
+    setGameState(GameState.EXPLORE);
   };
 
   const handleTrainingSkip = () => {
     // Mark training as complete without training
     if (branchingFloor && selectedBranchingRoom) {
+      logActivityComplete(selectedBranchingRoom.id, 'training');
       const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'training');
       setBranchingFloor(updatedFloor);
     }
+    logStateChange('TRAINING', 'EXPLORE', 'training skipped');
     setTrainingData(null);
     setSelectedBranchingRoom(null);
-    setGameState(GameState.BRANCHING_EXPLORE);
+    setGameState(GameState.EXPLORE);
     addLog('You decide to skip training for now.', 'info');
   };
 
@@ -1048,22 +1227,73 @@ const App: React.FC = () => {
     setPlayer(updatedPlayer);
 
     // Mark scroll discovery as complete
+    logActivityComplete(selectedBranchingRoom.id, 'scrollDiscovery');
+    logStateChange('SCROLL_DISCOVERY', 'EXPLORE', 'scroll learned');
     const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'scrollDiscovery');
     setBranchingFloor(updatedFloor);
     setScrollDiscoveryData(null);
     setSelectedBranchingRoom(null);
-    setGameState(GameState.BRANCHING_EXPLORE);
+    setGameState(GameState.EXPLORE);
   };
 
   const handleScrollDiscoverySkip = () => {
     if (branchingFloor && selectedBranchingRoom) {
+      logActivityComplete(selectedBranchingRoom.id, 'scrollDiscovery');
       const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'scrollDiscovery');
       setBranchingFloor(updatedFloor);
     }
+    logStateChange('SCROLL_DISCOVERY', 'EXPLORE', 'scroll skipped');
     setScrollDiscoveryData(null);
     setSelectedBranchingRoom(null);
-    setGameState(GameState.BRANCHING_EXPLORE);
+    setGameState(GameState.EXPLORE);
     addLog('You leave the scrolls behind.', 'info');
+  };
+
+  // Elite Challenge handlers
+  const handleEliteFight = () => {
+    if (!eliteChallengeData) return;
+    logExplorationCheckpoint('Elite Fight chosen', { enemy: eliteChallengeData.enemy.name, artifact: eliteChallengeData.artifact.name });
+    logModalOpen('ApproachSelector', { source: 'eliteChallenge', enemy: eliteChallengeData.enemy.name });
+    // Store the artifact for victory reward and proceed to approach selector
+    setPendingArtifact(eliteChallengeData.artifact);
+    setSelectedBranchingRoom(eliteChallengeData.room);
+    setShowApproachSelector(true);
+    setEliteChallengeData(null);
+    setGameState(GameState.EXPLORE);
+  };
+
+  const handleEliteEscape = () => {
+    if (!eliteChallengeData || !player || !playerStats || !branchingFloor) return;
+
+    const result = attemptEliteEscape(player, playerStats, eliteChallengeData.enemy);
+    logExplorationCheckpoint('Elite Escape attempt', { success: result.success, roll: result.roll, chance: result.chance });
+
+    if (result.success) {
+      // Mark activity as completed (skipped)
+      logActivityComplete(eliteChallengeData.room.id, 'eliteChallenge');
+      const updatedFloor = completeActivity(branchingFloor, eliteChallengeData.room.id, 'eliteChallenge');
+      setBranchingFloor(updatedFloor);
+      addLog(result.message, 'info');
+      setEliteChallengeData(null);
+      setGameState(GameState.EXPLORE);
+
+      // Continue to next activity in the room
+      const currentRoom = getCurrentRoom(updatedFloor);
+      if (currentRoom) {
+        // Small delay then check for more activities
+        setTimeout(() => handleBranchingRoomEnter(currentRoom), 100);
+      }
+    } else {
+      // Failed escape - must fight
+      logExplorationCheckpoint('Elite Escape failed - must fight');
+      logModalOpen('ApproachSelector', { source: 'eliteEscapeFailed', enemy: eliteChallengeData.enemy.name });
+      addLog(result.message, 'danger');
+      setPendingArtifact(eliteChallengeData.artifact);
+      setSelectedBranchingRoom(eliteChallengeData.room);
+      setShowApproachSelector(true);
+      setEliteChallengeData(null);
+      setGameState(GameState.EXPLORE);
+    }
   };
 
   const getRarityColor = (r: Rarity) => {
@@ -1136,6 +1366,11 @@ const App: React.FC = () => {
             onSellEquipped={sellEquipped}
             onUnequipToBag={unequipToBag}
             onDisassembleEquipped={handleDisassembleEquipped}
+            onStartSynthesisEquipped={startSynthesisEquipped}
+            onReorderBag={reorderBag}
+            onDragBagToEquip={dragBagToEquip}
+            onDragEquipToBag={dragEquipToBag}
+            onSwapEquipment={swapEquipment}
           />
         </div>
       )}
@@ -1143,7 +1378,7 @@ const App: React.FC = () => {
       {/* Center Panel */}
       <div className="flex-1 flex flex-col relative bg-zinc-950">
         <div className="flex-1 p-6 flex flex-col items-center justify-center relative overflow-y-auto parchment-panel">
-          {gameState === GameState.BRANCHING_EXPLORE && player && playerStats && branchingFloor && (
+          {gameState === GameState.EXPLORE && player && playerStats && branchingFloor && (
             <div className="w-full h-full flex flex-col">
               <BranchingExplorationMap
                 branchingFloor={branchingFloor}
@@ -1202,6 +1437,17 @@ const App: React.FC = () => {
 
           {gameState === GameState.EVENT && activeEvent && (
             <Event activeEvent={activeEvent} onChoice={handleEventChoice} player={player} playerStats={playerStats} />
+          )}
+
+          {gameState === GameState.ELITE_CHALLENGE && eliteChallengeData && player && playerStats && (
+            <EliteChallenge
+              enemy={eliteChallengeData.enemy}
+              artifact={eliteChallengeData.artifact}
+              player={player}
+              playerStats={playerStats}
+              onFight={handleEliteFight}
+              onEscape={handleEliteEscape}
+            />
           )}
 
           {gameState === GameState.LOOT && (
@@ -1269,16 +1515,10 @@ const App: React.FC = () => {
           <ApproachSelector
             node={{
               id: selectedBranchingRoom.id,
-              type: targetEnemy.tier === 'Guardian' ? 'BOSS' as any :
-                    targetEnemy.tier === 'Jonin' ? 'ELITE' as any : 'COMBAT' as any,
+              type: targetEnemy.tier === 'Guardian' ? 'BOSS' :
+                    targetEnemy.tier === 'Jonin' ? 'ELITE' : 'COMBAT',
               terrain: selectedBranchingRoom.terrain,
-              visibility: 'VISIBLE' as any,
-              position: { x: 0, y: 0 },
-              connections: [],
               enemy: targetEnemy,
-              isVisited: true,
-              isCleared: false,
-              isRevealed: true,
             }}
             terrain={TERRAIN_DEFINITIONS[selectedBranchingRoom.terrain]}
             player={player}

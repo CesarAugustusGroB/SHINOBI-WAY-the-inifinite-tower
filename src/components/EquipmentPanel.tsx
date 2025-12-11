@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Item, EquipmentSlot, Rarity } from '../game/types';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
+import { Item, EquipmentSlot, Rarity, DragData } from '../game/types';
 import Tooltip from './Tooltip';
 
 interface EquipmentPanelProps {
@@ -7,6 +9,8 @@ interface EquipmentPanelProps {
   onSellEquipped?: (slot: EquipmentSlot, item: Item) => void;
   onUnequip?: (slot: EquipmentSlot, item: Item) => void;
   onDisassemble?: (slot: EquipmentSlot, item: Item) => void;
+  onStartSynthesis?: (slot: EquipmentSlot, item: Item) => void;
+  isDragging?: boolean;
 }
 
 const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
@@ -14,6 +18,8 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
   onSellEquipped,
   onUnequip,
   onDisassemble,
+  onStartSynthesis,
+  isDragging: globalDragging = false,
 }) => {
   const [activeMenu, setActiveMenu] = useState<EquipmentSlot | null>(null);
 
@@ -80,12 +86,51 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     setActiveMenu(null);
   };
 
+  const handleStartSynthesis = (slot: EquipmentSlot, item: Item) => {
+    onStartSynthesis?.(slot, item);
+    setActiveMenu(null);
+  };
+
   const renderEquip = (slot: EquipmentSlot) => {
     const item = equipment[slot];
     const isMenuOpen = activeMenu === slot;
     const sellValue = item ? Math.floor(item.value * 0.6) : 0;
     const canUnequip = item?.isComponent;
     const canDisassemble = item && !item.isComponent && item.recipe;
+
+    // Make this slot droppable (to receive items from bag or other equipment)
+    const { setNodeRef: setDropRef, isOver } = useDroppable({
+      id: `equip-${slot}`,
+    });
+
+    // Make item draggable if slot has an item
+    const dragData: DragData | undefined = item
+      ? { item, source: { type: 'equipment', slot } }
+      : undefined;
+
+    const {
+      attributes,
+      listeners,
+      setNodeRef: setDragRef,
+      transform,
+      isDragging,
+    } = useDraggable({
+      id: `equip-drag-${slot}`,
+      data: dragData,
+      disabled: !item,
+    });
+
+    // Combine refs
+    const combinedRef = (node: HTMLElement | null) => {
+      setDropRef(node);
+      setDragRef(node);
+    };
+
+    const style = transform
+      ? {
+          transform: CSS.Translate.toString(transform),
+        }
+      : undefined;
 
     const tooltipContent = item ? (
       <div className="space-y-2">
@@ -118,19 +163,27 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
             Can disassemble (50% return)
           </div>
         )}
-        <div className="text-[9px] text-zinc-500 pt-1">Click for actions</div>
+        <div className="text-[9px] text-zinc-500 pt-1">Drag to move • Click for actions</div>
       </div>
-    ) : <div className="text-xs text-zinc-500 italic">No item equipped.</div>;
+    ) : <div className="text-xs text-zinc-500 italic">Empty slot - drop items here</div>;
 
     return (
       <div key={slot} className="relative">
         <Tooltip content={tooltipContent}>
           <div
+            ref={combinedRef}
+            style={style}
+            {...attributes}
+            {...listeners}
             onClick={() => handleSlotClick(slot, item)}
-            className={`mb-1.5 p-2 border rounded transition-colors cursor-pointer ${
-              isMenuOpen
-                ? 'border-amber-500 bg-amber-500/10'
-                : 'border-zinc-800 bg-black/40 hover:border-zinc-600'
+            className={`mb-1.5 p-2 border rounded transition-all cursor-pointer touch-none ${
+              isDragging
+                ? 'opacity-50 scale-95 border-amber-500'
+                : isOver && globalDragging
+                  ? 'border-amber-500 bg-amber-500/20 scale-[1.02]'
+                  : isMenuOpen
+                    ? 'border-amber-500 bg-amber-500/10'
+                    : 'border-zinc-800 bg-black/40 hover:border-zinc-600'
             } ${item ? 'group' : ''}`}
           >
             <div className="flex justify-between items-center mb-0.5">
@@ -172,6 +225,17 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                 className="w-full px-3 py-2 text-left text-[10px] hover:bg-zinc-800 transition-colors text-blue-400 hover:text-blue-300 border-t border-zinc-800"
               >
                 Move to Bag
+              </button>
+            )}
+
+            {/* Synthesize - only for components */}
+            {canUnequip && onStartSynthesis && (
+              <button
+                type="button"
+                onClick={() => handleStartSynthesis(slot, item)}
+                className="w-full px-3 py-2 text-left text-[10px] hover:bg-zinc-800 transition-colors text-purple-400 hover:text-purple-300 border-t border-zinc-800"
+              >
+                Synthesize
               </button>
             )}
 

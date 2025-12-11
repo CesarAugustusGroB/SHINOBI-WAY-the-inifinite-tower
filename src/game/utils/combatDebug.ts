@@ -6,7 +6,7 @@
  */
 
 // Toggle this to enable/disable all combat debug logs
-export const COMBAT_DEBUG = true;
+export const COMBAT_DEBUG = false;
 
 // Color codes for console styling
 const COLORS = {

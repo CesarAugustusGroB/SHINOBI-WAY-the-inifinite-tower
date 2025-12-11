@@ -149,7 +149,7 @@ export function generateSimEnemy(
 
   // Calculate scaling multiplier
   const floorMult = 1 + (floorNumber * 0.08);  // 8% per floor
-  const diffMult = 0.75 + (difficulty / 100);   // 75% at diff 0, 175% at diff 100
+  const diffMult = 0.50 + (difficulty / 200);   // 50% at diff 0, 100% at diff 100
   const totalScaling = floorMult * diffMult;
 
   // Scale base stats

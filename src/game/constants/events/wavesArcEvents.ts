@@ -1,6 +1,6 @@
-import { EnhancedGameEventDefinition, PrimaryStat, Rarity, RiskLevel } from '../../types';
+import { GameEvent, PrimaryStat, Rarity, RiskLevel } from '../../types';
 
-export const WAVES_ARC_EVENTS: EnhancedGameEventDefinition[] = [
+export const WAVES_ARC_EVENTS: GameEvent[] = [
   {
     id: 'bridge_worker_plea',
     title: "Bridge Worker's Plea",

@@ -1,6 +1,6 @@
-import { EnhancedGameEventDefinition, PrimaryStat, Rarity, RiskLevel } from '../../types';
+import { GameEvent, PrimaryStat, Rarity, RiskLevel } from '../../types';
 
-export const EXAMS_ARC_EVENTS: EnhancedGameEventDefinition[] = [
+export const EXAMS_ARC_EVENTS: GameEvent[] = [
   {
     id: 'forest_death_trap',
     title: 'Forest of Death Trap',

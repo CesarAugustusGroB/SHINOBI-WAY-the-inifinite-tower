@@ -1,6 +1,6 @@
-import { EnhancedGameEventDefinition, PrimaryStat, Rarity, RiskLevel } from '../../types';
+import { GameEvent, PrimaryStat, Rarity, RiskLevel } from '../../types';
 
-export const ROGUE_ARC_EVENTS: EnhancedGameEventDefinition[] = [
+export const ROGUE_ARC_EVENTS: GameEvent[] = [
   {
     id: 'sound_four_ritual',
     title: 'Sound Four Ritual Site',

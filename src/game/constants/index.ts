@@ -1,7 +1,7 @@
 import {
-  PrimaryAttributes, PrimaryStat, Clan, ElementType, GameEventDefinition,
+  PrimaryAttributes, PrimaryStat, Clan, ElementType,
   ItemSlot, Rarity, Skill, EffectType, SkillTier, DamageType,
-  DamageProperty, AttackMethod, EnhancedGameEventDefinition, ActionType
+  DamageProperty, AttackMethod, GameEvent, ActionType
 } from '../types';
 import { ACADEMY_ARC_EVENTS } from './events/academyArcEvents';
 import { WAVES_ARC_EVENTS } from './events/wavesArcEvents';
@@ -959,27 +959,6 @@ export const SKILLS: Record<string, Skill> = {
   // ==========================================
   // BASIC TIER - PASSIVE ABILITIES (NEW)
   // ==========================================
-  ACADEMY_TRAINING: {
-    id: 'academy_training',
-    name: 'Academy Training',
-    tier: SkillTier.BASIC,
-    description: 'Basic ninja training. +5% max HP, +5% max CP.',
-    actionType: ActionType.PASSIVE,
-    chakraCost: 0,
-    hpCost: 0,
-    cooldown: 0,
-    currentCooldown: 0,
-    damageMult: 0,
-    scalingStat: PrimaryStat.WILLPOWER,
-    damageType: DamageType.PHYSICAL,
-    damageProperty: DamageProperty.NORMAL,
-    attackMethod: AttackMethod.AUTO,
-    element: ElementType.PHYSICAL,
-    passiveEffect: {
-      statBonus: { willpower: 5, chakra: 5 }
-    }
-  },
-
   WEAPON_PROFICIENCY: {
     id: 'weapon_proficiency',
     name: 'Weapon Proficiency',
@@ -2639,7 +2618,7 @@ export const CLAN_START_LOADOUT: Record<Clan, ClanLoadout> = {
     main: [SKILLS.BASIC_ATTACK, SKILLS.RASENGAN, SKILLS.BASIC_MEDICAL],
     side: [SKILLS.BUNSHIN, SKILLS.SHUNSHIN, SKILLS.BRACE, SKILLS.SHADOW_CLONE],
     toggle: [],
-    passive: [SKILLS.CHAKRA_RESERVES, SKILLS.ACADEMY_TRAINING]
+    passive: [SKILLS.CHAKRA_RESERVES]
   },
 
   // Uchiha: Glass Cannon - High damage, fire ninjutsu, sharingan
@@ -2671,7 +2650,7 @@ export const CLAN_START_LOADOUT: Record<Clan, ClanLoadout> = {
     main: [SKILLS.BASIC_ATTACK, SKILLS.SHURIKEN, SKILLS.MIND_TRANSFER, SKILLS.HELL_VIEWING],
     side: [SKILLS.BUNSHIN, SKILLS.ANALYZE, SKILLS.KAI],
     toggle: [],
-    passive: [SKILLS.MENTAL_FORTITUDE, SKILLS.ACADEMY_TRAINING]
+    passive: [SKILLS.MENTAL_FORTITUDE]
   }
 };
 
@@ -2714,58 +2693,7 @@ export const AMBUSH_ENEMIES = [
 // ============================================================================
 // EVENT DEFINITIONS
 // ============================================================================
-export const EVENTS: GameEventDefinition[] = [
-  {
-    id: 'orochimaru_lab',
-    title: "Orochimaru's Lab",
-    description: "The air is thick with antiseptic and decay. Vats of green liquid bubble ominously. A forbidden scroll lies open, detailing a procedure to merge flesh with snake essence.",
-    choices: [
-      { label: "Undergo Experiment", type: 'GAMBLE_HP', value: 50, chance: 0.5, description: "50% Chance: +50 Max HP. Fail: -50% Current HP." },
-      { label: "Leave", type: 'LEAVE', description: "Do not tamper with nature." }
-    ]
-  },
-  {
-    id: 'fresh_grave',
-    title: "Fresh Grave",
-    description: "A freshly dug grave in a field of red spider lilies. A high-quality weapon protrudes from the loose earth. The spirit of the fallen warrior seems restless.",
-    choices: [
-      { label: "Desecrate", type: 'FIGHT_GHOST', description: "Steal the weapon. Fight a vengeful spirit." },
-      { label: "Pray", type: 'HEAL_CHAKRA', description: "Pay respects. Fully restore Chakra." }
-    ]
-  },
-  {
-    id: 'merchant',
-    title: "Wandering Merchant",
-    description: "A mysterious figure in a tattered hood sits by a small fire. He gestures to a sealed box.",
-    choices: [
-      { label: "Buy Mystery Box", type: 'TRADE', value: 150, description: "Cost: 150 Ryō." },
-      { label: "Leave", type: 'LEAVE', description: "Save your money." }
-    ]
-  },
-  {
-    id: 'training_dummy',
-    title: "Abandoned Training Grounds",
-    description: "An old training stump used by legendary ninja. It still bears the scars of a thousand strikes.",
-    choices: [
-      { label: "Train Form", type: 'GAIN_XP', value: 50, description: "Practice Kata. Gain 50 Experience." }, 
-      { label: 'Meditate', type: 'HEAL_ALL', description: 'Deep meditation. Fully recover HP and Chakra.' }
-    ]
-  },
-  {
-    id: 'forbidden_temple',
-    title: "Forbidden Temple",
-    description: "You discovered a sealed temple emitting a terrifying chakra pressure. Inside lies a forbidden scroll, but it is guarded by a monstrous entity.",
-    choices: [
-      { label: "Challenge Guardian", type: 'CHALLENGE_GUARDIAN', description: "Fight a powerful foe for a Forbidden Technique." },
-      { label: "Leave", type: 'LEAVE', description: "The risk is too great." }
-    ]
-  }
-];
-
-// ============================================================================
-// ENHANCED EVENT DEFINITIONS (New Resource Management System)
-// ============================================================================
-export const ENHANCED_EVENTS: EnhancedGameEventDefinition[] = [
+export const EVENTS: GameEvent[] = [
   ...ACADEMY_ARC_EVENTS,
   ...WAVES_ARC_EVENTS,
   ...EXAMS_ARC_EVENTS,

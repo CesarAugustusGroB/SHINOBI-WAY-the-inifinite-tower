@@ -1,11 +1,11 @@
 import React from 'react';
-import { EnhancedGameEventDefinition, Player, EnhancedEventChoice, CharacterStats } from '../game/types';
+import { GameEvent, Player, EventChoice, CharacterStats } from '../game/types';
 import { MapIcon } from 'lucide-react';
 import EventChoicePanel from '../components/EventChoicePanel';
 
 interface EventProps {
-  activeEvent: EnhancedGameEventDefinition;
-  onChoice: (choice: EnhancedEventChoice) => void;
+  activeEvent: GameEvent;
+  onChoice: (choice: EventChoice) => void;
   player?: Player | null;
   playerStats?: CharacterStats | null;
 }

@@ -45,6 +45,9 @@ export const SkillCard: React.FC<SkillCardProps> = ({
     if (skillName.includes('gentle') && skillName.includes('fist')) {
       return '/assets/skill_gentle_fist.png';
     }
+    if (skillName.includes('mind')){ //&& skillName.includes('body') && skillName.includes('disturbing')) {
+      return '/assets/skill_mind_body_disturbing.png';
+    }
     // Default fallback image
     return "https://i.pinimg.com/736x/2c/a6/34/2ca6347bd392eb997d74720838b90839.jpg";
   };

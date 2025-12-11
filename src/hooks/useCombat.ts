@@ -30,6 +30,7 @@ import {
   logFlowCheckpoint,
   logCombatStart,
 } from '../game/utils/combatDebug';
+import { processPassivesOnCombatStart, processPassivesOnKill } from '../game/systems/EquipmentPassiveSystem';
 
 export type TurnState = 'PLAYER' | 'ENEMY_TURN';
 
@@ -272,6 +273,15 @@ export function useCombat({
 
       // Check for victory/defeat
       if (result.enemyDefeated) {
+        // Process on-kill passives (cooldown reset)
+        if (player && enemy) {
+          const onKillResult = processPassivesOnKill(player, enemy);
+          if (onKillResult.logs.length > 0) {
+            onKillResult.logs.forEach(log => addLog(log, 'gain'));
+            // Update player skills with reset cooldowns
+            setPlayer(prev => prev ? { ...prev, skills: onKillResult.player.skills } : null);
+          }
+        }
         handleVictory();
         setTurnState('PLAYER'); // Stop enemy turn effect from re-running
         return;
@@ -313,15 +323,27 @@ export function useCombat({
       });
 
       const modifiers = getCombatModifiers(result);
-      const { player: preparedPlayer, enemy: preparedEnemy, logs: effectLogs } = applyApproachEffects(
+      let { player: preparedPlayer, enemy: preparedEnemy, logs: effectLogs } = applyApproachEffects(
         playerAfterCosts,
         newEnemy,
         modifiers
       );
       effectLogs.forEach((log) => addLog(log, 'info'));
 
+      // Process artifact passives at combat start (shields, invuln, reflect, free skill)
+      const passiveResult = processPassivesOnCombatStart(preparedPlayer, preparedEnemy);
+      passiveResult.logs.forEach(log => addLog(log, 'gain'));
+
+      // Apply passive buffs to player
+      preparedPlayer = {
+        ...preparedPlayer,
+        activeBuffs: passiveResult.player.activeBuffs
+      };
+
       // Create combat state with modifiers
       const newCombatState = createCombatState(modifiers, terrain);
+      // Store skipFirstSkillCost from artifact passive
+      newCombatState.skipFirstSkillCost = passiveResult.skipFirstSkillCost;
       setCombatState(newCombatState);
       setApproachResult(result);
 
@@ -472,6 +494,11 @@ export function useCombat({
             : null
         );
 
+        // Update combatState if artifact guts was triggered (one-time per combat)
+        if (result.artifactGutsTriggered) {
+          setCombatState((prev) => prev ? { ...prev, artifactGutsUsed: true } : null);
+        }
+
         if (result.enemyDefeated) {
           logFlowCheckpoint('Enemy defeated - calling handleVictory', { enemy: enemy.name });
           handleVictory();
@@ -493,8 +520,8 @@ export function useCombat({
   // Process upkeep when turn changes to PLAYER (after enemy turn)
   useEffect(() => {
     if (turnState === 'PLAYER' && player && playerStats && enemy && !upkeepProcessedThisTurn) {
-      // Process toggle upkeep costs
-      const upkeepResult = processUpkeep(player, playerStats);
+      // Process toggle upkeep costs and artifact turn-start passives
+      const upkeepResult = processUpkeep(player, playerStats, enemy);
 
       // Log upkeep messages
       upkeepResult.logs.forEach((msg) => {

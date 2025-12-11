@@ -378,6 +378,6 @@ function applyMitigation(buffs, incomingDamage, targetName): MitigationResult {
 ### Enemy Scaling
 ```typescript
 floorMultiplier = 1 + (floor × 0.08)
-difficultyMultiplier = 0.75 + (difficulty / 100)
+difficultyMultiplier = 0.50 + (difficulty / 200)
 totalScaling = floorMultiplier × difficultyMultiplier
 ```

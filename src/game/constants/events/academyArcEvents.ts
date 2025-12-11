@@ -1,6 +1,6 @@
-import { EnhancedGameEventDefinition, PrimaryStat, Rarity, RiskLevel } from '../../types';
+import { GameEvent, PrimaryStat, Rarity, RiskLevel } from '../../types';
 
-export const ACADEMY_ARC_EVENTS: EnhancedGameEventDefinition[] = [
+export const ACADEMY_ARC_EVENTS: GameEvent[] = [
   {
     id: 'forbidden_scroll_library',
     title: 'Forbidden Scroll in the Library',

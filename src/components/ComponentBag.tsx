@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Item, MAX_BAG_SLOTS, Rarity } from '../game/types';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
+import { Item, MAX_BAG_SLOTS, Rarity, DragData } from '../game/types';
 import { getRecipesUsingComponent, findRecipe } from '../game/constants/synthesis';
 import { formatStatName } from '../game/utils/tooltipFormatters';
 import Tooltip from './Tooltip';
@@ -11,7 +13,152 @@ interface ComponentBagProps {
   selectedComponent: Item | null;
   onSynthesize?: (componentA: Item, componentB: Item) => void;
   onEquipFromBag?: (item: Item) => void;
+  isDragging?: boolean;
 }
+
+// Individual bag slot component with drag support
+interface BagSlotProps {
+  item: Item | null;
+  index: number;
+  isSelected: boolean;
+  canCombine: boolean;
+  isMenuOpen: boolean;
+  sellValue: number;
+  globalDragging: boolean;
+  onItemClick: (item: Item) => void;
+  onContextMenu: (e: React.MouseEvent, item: Item) => void;
+  getRarityColor: (r: Rarity) => string;
+  getCompatibleRecipes: (item: Item) => { name: string }[];
+  children?: React.ReactNode;
+}
+
+const BagSlot: React.FC<BagSlotProps> = ({
+  item,
+  index,
+  isSelected,
+  canCombine,
+  globalDragging,
+  onItemClick,
+  onContextMenu,
+  getRarityColor,
+  getCompatibleRecipes,
+  children,
+}) => {
+  const sellValue = item ? Math.floor(item.value * 0.6) : 0;
+
+  // Make this slot droppable (to receive items from equipment or other bag slots)
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `bag-${index}`,
+  });
+
+  // Make item draggable if slot has an item
+  const dragData: DragData | undefined = item
+    ? { item, source: { type: 'bag', index } }
+    : undefined;
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setDragRef,
+    transform,
+    isDragging,
+  } = useDraggable({
+    id: `bag-drag-${index}`,
+    data: dragData,
+    disabled: !item,
+  });
+
+  // Combine refs
+  const combinedRef = (node: HTMLElement | null) => {
+    setDropRef(node);
+    setDragRef(node);
+  };
+
+  const style = transform
+    ? {
+        transform: CSS.Translate.toString(transform),
+      }
+    : undefined;
+
+  return (
+    <div className="relative">
+      <Tooltip
+        position="right"
+        content={
+          item ? (
+            <div className="space-y-2 p-1 max-w-[200px]">
+              <div className={`font-bold ${getRarityColor(item.rarity)}`}>
+                {item.icon} {item.name}
+              </div>
+              <div className="text-[10px] text-zinc-500">
+                {item.description}
+              </div>
+              <div className="space-y-1 text-[10px] font-mono text-zinc-400 pt-2 border-t border-zinc-800">
+                {Object.entries(item.stats).map(([key, val]) => (
+                  <div key={key} className="flex justify-between">
+                    <span>{formatStatName(key)}</span>
+                    <span className="text-zinc-200">+{val}</span>
+                  </div>
+                ))}
+              </div>
+              {/* Show compatible recipes */}
+              {item.componentId && (
+                <div className="pt-2 border-t border-zinc-800">
+                  <div className="text-[9px] text-zinc-500 mb-1">Can combine into:</div>
+                  {getCompatibleRecipes(item).slice(0, 3).map(recipe => (
+                    <div key={recipe.name} className="text-[9px] text-purple-400">
+                      {recipe.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="text-[10px] text-yellow-600 pt-1 border-t border-zinc-800">
+                Sell: {sellValue} Ryō (60%)
+              </div>
+              <div className="text-[9px] text-zinc-500 pt-1">Drag to move • Click for actions</div>
+            </div>
+          ) : (
+            <div className="text-[10px] text-zinc-500">Empty slot - drop items here</div>
+          )
+        }
+      >
+        <div
+          ref={combinedRef}
+          style={style}
+          {...attributes}
+          {...listeners}
+          onClick={() => item && onItemClick(item)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            if (item) onContextMenu(e, item);
+          }}
+          className={`
+            aspect-square border rounded p-1 cursor-pointer transition-all touch-none
+            flex items-center justify-center text-lg
+            ${isDragging ? 'opacity-50 scale-95' : ''}
+            ${isOver && globalDragging ? 'border-amber-500 bg-amber-500/20 scale-105' : ''}
+            ${item && !isDragging && !isOver
+              ? `${isSelected
+                  ? 'border-amber-500 bg-amber-500/20'
+                  : canCombine
+                    ? 'border-green-500 bg-green-500/10 animate-pulse'
+                    : 'border-zinc-700 bg-zinc-800/50 hover:border-zinc-500'
+                }`
+              : !isOver ? 'border-zinc-800 bg-zinc-900/30' : ''
+            }
+          `}
+        >
+          {item ? (
+            <span title={item.name}>{item.icon || '?'}</span>
+          ) : (
+            <span className="text-zinc-700 text-xs">·</span>
+          )}
+        </div>
+      </Tooltip>
+      {children}
+    </div>
+  );
+};
 
 const ComponentBag: React.FC<ComponentBagProps> = ({
   components,
@@ -20,6 +167,7 @@ const ComponentBag: React.FC<ComponentBagProps> = ({
   selectedComponent,
   onSynthesize,
   onEquipFromBag,
+  isDragging: globalDragging = false,
 }) => {
   const [synthesisMode, setSynthesisMode] = useState(false);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
@@ -126,80 +274,25 @@ const ComponentBag: React.FC<ComponentBagProps> = ({
       <div className="grid grid-cols-4 gap-1">
         {slots.map((item, index) => {
           const isSelected = selectedComponent?.id === item?.id;
-          const canCombine = item && canCombineWithSelected(item);
+          const canCombine = item ? canCombineWithSelected(item) : false;
           const isMenuOpen = item && activeMenu === item.id && !synthesisMode;
           const sellValue = item ? Math.floor(item.value * 0.6) : 0;
 
           return (
-            <div key={index} className="relative">
-              <Tooltip
-                position="right"
-                content={
-                  item ? (
-                    <div className="space-y-2 p-1 max-w-[200px]">
-                      <div className={`font-bold ${getRarityColor(item.rarity)}`}>
-                        {item.icon} {item.name}
-                      </div>
-                      <div className="text-[10px] text-zinc-500">
-                        {item.description}
-                      </div>
-                      <div className="space-y-1 text-[10px] font-mono text-zinc-400 pt-2 border-t border-zinc-800">
-                        {Object.entries(item.stats).map(([key, val]) => (
-                          <div key={key} className="flex justify-between">
-                            <span>{formatStatName(key)}</span>
-                            <span className="text-zinc-200">+{val}</span>
-                          </div>
-                        ))}
-                      </div>
-                      {/* Show compatible recipes */}
-                      {item.componentId && (
-                        <div className="pt-2 border-t border-zinc-800">
-                          <div className="text-[9px] text-zinc-500 mb-1">Can combine into:</div>
-                          {getCompatibleRecipes(item).slice(0, 3).map(recipe => (
-                            <div key={recipe.name} className="text-[9px] text-purple-400">
-                              {recipe.name}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <div className="text-[10px] text-yellow-600 pt-1 border-t border-zinc-800">
-                        Sell: {Math.floor(item.value * 0.6)} Ryō (60%)
-                      </div>
-                      <div className="text-[9px] text-zinc-500 pt-1">Click for actions</div>
-                    </div>
-                  ) : (
-                    <div className="text-[10px] text-zinc-500">Empty slot</div>
-                  )
-                }
-              >
-                <div
-                  onClick={() => item && handleComponentClick(item)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    if (item) handleSell(e, item);
-                  }}
-                  className={`
-                    aspect-square border rounded p-1 cursor-pointer transition-all
-                    flex items-center justify-center text-lg
-                    ${item
-                      ? `${isSelected
-                          ? 'border-amber-500 bg-amber-500/20'
-                          : canCombine
-                            ? 'border-green-500 bg-green-500/10 animate-pulse'
-                            : 'border-zinc-700 bg-zinc-800/50 hover:border-zinc-500'
-                        }`
-                      : 'border-zinc-800 bg-zinc-900/30'
-                    }
-                  `}
-                >
-                  {item ? (
-                    <span title={item.name}>{item.icon || '?'}</span>
-                  ) : (
-                    <span className="text-zinc-700 text-xs">·</span>
-                  )}
-                </div>
-              </Tooltip>
-
+            <BagSlot
+              key={index}
+              item={item}
+              index={index}
+              isSelected={isSelected}
+              canCombine={canCombine}
+              isMenuOpen={!!isMenuOpen}
+              sellValue={sellValue}
+              globalDragging={globalDragging}
+              onItemClick={handleComponentClick}
+              onContextMenu={handleSell}
+              getRarityColor={getRarityColor}
+              getCompatibleRecipes={getCompatibleRecipes}
+            >
               {/* Action Menu */}
               {isMenuOpen && item && (
                 <div className="absolute left-0 top-full mt-1 z-20 bg-zinc-900 border border-zinc-700 rounded shadow-lg overflow-hidden min-w-[100px]">
@@ -242,14 +335,14 @@ const ComponentBag: React.FC<ComponentBagProps> = ({
                   </button>
                 </div>
               )}
-            </div>
+            </BagSlot>
           );
         })}
       </div>
 
       {/* Help text */}
       <div className="text-[8px] text-zinc-600 mt-2 text-center">
-        Click for actions • Right-click to quick sell
+        Drag to reorder/equip • Click for actions • Right-click to quick sell
       </div>
 
       {/* Synthesis preview when two compatible components are selected */}

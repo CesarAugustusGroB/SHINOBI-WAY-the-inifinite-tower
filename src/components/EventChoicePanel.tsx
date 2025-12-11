@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { EnhancedEventChoice, Player, RiskLevel, CharacterStats } from '../game/types';
+import { EventChoice, Player, RiskLevel, CharacterStats } from '../game/types';
 import { checkRequirements, checkEventCost, getDisabledReason } from '../game/systems/EventSystem';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 
 interface EventChoicePanelProps {
-  choice: EnhancedEventChoice;
+  choice: EventChoice;
   player: Player;
   playerStats?: CharacterStats | null;
   onSelect: () => void;

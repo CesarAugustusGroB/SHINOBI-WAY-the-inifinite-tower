@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import {
   ApproachType,
-  ExplorationNode,
   TerrainDefinition,
+  TerrainType,
   CharacterStats,
   Player,
+  Enemy,
 } from '../game/types';
 import {
   APPROACH_DEFINITIONS,
@@ -23,8 +24,16 @@ import {
   Zap,
 } from 'lucide-react';
 
+// Simplified combat node info for approach selection
+interface CombatNodeInfo {
+  id: string;
+  type: 'COMBAT' | 'ELITE' | 'BOSS';
+  terrain: TerrainType;
+  enemy?: Enemy;
+}
+
 interface ApproachSelectorProps {
-  node: ExplorationNode;
+  node: CombatNodeInfo;
   terrain: TerrainDefinition;
   player: Player;
   playerStats: CharacterStats;

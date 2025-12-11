@@ -137,7 +137,7 @@ export function useExploration({
       return updatedPlayer;
     });
 
-    setGameState(GameState.BRANCHING_EXPLORE);
+    setGameState(GameState.EXPLORE);
   }, [difficulty, setPlayer, setGameState, setCombatState, setApproachResult, setShowApproachSelector, setBranchingFloor, setSelectedBranchingRoom]);
 
   /**
@@ -161,7 +161,7 @@ export function useExploration({
 
     // No remaining activities, clear selection and return to map
     setSelectedBranchingRoom(null);
-    setGameState(GameState.BRANCHING_EXPLORE);
+    setGameState(GameState.EXPLORE);
   }, [selectedBranchingRoom, branchingFloor, enterRoom, setGameState, setSelectedBranchingRoom]);
 
   /**

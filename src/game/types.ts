@@ -6,8 +6,8 @@
 export enum GameState {
   MENU,
   CHAR_SELECT,
-  EXPLORE_MAP,      // Legacy node map (kept for compatibility)
-  BRANCHING_EXPLORE, // Primary branching room exploration view
+  EXPLORE,          // Branching room exploration view
+  ELITE_CHALLENGE,  // Elite challenge choice screen (fight vs escape)
   COMBAT,
   LOOT,
   MERCHANT,
@@ -251,6 +251,16 @@ export const SLOT_MAPPING: Record<ItemSlot, EquipmentSlot> = {
   [ItemSlot.BODY]: EquipmentSlot.SLOT_3,
   [ItemSlot.ACCESSORY]: EquipmentSlot.SLOT_4,
 };
+
+// Drag-and-drop types for inventory management
+export type DragSource =
+  | { type: 'bag'; index: number }
+  | { type: 'equipment'; slot: EquipmentSlot };
+
+export interface DragData {
+  item: Item;
+  source: DragSource;
+}
 
 // Component identifiers - Naruto-themed crafting materials
 export enum ComponentId {
@@ -552,31 +562,8 @@ export interface LogEntry {
   details?: string;
 }
 
-export interface EventChoice {
-  label: string;
-  type: 'HEAL_HP' | 'HEAL_CHAKRA' | 'HEAL_ALL' | 'GAMBLE_HP' | 'FIGHT_GHOST' | 'TRADE' | 'LEAVE' | 'TRAP_DMG' | 'GAIN_XP' | 'CHALLENGE_GUARDIAN';
-  value?: number;
-  chance?: number;
-  description?: string;
-}
-
-export interface GameEventDefinition {
-  id: string;
-  title: string;
-  description: string;
-  choices: EventChoice[];
-  allowedArcs?: string[]; // Story arcs where this event can occur
-}
-
-export interface Room {
-  type: 'COMBAT' | 'ELITE' | 'BOSS' | 'EVENT' | 'REST' | 'AMBUSH';
-  description: string;
-  enemy?: Enemy;
-  eventDefinition?: GameEventDefinition;
-}
-
 // ============================================================================
-// ENHANCED EVENT SYSTEM
+// EVENT SYSTEM
 // ============================================================================
 export enum RiskLevel {
   SAFE = 'SAFE',
@@ -629,7 +616,7 @@ export interface EventOutcome {
   };
 }
 
-export interface EnhancedEventChoice {
+export interface EventChoice {
   label: string;
   description: string;
 
@@ -653,13 +640,13 @@ export interface EnhancedEventChoice {
   };
 }
 
-export interface EnhancedGameEventDefinition {
+export interface GameEvent {
   id: string;
   title: string;
   description: string;
   allowedArcs?: string[]; // Story arcs where this event can occur
   rarity?: Rarity; // How common is this event
-  choices: EnhancedEventChoice[];
+  choices: EventChoice[];
 }
 
 // ============================================================================
@@ -708,31 +695,8 @@ export const STAT_FORMULAS = {
 } as const;
 
 // ============================================================================
-// EXPLORATION SYSTEM - Node-Based Floor Navigation
+// TERRAIN & EXPLORATION
 // ============================================================================
-
-export enum NodeType {
-  // Core types
-  START = 'START',
-  EXIT = 'EXIT',
-  COMBAT = 'COMBAT',
-  ELITE = 'ELITE',
-  BOSS = 'BOSS',
-  REST = 'REST',
-  EVENT = 'EVENT',
-
-  // New exploration types
-  MYSTERY = 'MYSTERY',       // "???" until revealed
-  HIDDEN = 'HIDDEN',         // Invisible without high stats
-  TRAP = 'TRAP',             // DEX check to avoid damage
-  SHRINE = 'SHRINE',         // Stat-gated blessings
-  TRAINING = 'TRAINING',     // Permanent stat boost (costs HP/Chakra)
-  TRIAL = 'TRIAL',           // Stat challenge for major reward
-  ANOMALY = 'ANOMALY',       // Random effect, Spirit reveals nature
-  SENSEI = 'SENSEI',         // Skill teaching (INT requirement)
-  AMBUSH_POINT = 'AMBUSH_POINT', // Player ambushes enemies here
-  CACHE = 'CACHE'            // Guaranteed loot room
-}
 
 export enum TerrainType {
   // Academy Biome
@@ -773,10 +737,6 @@ export enum ApproachType {
   ENVIRONMENTAL_TRAP = 'ENVIRONMENTAL',   // Use terrain, enemy loses HP
   SHADOW_BYPASS = 'SHADOW_BYPASS'        // Skip combat entirely (rare)
 }
-
-export type NodeVisibility = 'VISIBLE' | 'OBSCURED' | 'HIDDEN';
-
-export type PathDifficulty = 'SAFE' | 'NORMAL' | 'RISKY' | 'DANGEROUS';
 
 // ============================================================================
 // TERRAIN DEFINITIONS
@@ -871,76 +831,7 @@ export interface ApproachOption {
 }
 
 // ============================================================================
-// FLOOR LAYOUT & NODES
-// ============================================================================
-
-export interface NodePosition {
-  x: number;  // 0-100 normalized position
-  y: number;  // 0-100 normalized position
-}
-
-export interface Connection {
-  fromId: string;
-  toId: string;
-  difficulty: PathDifficulty;
-}
-
-export interface ExplorationNode {
-  id: string;
-  type: NodeType;
-  terrain: TerrainType;
-  visibility: NodeVisibility;
-  position: NodePosition;
-  connections: string[];          // IDs of connected nodes
-
-  // Content (varies by type)
-  enemy?: Enemy;
-  event?: GameEventDefinition;
-
-  // For MYSTERY nodes
-  revealedType?: NodeType;        // True type once revealed
-  intelligenceToReveal?: number;  // INT needed to scout remotely
-
-  // For HIDDEN nodes
-  detectionThreshold?: number;    // Stat threshold to detect
-
-  // For SHRINE nodes
-  blessings?: ShrineBlessing[];
-
-  // For TRAINING nodes
-  trainingOptions?: TrainingOption[];
-
-  // For TRIAL nodes
-  trial?: TrialDefinition;
-
-  // For ANOMALY nodes
-  anomalyRevealed?: boolean;
-  trueNature?: 'BENEFICIAL' | 'NEUTRAL' | 'HARMFUL';
-
-  // State
-  isVisited: boolean;
-  isCleared: boolean;             // Combat completed or effect resolved
-  isRevealed: boolean;            // Whether node is visible on the map
-}
-
-export interface FloorLayout {
-  floor: number;
-  arc: string;
-  biome: string;
-
-  nodes: ExplorationNode[];
-  connections: Connection[];
-
-  entryNodeId: string;
-  exitNodeId: string;
-
-  // Metadata
-  hiddenNodeCount: number;
-  totalCombatNodes: number;
-}
-
-// ============================================================================
-// NEW ROOM TYPE CONTENT
+// ROOM TYPE CONTENT
 // ============================================================================
 
 export interface ShrineBlessing {
@@ -1008,29 +899,6 @@ export interface TrialDefinition {
     hpLoss?: number;
     debuff?: Buff;
   };
-}
-
-// ============================================================================
-// EXPLORATION STATE
-// ============================================================================
-
-export interface ExplorationState {
-  floorLayout: FloorLayout;
-  currentNodeId: string;
-  visitedNodes: string[];
-  revealedNodes: string[];
-  discoveredHiddenNodes: string[];
-
-  // Current context
-  currentTerrain: TerrainType;
-
-  // Approach selection
-  selectedApproach: ApproachType | null;
-  approachResult: 'SUCCESS' | 'FAILURE' | null;
-
-  // Discovery tracking
-  secretsFound: number;
-  loreDiscovered: string[];
 }
 
 // ============================================================================
@@ -1113,7 +981,7 @@ export interface MerchantActivity {
 }
 
 export interface EventActivity {
-  definition: EnhancedGameEventDefinition;
+  definition: GameEvent;
   completed: boolean;
 }
 
