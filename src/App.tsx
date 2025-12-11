@@ -2,7 +2,8 @@ import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   GameState, Player, Clan, Skill, Enemy, Item, Rarity, DamageType,
   ApproachType, BranchingRoom, PrimaryStat, TrainingActivity, TrainingIntensity,
-  EquipmentSlot, MAX_BAG_SLOTS, ScrollDiscoveryActivity
+  EquipmentSlot, MAX_BAG_SLOTS, ScrollDiscoveryActivity,
+  EnhancedGameEventDefinition, EnhancedEventChoice, EventOutcome
 } from './game/types';
 import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS } from './game/constants';
 import {
@@ -38,6 +39,7 @@ import {
   completeActivity,
   getCurrentRoom
 } from './game/systems/BranchingFloorSystem';
+import { resolveEventChoice } from './game/systems/EventSystem';
 import { useCombat } from './hooks/useCombat';
 import { useCombatExplorationState } from './hooks/useCombatExplorationState';
 import { GameProvider, GameContextValue } from './contexts/GameContext';
@@ -57,6 +59,7 @@ import ApproachSelector from './components/ApproachSelector';
 import BranchingExplorationMap from './components/BranchingExplorationMap';
 import PlayerHUD from './components/PlayerHUD';
 import RewardModal from './components/RewardModal';
+import EventResultModal from './components/EventResultModal';
 import { logVictory, logRewardModal, logFlowCheckpoint } from './game/utils/combatDebug';
 
 // Import the parchment background styles
@@ -70,7 +73,12 @@ const App: React.FC = () => {
   const [player, setPlayer] = useState<Player | null>(null);
   const [droppedItems, setDroppedItems] = useState<Item[]>([]);
   const [droppedSkill, setDroppedSkill] = useState<Skill | null>(null);
-  const [activeEvent, setActiveEvent] = useState<any>(null);
+  const [activeEvent, setActiveEvent] = useState<EnhancedGameEventDefinition | null>(null);
+  const [eventOutcome, setEventOutcome] = useState<{
+    message: string;
+    outcome: EventOutcome;
+    logType: 'gain' | 'danger' | 'info' | 'loot';
+  } | null>(null);
   const [difficulty, setDifficulty] = useState<number>(20);
   const [isProcessingLoot, setIsProcessingLoot] = useState(false);
   const [merchantItems, setMerchantItems] = useState<Item[]>([]);
@@ -564,90 +572,78 @@ const App: React.FC = () => {
     }
   };
 
-  const handleEventChoice = (choice: any) => {
+  const handleEventChoice = (choice: EnhancedEventChoice) => {
     if (!player || !playerStats) return;
-    let text = "";
-    let type: any = 'info';
-    let next = true;
 
-    switch (choice.type) {
-      case 'LEAVE': text = "You chose to leave."; break;
-      case 'HEAL_CHAKRA':
-        setPlayer(p => p ? ({ ...p, currentChakra: playerStats.derived.maxChakra }) : null);
-        text = "You prayed and restored your Chakra."; type = 'gain'; break;
-      case 'HEAL_HP':
-        const healAmt = Math.floor(playerStats.derived.maxHp * 0.3);
-        setPlayer(p => p ? ({ ...p, currentHp: Math.min(playerStats.derived.maxHp, p.currentHp + healAmt) }) : null);
-        text = `You tended to your wounds. +${healAmt} HP.`; type = 'gain'; break;
-      case 'HEAL_ALL':
-        setPlayer(p => p ? ({ ...p, currentHp: playerStats.derived.maxHp, currentChakra: playerStats.derived.maxChakra }) : null);
-        text = "HP & Chakra fully restored."; type = 'gain'; break;
-      case 'GAIN_XP':
-        const xpGainEvent = choice.value || 20;
-        setPlayer(prev => prev ? checkLevelUp({ ...prev, exp: prev.exp + xpGainEvent }).player : null);
-        text = `Gained ${xpGainEvent} Experience.`; type = 'gain'; break;
-      case 'GAMBLE_HP':
-        if (Math.random() < (choice.chance || 0.5)) {
-          setPlayer(p => p ? ({ ...p, primaryStats: { ...p.primaryStats, willpower: p.primaryStats.willpower + 5 } }) : null);
-          text = "Success! Willpower increased by 5."; type = 'gain';
-        } else {
-          const loss = Math.floor(player.currentHp * 0.5);
-          setPlayer(p => p ? ({ ...p, currentHp: Math.max(1, p.currentHp - loss) }) : null);
-          text = `Failure. You lost ${loss} HP.`; type = 'danger';
-        }
-        break;
-      case 'TRADE':
-        if (player.ryo >= (choice.value || 150)) {
-          // Trade for component only - artifacts from Elite Challenges
-          const item = generateLoot(floor, difficulty + 10);
-          setPlayer(p => p ? ({ ...p, ryo: p.ryo - (choice.value || 150) }) : null);
-          setDroppedItems([item]);
-          setDroppedSkill(null);
-          setGameState(GameState.LOOT);
-          text = `You bought: ${item.name}`; type = 'loot'; next = false;
-        } else {
-          text = "Not enough Ryō."; type = 'danger';
-        }
-        break;
-      case 'FIGHT_GHOST':
-        // Generate a ghost enemy and start combat
-        const ghostEnemy = generateEnemy(floor, 'ELITE', difficulty);
-        ghostEnemy.name = 'Vengeful Spirit';
-        setEnemy(ghostEnemy);
-        setTurnState('PLAYER');
-        setGameState(GameState.COMBAT);
-        text = "The spirit rises to defend its grave!"; type = 'danger'; next = false;
-        break;
-      case 'TRAP_DMG':
-        const trapDamage = choice.value || Math.floor(player.currentHp * 0.3);
-        setPlayer(p => p ? ({ ...p, currentHp: Math.max(1, p.currentHp - trapDamage) }) : null);
-        text = `You triggered a trap! Lost ${trapDamage} HP.`; type = 'danger';
-        break;
-      case 'CHALLENGE_GUARDIAN':
-        // Generate a guardian enemy (stronger than normal)
-        const guardian = generateEnemy(floor + 2, 'ELITE', difficulty + 10);
-        guardian.name = 'Guardian';
-        guardian.tier = 'Guardian';
-        setEnemy(guardian);
-        setTurnState('PLAYER');
-        setGameState(GameState.COMBAT);
-        text = "The guardian accepts your challenge!"; type = 'danger'; next = false;
-        break;
+    // Use the EventSystem to resolve the choice
+    const result = resolveEventChoice(player, choice, playerStats);
+
+    if (!result.success) {
+      // Choice requirements not met or can't afford - show error
+      addLog(result.message, 'danger');
+      return;
     }
-    if (next) {
-      addLog(text, type);
 
-      // Mark event as completed in branching floor
-      if (branchingFloor) {
-        const currentRoom = getCurrentRoom(branchingFloor);
-        if (currentRoom) {
-          const updatedFloor = completeActivity(branchingFloor, currentRoom.id, 'event');
-          setBranchingFloor(updatedFloor);
-        }
+    // Apply the updated player state
+    if (result.player) {
+      // Check for level up after applying effects
+      const leveledPlayer = checkLevelUp(result.player);
+      setPlayer(leveledPlayer.player);
+    }
+
+    // Determine log type based on effects
+    const logType = result.outcome?.effects.logType || (
+      result.outcome?.effects.hpChange &&
+      (typeof result.outcome.effects.hpChange === 'number' ? result.outcome.effects.hpChange < 0 : result.outcome.effects.hpChange.percent < 0)
+        ? 'danger' : 'gain'
+    );
+
+    // Log the outcome message
+    addLog(result.message || 'Choice resolved.', logType);
+
+    // Check if combat should trigger
+    if (result.triggerCombat && result.outcome?.effects.triggerCombat) {
+      const combatConfig = result.outcome.effects.triggerCombat;
+      const combatEnemy = generateEnemy(
+        combatConfig.floor || floor,
+        combatConfig.archetype as 'NORMAL' | 'ELITE' | 'BOSS' || 'NORMAL',
+        combatConfig.difficulty || difficulty
+      );
+      if (combatConfig.name) {
+        combatEnemy.name = combatConfig.name;
       }
-      setActiveEvent(null);
-      setGameState(GameState.BRANCHING_EXPLORE);
+      setEnemy(combatEnemy);
+      setTurnState('PLAYER');
+      setGameState(GameState.COMBAT);
+      // Don't complete event yet - will complete after combat
+      return;
     }
+
+    // Show the outcome modal instead of immediately returning to map
+    if (result.outcome) {
+      setEventOutcome({
+        message: result.message || 'Choice resolved.',
+        outcome: result.outcome,
+        logType: logType as 'gain' | 'danger' | 'info' | 'loot'
+      });
+    }
+
+    // Return to map (modal will show as overlay)
+    setActiveEvent(null);
+    setGameState(GameState.BRANCHING_EXPLORE);
+  };
+
+  // Handle closing the event outcome modal
+  const handleEventOutcomeClose = () => {
+    // Mark event as completed
+    if (branchingFloor) {
+      const currentRoom = getCurrentRoom(branchingFloor);
+      if (currentRoom) {
+        const updatedFloor = completeActivity(branchingFloor, currentRoom.id, 'event');
+        setBranchingFloor(updatedFloor);
+      }
+    }
+    setEventOutcome(null);
   };
 
   const nextFloor = () => {
@@ -1169,6 +1165,14 @@ const App: React.FC = () => {
                   ryoGain={combatReward.ryoGain}
                   levelUp={combatReward.levelUp}
                   onClose={handleRewardClose}
+                />
+              )}
+
+              {/* Event Outcome Modal */}
+              {eventOutcome && (
+                <EventResultModal
+                  outcome={eventOutcome}
+                  onClose={handleEventOutcomeClose}
                 />
               )}
             </div>

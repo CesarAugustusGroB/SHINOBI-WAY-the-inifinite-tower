@@ -90,7 +90,7 @@ import {
   selectRandomRoomType,
   getRoomTypeConfig,
 } from '../constants/roomTypes';
-import { EVENTS } from '../constants';
+import { ENHANCED_EVENTS } from '../constants';
 
 // ============================================================================
 // ID GENERATION
@@ -224,18 +224,18 @@ function generateActivities(
     };
   }
 
-  // Event
+  // Event - Use enhanced events with requirements, costs, and weighted outcomes
   if (config.hasEvent) {
-    const arcEvents = EVENTS.filter(
+    const arcEvents = ENHANCED_EVENTS.filter(
       e => !e.allowedArcs || e.allowedArcs.includes(arc)
     );
     const event = arcEvents.length > 0
       ? arcEvents[Math.floor(Math.random() * arcEvents.length)]
-      : EVENTS[0];
+      : ENHANCED_EVENTS[0];
 
     if (event) {
       activities.event = {
-        definition: event as unknown as GameEventDefinition,
+        definition: event,
         completed: false,
       };
     }

@@ -1113,7 +1113,7 @@ export interface MerchantActivity {
 }
 
 export interface EventActivity {
-  definition: GameEventDefinition;
+  definition: EnhancedGameEventDefinition;
   completed: boolean;
 }
 
