@@ -28,11 +28,15 @@ npm run preview
 # Type check (no emit)
 npx tsc --noEmit
 
-# Run battle simulation (balance testing)
-npm run simulate
+# Run tests
+npm test              # Run all tests once
+npm run test:watch    # Watch mode
 
-# Quick simulation (fewer battles)
-npm run simulate:quick
+# Run battle simulation (balance testing)
+npm run simulate                      # Full simulation
+npm run simulate:quick                # Fewer battles
+npm run simulate:progression          # Test progression curve
+npm run simulate:progression:quick    # Quick progression test
 ```
 
 **Environment Setup:**
@@ -63,15 +67,17 @@ src/
 │   │       └── wavesArcEvents.ts
 │   ├── systems/                   # Pure function game engines
 │   │   ├── StatSystem.ts          # Stat calculations, damage formulas
-│   │   ├── CombatSystem.ts        # Turn-based combat, enemy AI
+│   │   ├── CombatSystem.ts        # Turn-based combat orchestration
+│   │   ├── CombatCalculationSystem.ts # Pure combat math (damage, mitigation)
+│   │   ├── CombatWorkflowSystem.ts    # Combat state management (turns, phases)
+│   │   ├── EnemyAISystem.ts       # Enemy skill selection AI
 │   │   ├── LootSystem.ts          # Item/skill generation
-│   │   ├── RoomSystem.ts          # Legacy room generation
-│   │   ├── FloorSystem.ts         # Node-based floor generation
-│   │   ├── BranchingFloorSystem.ts # NEW: 1→2→4 branching room system
+│   │   ├── BranchingFloorSystem.ts # 1→2→4 branching room system
 │   │   ├── EnemySystem.ts         # Enemy generation, story arcs
 │   │   ├── ApproachSystem.ts      # Combat approach mechanics
-│   │   ├── DiscoverySystem.ts     # Node visibility/discovery
-│   │   └── EventSystem.ts         # Event processing
+│   │   ├── EquipmentPassiveSystem.ts # Equipment passive triggers
+│   │   ├── EventSystem.ts         # Event processing
+│   │   └── __tests__/             # Vitest unit tests
 │   ├── entities/                  # Entity creation helpers
 │   │   ├── Player.ts
 │   │   └── Enemy.ts
@@ -228,6 +234,27 @@ effectiveFlat = flatDef × (100 / (100 + flatDef))
 3. Reflection → returns % to attacker
 4. Shield → absorbs damage first
 
+### Combat System Architecture
+
+The combat system uses a **dual-system architecture** separating concerns:
+
+| System | Purpose | Characteristics |
+|--------|---------|-----------------|
+| `CombatCalculationSystem.ts` | Pure combat math | No side effects, deterministic, testable |
+| `CombatWorkflowSystem.ts` | Combat state flow | Orchestrates turns, applies mutations |
+
+**Why separated:**
+
+- Calculation functions can be reused (tooltips, AI preview, damage calculations)
+- Workflow handles state transitions and combat logging
+- Pure functions are easier to unit test
+
+**Data flow:**
+
+```text
+Skill Input → CombatCalculation (pure math) → CombatActionResult → CombatWorkflow (apply state)
+```
+
 ### Enemy Scaling Formula
 
 ```typescript
@@ -322,7 +349,16 @@ perRoomBonus = 10%             // Additional chance per extra room
 
 ## Testing
 
-No automated tests. Manual testing:
+**Automated tests** (Vitest) in `src/game/systems/__tests__/`:
+
+```bash
+npm test              # Run all tests
+npm run test:watch    # Watch mode for development
+```
+
+Tests cover: StatSystem, CombatCalculation, LootSystem, BranchingFloorSystem, ApproachSystem, EventSystem, EquipmentPassiveSystem, EnemyAISystem, EnemySystem
+
+**Manual testing checklist:**
 
 1. Start game → select clan → verify stats
 2. Enter combat room → win → verify remaining activities trigger

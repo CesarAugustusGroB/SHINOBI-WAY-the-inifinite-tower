@@ -6,7 +6,7 @@ import Tooltip from './Tooltip';
 
 interface ComponentBagProps {
   components: Item[];
-  onSelectComponent: (item: Item) => void;
+  onSelectComponent: (item: Item | null) => void;
   onSellComponent: (item: Item) => void;
   selectedComponent: Item | null;
   onSynthesize?: (componentA: Item, componentB: Item) => void;
@@ -80,7 +80,7 @@ const ComponentBag: React.FC<ComponentBagProps> = ({
   const cancelSynthesis = () => {
     setSynthesisMode(false);
     setActiveMenu(null);
-    onSelectComponent(null as any);
+    onSelectComponent(null);
   };
 
   // Get compatible recipes for the selected component

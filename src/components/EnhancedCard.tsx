@@ -1,6 +1,7 @@
 import React from 'react';
 import { Room } from '../game/types';
 import { MapPin, Sword, Heart, Flame, Crown, AlertTriangle, Zap } from 'lucide-react';
+import { getLegacyRoomColors, getLegacyRoomIconColor, LegacyRoomType } from '../game/constants/roomTypeMapping';
 
 interface EnhancedCardProps {
   room: Room;
@@ -9,43 +10,28 @@ interface EnhancedCardProps {
   disabledReason?: string;
 }
 
+// Icon mapping for legacy room types
+const ROOM_ICONS: Record<LegacyRoomType | 'default', React.ReactNode> = {
+  BOSS: <Crown className="w-10 h-10" />,
+  ELITE: <Sword className="w-10 h-10" />,
+  COMBAT: <Zap className="w-10 h-10" />,
+  REST: <Heart className="w-10 h-10" />,
+  EVENT: <MapPin className="w-10 h-10" />,
+  AMBUSH: <Flame className="w-10 h-10" />,
+  default: <AlertTriangle className="w-10 h-10" />,
+};
+
 const EnhancedCard: React.FC<EnhancedCardProps> = ({ room, onClick, disabled = false, disabledReason }) => {
+  const colors = getLegacyRoomColors(room.type as LegacyRoomType);
+  const iconColor = getLegacyRoomIconColor(room.type as LegacyRoomType);
+
   const getRoomColor = (): string => {
-    switch (room.type) {
-      case 'BOSS':
-        return 'border-red-900 hover:border-red-700';
-      case 'ELITE':
-        return 'border-yellow-900 hover:border-yellow-700';
-      case 'COMBAT':
-        return 'border-zinc-700 hover:border-zinc-600';
-      case 'REST':
-        return 'border-green-900 hover:border-green-700';
-      case 'EVENT':
-        return 'border-blue-900 hover:border-blue-700';
-      case 'AMBUSH':
-        return 'border-purple-900 hover:border-purple-700';
-      default:
-        return 'border-zinc-700';
-    }
+    return `${colors.border} ${colors.borderHover}`;
   };
 
   const getRoomIcon = (): React.ReactNode => {
-    switch (room.type) {
-      case 'BOSS':
-        return <Crown className='w-10 h-10 text-red-500' />;
-      case 'ELITE':
-        return <Sword className='w-10 h-10 text-yellow-500' />;
-      case 'COMBAT':
-        return <Zap className='w-10 h-10 text-orange-500' />;
-      case 'REST':
-        return <Heart className='w-10 h-10 text-green-500' />;
-      case 'EVENT':
-        return <MapPin className='w-10 h-10 text-blue-500' />;
-      case 'AMBUSH':
-        return <Flame className='w-10 h-10 text-purple-500' />;
-      default:
-        return <AlertTriangle className='w-10 h-10 text-zinc-500' />;
-    }
+    const icon = ROOM_ICONS[room.type as LegacyRoomType] || ROOM_ICONS.default;
+    return <span className={iconColor}>{icon}</span>;
   };
 
   const getRoomTitle = (): string => {

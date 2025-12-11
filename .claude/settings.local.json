@@ -15,7 +15,8 @@
       "Bash(npm install)",
       "Bash(npm test:*)",
       "Bash(npm run test:*)",
-      "Bash(npx vitest run)"
+      "Bash(npx vitest run)",
+      "Bash(find:*)"
     ],
     "deny": [
       "Write(*.md)",

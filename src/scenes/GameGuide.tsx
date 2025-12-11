@@ -8,6 +8,14 @@ interface GameGuideProps {
 
 type Tab = 'STATS' | 'ELEMENTS' | 'EFFECTS' | 'COMBAT' | 'CLANS' | 'PROGRESSION' | 'EQUIPMENT' | 'DUNGEONS';
 
+// Static Tailwind class mappings (dynamic class names don't work with Tailwind's JIT)
+const RANK_COLOR_CLASSES: Record<string, { text: string; border: string }> = {
+  'green-500': { text: 'text-green-500', border: 'border-green-500/20' },
+  'yellow-500': { text: 'text-yellow-500', border: 'border-yellow-500/20' },
+  'orange-500': { text: 'text-orange-500', border: 'border-orange-500/20' },
+  'red-600': { text: 'text-red-600', border: 'border-red-600/20' },
+};
+
 const GameGuide: React.FC<GameGuideProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState<Tab>('STATS');
 
@@ -253,13 +261,16 @@ const GameGuide: React.FC<GameGuideProps> = ({ onBack }) => {
               <section>
                 <h3 className="font-black uppercase tracking-widest mb-3 text-lg">Difficulty Ranks</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {HELP_TEXT.PROGRESSION.DIFFICULTY_RANKS.map((rank, idx) => (
-                    <div key={idx} className={`bg-white/50 p-3 rounded border border-${rank.color}/20`}>
-                      <div className={`text-lg font-black text-${rank.color} mb-1`}>Rank {rank.rank}</div>
-                      <div className="text-xs text-zinc-700 font-mono mb-1">Range: {rank.range}</div>
-                      <p className="text-xs text-zinc-700">{rank.desc}</p>
-                    </div>
-                  ))}
+                  {HELP_TEXT.PROGRESSION.DIFFICULTY_RANKS.map((rank, idx) => {
+                    const colorClasses = RANK_COLOR_CLASSES[rank.color] || { text: 'text-zinc-500', border: 'border-zinc-500/20' };
+                    return (
+                      <div key={idx} className={`bg-white/50 p-3 rounded border ${colorClasses.border}`}>
+                        <div className={`text-lg font-black ${colorClasses.text} mb-1`}>Rank {rank.rank}</div>
+                        <div className="text-xs text-zinc-700 font-mono mb-1">Range: {rank.range}</div>
+                        <p className="text-xs text-zinc-700">{rank.desc}</p>
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
 

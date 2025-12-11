@@ -13,7 +13,7 @@ interface LeftSidebarPanelProps {
   storyArcLabel?: string;
   // Synthesis system props
   selectedComponent?: Item | null;
-  onSelectComponent?: (item: Item) => void;
+  onSelectComponent?: (item: Item | null) => void;
   onSellComponent?: (item: Item) => void;
   onSynthesize?: (compA: Item, compB: Item) => void;
   onEquipFromBag?: (item: Item) => void;

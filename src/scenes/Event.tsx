@@ -1,18 +1,25 @@
 import React from 'react';
-import { GameEventDefinition, Player } from '../game/types';
+import { GameEventDefinition, Player, EventChoice, EnhancedEventChoice, CharacterStats } from '../game/types';
 import { MapIcon } from 'lucide-react';
 import EventChoicePanel from '../components/EventChoicePanel';
 
+// Type guard for enhanced event choices
+// Note: EventChoice and EnhancedEventChoice share 'label' and 'description' properties
+// but EnhancedEventChoice has additional properties like 'riskLevel' and 'outcomes'
+const isEnhancedChoice = (choice: EventChoice): choice is EventChoice & EnhancedEventChoice => {
+  return 'riskLevel' in choice;
+};
+
 interface EventProps {
   activeEvent: GameEventDefinition;
-  onChoice: (choice: any) => void;
+  onChoice: (choice: EventChoice | EnhancedEventChoice) => void;
   player?: Player | null;
-  playerStats?: any;
+  playerStats?: CharacterStats | null;
 }
 
 const Event: React.FC<EventProps> = ({ activeEvent, onChoice, player, playerStats }) => {
   // Check if this is an enhanced event with new choice properties
-  const isEnhancedEvent = activeEvent.choices.length > 0 && 'riskLevel' in activeEvent.choices[0];
+  const isEnhancedEvent = activeEvent.choices.length > 0 && isEnhancedChoice(activeEvent.choices[0]);
 
   return (
     <div className="w-full max-w-3xl bg-black border border-zinc-800 p-10 shadow-2xl z-10 flex flex-col items-center text-center">
@@ -23,7 +30,7 @@ const Event: React.FC<EventProps> = ({ activeEvent, onChoice, player, playerStat
       {isEnhancedEvent ? (
         // Enhanced event choices with EventChoicePanel
         <div className="flex flex-col gap-3 w-full">
-          {activeEvent.choices.map((choice: any, idx) => (
+          {activeEvent.choices.filter(isEnhancedChoice).map((choice, idx) => (
             <EventChoicePanel
               key={idx}
               choice={choice}

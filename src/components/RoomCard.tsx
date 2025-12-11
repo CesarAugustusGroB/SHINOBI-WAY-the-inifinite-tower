@@ -2,7 +2,6 @@ import React from 'react';
 import {
   BranchingRoom,
   BranchingRoomType,
-  ACTIVITY_ORDER,
 } from '../game/types';
 import {
   Sword,
@@ -23,12 +22,28 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { getCurrentActivity } from '../game/systems/BranchingFloorSystem';
+import { getBranchingRoomColors } from '../game/constants/roomTypeMapping';
 
 interface RoomCardProps {
   room: BranchingRoom;
   isSelected: boolean;
   onClick: () => void;
 }
+
+// Icon mapping for branching room types
+const BRANCHING_ROOM_ICONS: Record<BranchingRoomType, React.ReactNode> = {
+  [BranchingRoomType.START]: <Home className="w-8 h-8" />,
+  [BranchingRoomType.VILLAGE]: <Home className="w-8 h-8" />,
+  [BranchingRoomType.OUTPOST]: <Sword className="w-8 h-8" />,
+  [BranchingRoomType.SHRINE]: <Sparkles className="w-8 h-8" />,
+  [BranchingRoomType.CAMP]: <Flame className="w-8 h-8" />,
+  [BranchingRoomType.RUINS]: <Landmark className="w-8 h-8" />,
+  [BranchingRoomType.BRIDGE]: <Mountain className="w-8 h-8" />,
+  [BranchingRoomType.BOSS_GATE]: <Crown className="w-8 h-8" />,
+  [BranchingRoomType.FOREST]: <TreePine className="w-8 h-8" />,
+  [BranchingRoomType.CAVE]: <Mountain className="w-8 h-8" />,
+  [BranchingRoomType.BATTLEFIELD]: <Sword className="w-8 h-8" />,
+};
 
 const RoomCard: React.FC<RoomCardProps> = ({
   room,
@@ -37,132 +52,11 @@ const RoomCard: React.FC<RoomCardProps> = ({
 }) => {
   // Get the appropriate icon for the room type
   const getRoomIcon = (): React.ReactNode => {
-    switch (room.type) {
-      case BranchingRoomType.START:
-        return <Home className="w-8 h-8" />;
-      case BranchingRoomType.VILLAGE:
-        return <Home className="w-8 h-8" />;
-      case BranchingRoomType.OUTPOST:
-        return <Sword className="w-8 h-8" />;
-      case BranchingRoomType.SHRINE:
-        return <Sparkles className="w-8 h-8" />;
-      case BranchingRoomType.CAMP:
-        return <Flame className="w-8 h-8" />;
-      case BranchingRoomType.RUINS:
-        return <Landmark className="w-8 h-8" />;
-      case BranchingRoomType.BRIDGE:
-        return <Mountain className="w-8 h-8" />;
-      case BranchingRoomType.BOSS_GATE:
-        return <Crown className="w-8 h-8" />;
-      case BranchingRoomType.FOREST:
-        return <TreePine className="w-8 h-8" />;
-      case BranchingRoomType.CAVE:
-        return <Mountain className="w-8 h-8" />;
-      case BranchingRoomType.BATTLEFIELD:
-        return <Sword className="w-8 h-8" />;
-      default:
-        return <Home className="w-8 h-8" />;
-    }
+    return BRANCHING_ROOM_ICONS[room.type] || <Home className="w-8 h-8" />;
   };
 
-  // Get colors based on room type and state
-  const getRoomColors = (): { bg: string; border: string; text: string; iconBg: string } => {
-    if (room.isCleared) {
-      return {
-        bg: 'bg-zinc-900/80',
-        border: 'border-zinc-700',
-        text: 'text-zinc-500',
-        iconBg: 'bg-zinc-800',
-      };
-    }
-
-    switch (room.type) {
-      case BranchingRoomType.START:
-        return {
-          bg: 'bg-gradient-to-b from-cyan-950 to-zinc-950',
-          border: 'border-cyan-700',
-          text: 'text-cyan-400',
-          iconBg: 'bg-cyan-900/50',
-        };
-      case BranchingRoomType.VILLAGE:
-        return {
-          bg: 'bg-gradient-to-b from-emerald-950 to-zinc-950',
-          border: 'border-emerald-700',
-          text: 'text-emerald-400',
-          iconBg: 'bg-emerald-900/50',
-        };
-      case BranchingRoomType.OUTPOST:
-        return {
-          bg: 'bg-gradient-to-b from-orange-950 to-zinc-950',
-          border: 'border-orange-700',
-          text: 'text-orange-400',
-          iconBg: 'bg-orange-900/50',
-        };
-      case BranchingRoomType.SHRINE:
-        return {
-          bg: 'bg-gradient-to-b from-indigo-950 to-zinc-950',
-          border: 'border-indigo-700',
-          text: 'text-indigo-400',
-          iconBg: 'bg-indigo-900/50',
-        };
-      case BranchingRoomType.CAMP:
-        return {
-          bg: 'bg-gradient-to-b from-amber-950 to-zinc-950',
-          border: 'border-amber-700',
-          text: 'text-amber-400',
-          iconBg: 'bg-amber-900/50',
-        };
-      case BranchingRoomType.RUINS:
-        return {
-          bg: 'bg-gradient-to-b from-stone-900 to-zinc-950',
-          border: 'border-stone-600',
-          text: 'text-stone-400',
-          iconBg: 'bg-stone-800/50',
-        };
-      case BranchingRoomType.BRIDGE:
-        return {
-          bg: 'bg-gradient-to-b from-slate-900 to-zinc-950',
-          border: 'border-slate-600',
-          text: 'text-slate-400',
-          iconBg: 'bg-slate-800/50',
-        };
-      case BranchingRoomType.BOSS_GATE:
-        return {
-          bg: 'bg-gradient-to-b from-red-950 to-zinc-950',
-          border: 'border-red-700',
-          text: 'text-red-400',
-          iconBg: 'bg-red-900/50',
-        };
-      case BranchingRoomType.FOREST:
-        return {
-          bg: 'bg-gradient-to-b from-green-950 to-zinc-950',
-          border: 'border-green-700',
-          text: 'text-green-400',
-          iconBg: 'bg-green-900/50',
-        };
-      case BranchingRoomType.CAVE:
-        return {
-          bg: 'bg-gradient-to-b from-violet-950 to-zinc-950',
-          border: 'border-violet-700',
-          text: 'text-violet-400',
-          iconBg: 'bg-violet-900/50',
-        };
-      case BranchingRoomType.BATTLEFIELD:
-        return {
-          bg: 'bg-gradient-to-b from-rose-950 to-zinc-950',
-          border: 'border-rose-700',
-          text: 'text-rose-400',
-          iconBg: 'bg-rose-900/50',
-        };
-      default:
-        return {
-          bg: 'bg-zinc-900',
-          border: 'border-zinc-700',
-          text: 'text-zinc-400',
-          iconBg: 'bg-zinc-800',
-        };
-    }
-  };
+  // Get colors from shared utility
+  const colors = getBranchingRoomColors(room.type, room.isCleared);
 
   // Get activity icons for the room
   const getActivityIcons = (): React.ReactNode[] => {
@@ -194,7 +88,6 @@ const RoomCard: React.FC<RoomCardProps> = ({
     return icons;
   };
 
-  const colors = getRoomColors();
   const currentActivity = getCurrentActivity(room);
   const activityIcons = getActivityIcons();
 

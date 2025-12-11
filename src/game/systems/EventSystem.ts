@@ -68,6 +68,7 @@ import {
   EventCost,
   PrimaryStat,
   EnhancedGameEventDefinition,
+  CharacterStats,
 } from '../types';
 
 /**
@@ -82,7 +83,7 @@ import {
 export const checkRequirements = (
   player: Player,
   requirements: RequirementCheck | undefined,
-  playerStats: any, // DerivedStats
+  playerStats?: CharacterStats | null,
 ): boolean => {
   if (!requirements) return true;
 
@@ -128,7 +129,7 @@ export const getDisabledReason = (
   player: Player,
   requirements: RequirementCheck | undefined,
   cost: EventCost | undefined,
-  playerStats: any,
+  playerStats?: CharacterStats | null,
 ): string => {
   if (!requirements && !cost) return '';
 
