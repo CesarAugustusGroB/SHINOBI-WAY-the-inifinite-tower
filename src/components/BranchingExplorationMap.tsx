@@ -123,8 +123,8 @@ const BranchingExplorationMap: React.FC<BranchingExplorationMapProps> = ({
   };
 
   return (
-    <div 
-      className={`w-full max-w-5xl h-full flex flex-col bg-gradient-to-b ${getArcBackground()} rounded-lg border border-zinc-800 overflow-hidden`}
+    <div
+      className={`w-full max-w-5xl mx-auto h-full flex flex-col bg-gradient-to-b ${getArcBackground()} rounded-lg border border-zinc-800 overflow-hidden`}
       style={{
         backgroundImage: 'url(/assets/background_map_exploring.png)',
         backgroundSize: 'cover',

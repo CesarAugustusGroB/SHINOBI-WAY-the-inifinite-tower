@@ -52,9 +52,9 @@ const PlayerHUD = forwardRef<HTMLDivElement, PlayerHUDProps>(({ player, playerSt
   return (
     <div
       ref={ref}
-      className="w-full bg-gradient-to-r from-zinc-900/95 via-zinc-900/90 to-zinc-900/95 border-y border-zinc-700 px-6 py-3"
+      className="w-full max-w-5xl mx-auto bg-gradient-to-r from-zinc-900/95 via-zinc-900/90 to-zinc-900/95 border border-zinc-700 rounded-lg px-6 py-3"
     >
-      <div className="max-w-5xl mx-auto flex items-center gap-6">
+      <div className="flex items-center gap-6">
         {/* Clan Avatar */}
         <div className={`w-14 h-14 rounded-lg border-2 ${bgColor} flex items-center justify-center flex-shrink-0 shadow-lg`}>
           <span className={`text-2xl ${color}`}>{symbol}</span>
@@ -104,12 +104,6 @@ const PlayerHUD = forwardRef<HTMLDivElement, PlayerHUDProps>(({ player, playerSt
               />
             </div>
           </div>
-        </div>
-
-        {/* Ryo */}
-        <div className="flex items-center gap-2 flex-shrink-0 px-3 py-1 bg-zinc-800/50 rounded border border-zinc-700">
-          <Coins className="w-4 h-4 text-yellow-500" />
-          <span className="text-yellow-400 font-bold text-sm">{player.ryo.toLocaleString()}</span>
         </div>
 
         {/* Buffs Section */}
@@ -204,19 +198,6 @@ const PlayerHUD = forwardRef<HTMLDivElement, PlayerHUDProps>(({ player, playerSt
               <div className="text-xs font-mono text-zinc-500">
                 +{overflowCount}
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Floor Info */}
-        {floor !== undefined && (
-          <div className="flex-shrink-0 text-right border-l border-zinc-700 pl-4">
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-500 text-[10px] uppercase tracking-wider">Floor</span>
-              <span className="text-xl font-black text-amber-500">{floor}</span>
-            </div>
-            {biome && (
-              <div className="text-[9px] text-zinc-600 truncate max-w-[100px]">{biome}</div>
             )}
           </div>
         )}
