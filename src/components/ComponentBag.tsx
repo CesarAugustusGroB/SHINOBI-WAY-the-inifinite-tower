@@ -178,6 +178,7 @@ const ComponentBag: React.FC<ComponentBagProps> = ({
       case Rarity.EPIC: return 'text-purple-400 border-purple-500';
       case Rarity.RARE: return 'text-blue-400 border-blue-500';
       case Rarity.CURSED: return 'text-red-600 border-red-600';
+      case Rarity.BROKEN: return 'text-stone-500 border-stone-600';
       default: return 'text-zinc-400 border-zinc-600';
     }
   };

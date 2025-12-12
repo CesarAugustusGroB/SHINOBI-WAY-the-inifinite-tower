@@ -3,7 +3,8 @@ import {
   GameState, Player, Clan, Skill, Enemy, Item, Rarity, DamageType,
   ApproachType, BranchingRoom, PrimaryStat, TrainingActivity, TrainingIntensity,
   EquipmentSlot, MAX_BAG_SLOTS, ScrollDiscoveryActivity,
-  GameEvent, EventChoice, EventOutcome
+  GameEvent, EventChoice, EventOutcome,
+  TreasureQuality, DEFAULT_MERCHANT_SLOTS, MAX_MERCHANT_SLOTS
 } from './game/types';
 import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS } from './game/constants';
 import {
@@ -18,7 +19,9 @@ import {
   sellItem as sellItemFn,
   addToBag,
   synthesize,
-  disassemble
+  disassemble,
+  upgradeComponent,
+  upgradeArtifact
 } from './game/systems/LootSystem';
 import {
   CombatState,
@@ -43,7 +46,7 @@ import { resolveEventChoice } from './game/systems/EventSystem';
 import { useCombat } from './hooks/useCombat';
 import { useCombatExplorationState } from './hooks/useCombatExplorationState';
 import { GameProvider, GameContextValue } from './contexts/GameContext';
-import { LIMITS } from './game/config';
+import { LIMITS, MERCHANT } from './game/config';
 import MainMenu from './scenes/MainMenu';
 import CharacterSelect from './scenes/CharacterSelect';
 import Combat from './scenes/Combat';
@@ -57,6 +60,7 @@ import GameOver from './scenes/GameOver';
 import GameGuide from './scenes/GameGuide';
 import { attemptEliteEscape } from './game/systems/EliteChallengeSystem';
 import LeftSidebarPanel from './components/LeftSidebarPanel';
+import RightSidebarPanel from './components/RightSidebarPanel';
 import ApproachSelector from './components/ApproachSelector';
 import BranchingExplorationMap from './components/BranchingExplorationMap';
 import PlayerHUD from './components/PlayerHUD';
@@ -355,6 +359,8 @@ const App: React.FC = () => {
       skills: [SKILLS.BASIC_ATTACK, SKILLS.SHURIKEN, { ...startSkill, level: 1 }],
       activeBuffs: [],
       componentBag: [],
+      treasureQuality: TreasureQuality.BROKEN,
+      merchantSlots: DEFAULT_MERCHANT_SLOTS,
     };
 
     setPlayer(newPlayer);
@@ -602,7 +608,7 @@ const App: React.FC = () => {
           setDroppedSkill(null);
           if (treasure.ryo > 0) {
             setPlayer(p => p ? { ...p, ryo: p.ryo + treasure.ryo } : null);
-            addLog(`Found treasure! +${treasure.ryo} Ryo.`, 'loot');
+            addLog(`Found treasure! +${treasure.ryo} Ryō.`, 'loot');
           }
           const updatedFloorAfterTreasure = completeActivity(updatedFloor, room.id, 'treasure');
           setBranchingFloor(updatedFloorAfterTreasure);
@@ -876,23 +882,110 @@ const App: React.FC = () => {
     setSelectedComponent(null);
   };
 
-  // Synthesize two components into an artifact
+  // Smart craft handler - determines which operation based on item rarities
+  // 1. Both BROKEN + same componentId → upgradeComponent (→ COMMON)
+  // 2. Both COMMON components → synthesize (→ RARE artifact)
+  // 3. Both RARE artifacts + same recipe → upgradeArtifact (→ EPIC artifact)
   const handleSynthesize = (compA: Item, compB: Item) => {
     if (!player) return;
 
-    const artifact = synthesize(compA, compB);
-    if (!artifact) {
-      addLog('These components cannot be combined.', 'danger');
+    // Determine which crafting operation to use based on item rarities
+    const bothBroken = compA.rarity === Rarity.BROKEN && compB.rarity === Rarity.BROKEN;
+    const bothCommon = compA.rarity === Rarity.COMMON && compB.rarity === Rarity.COMMON;
+    const bothRareArtifacts = compA.rarity === Rarity.RARE && compB.rarity === Rarity.RARE
+                              && !compA.isComponent && !compB.isComponent;
+
+    let result;
+    let actionName = '';
+
+    if (bothBroken && compA.isComponent && compB.isComponent) {
+      // Upgrade two BROKEN components into a COMMON component
+      result = upgradeComponent(compA, compB, floor);
+      actionName = 'Upgraded';
+    } else if (bothRareArtifacts) {
+      // Upgrade two RARE artifacts into an EPIC artifact
+      result = upgradeArtifact(compA, compB, floor);
+      actionName = 'Forged';
+    } else if (bothCommon && compA.isComponent && compB.isComponent) {
+      // Synthesize two COMMON components into a RARE artifact
+      result = synthesize(compA, compB, floor);
+      actionName = 'Synthesized';
+    } else {
+      // Try synthesize as fallback for any other combination
+      result = synthesize(compA, compB, floor);
+      actionName = 'Synthesized';
+    }
+
+    if (!result.success || !result.item) {
+      addLog(result.reason || 'These items cannot be combined.', 'danger');
       return;
     }
 
-    // Remove both components from bag and add the artifact
+    // Check if player can afford the cost
+    if (player.ryo < result.cost) {
+      addLog(`Not enough Ryō! Need ${result.cost} Ryō.`, 'danger');
+      return;
+    }
+
+    // Remove both items from bag, deduct cost, and add the new item
     const updatedBag = player.componentBag
       .filter(c => c.id !== compA.id && c.id !== compB.id)
-      .concat(artifact);
+      .concat(result.item);
 
-    setPlayer({ ...player, componentBag: updatedBag });
-    addLog(`Synthesized ${artifact.name}!`, 'gain');
+    setPlayer({ ...player, componentBag: updatedBag, ryo: player.ryo - result.cost });
+    addLog(`${actionName} ${result.item.name} for ${result.cost} Ryō!`, 'gain');
+    setSelectedComponent(null);
+  };
+
+  // Upgrade two BROKEN components (same type) into a COMMON component
+  const handleUpgradeComponent = (compA: Item, compB: Item) => {
+    if (!player) return;
+
+    const result = upgradeComponent(compA, compB, floor);
+    if (!result.success || !result.item) {
+      addLog(result.reason || 'These components cannot be upgraded.', 'danger');
+      return;
+    }
+
+    // Check if player can afford the cost
+    if (player.ryo < result.cost) {
+      addLog(`Not enough Ryō! Need ${result.cost} Ryō.`, 'danger');
+      return;
+    }
+
+    // Remove both components from bag, deduct cost, and add the upgraded component
+    const updatedBag = player.componentBag
+      .filter(c => c.id !== compA.id && c.id !== compB.id)
+      .concat(result.item);
+
+    setPlayer({ ...player, componentBag: updatedBag, ryo: player.ryo - result.cost });
+    addLog(`Upgraded to ${result.item.name} for ${result.cost} Ryō!`, 'gain');
+    setSelectedComponent(null);
+  };
+
+  // Upgrade two RARE artifacts (same type) into an EPIC artifact
+  const handleUpgradeArtifact = (artifactA: Item, artifactB: Item) => {
+    if (!player) return;
+
+    const result = upgradeArtifact(artifactA, artifactB, floor);
+    if (!result.success || !result.item) {
+      addLog(result.reason || 'These artifacts cannot be upgraded.', 'danger');
+      return;
+    }
+
+    // Check if player can afford the cost
+    if (player.ryo < result.cost) {
+      addLog(`Not enough Ryō! Need ${result.cost} Ryō.`, 'danger');
+      return;
+    }
+
+    // Remove both artifacts from bag, deduct cost, and add the upgraded artifact
+    const updatedBag = player.componentBag
+      .filter(c => c.id !== artifactA.id && c.id !== artifactB.id)
+      .concat(result.item);
+
+    setPlayer({ ...player, componentBag: updatedBag, ryo: player.ryo - result.cost });
+    addLog(`Forged ${result.item.name} for ${result.cost} Ryō!`, 'gain');
     setSelectedComponent(null);
   };
 
@@ -940,28 +1033,28 @@ const App: React.FC = () => {
     addLog(`Select another component to synthesize with ${item.name}.`, 'info');
   };
 
-  // Disassemble artifact into components
+  // Disassemble artifact into a component
   const handleDisassembleEquipped = (slot: EquipmentSlot, item: Item) => {
     if (!player || item.isComponent || !item.recipe) return;
 
-    const components = disassemble(item);
-    if (!components) {
+    const component = disassemble(item);
+    if (!component) {
       addLog('Cannot disassemble this item.', 'danger');
       return;
     }
 
-    // Check bag space for 2 components
-    if (player.componentBag.length + 2 > MAX_BAG_SLOTS) {
-      addLog('Not enough bag space for components!', 'danger');
+    // Check bag space for 1 component
+    if (player.componentBag.length + 1 > MAX_BAG_SLOTS) {
+      addLog('Not enough bag space for component!', 'danger');
       return;
     }
 
     setPlayer(prev => prev ? {
       ...prev,
       equipment: { ...prev.equipment, [slot]: null },
-      componentBag: [...prev.componentBag, ...components]
+      componentBag: [...prev.componentBag, component]
     } : null);
-    addLog(`Disassembled ${item.name} into ${components[0].name} + ${components[1].name}!`, 'loot');
+    addLog(`Disassembled ${item.name} into ${component.name}!`, 'loot');
   };
 
   // ============================================================================
@@ -1077,7 +1170,7 @@ const App: React.FC = () => {
 
     const price = Math.floor(item.value * (1 - merchantDiscount / 100));
     if (player.ryo < price) {
-      addLog(`Not enough Ryo! Need ${price}.`, 'danger');
+      addLog(`Not enough Ryō! Need ${price}.`, 'danger');
       return;
     }
 
@@ -1112,6 +1205,57 @@ const App: React.FC = () => {
     setSelectedBranchingRoom(null);
     setGameState(GameState.EXPLORE);
     addLog('The merchant waves goodbye.', 'info');
+  };
+
+  const handleMerchantReroll = () => {
+    if (!player) return;
+    const cost = MERCHANT.REROLL_BASE_COST + (floor * MERCHANT.REROLL_FLOOR_SCALING);
+    if (player.ryo < cost) {
+      addLog(`Not enough Ryō to reroll! Need ${cost}.`, 'danger');
+      return;
+    }
+    // Deduct cost and regenerate items
+    setPlayer(p => p ? { ...p, ryo: p.ryo - cost } : null);
+    const newItems: Item[] = [];
+    const itemCount = player.merchantSlots;
+    for (let i = 0; i < itemCount; i++) {
+      newItems.push(generateLoot(floor, difficulty));
+    }
+    setMerchantItems(newItems);
+    addLog(`Paid ${cost} Ryō to refresh the merchant's inventory.`, 'info');
+  };
+
+  const handleBuyMerchantSlot = () => {
+    if (!player || player.merchantSlots >= MAX_MERCHANT_SLOTS) return;
+    const cost = MERCHANT.SLOT_COSTS[player.merchantSlots];
+    if (player.ryo < cost) {
+      addLog(`Not enough Ryō! Need ${cost} to unlock another slot.`, 'danger');
+      return;
+    }
+    setPlayer(p => {
+      if (!p) return null;
+      return { ...p, ryo: p.ryo - cost, merchantSlots: p.merchantSlots + 1 };
+    });
+    addLog(`Paid ${cost} Ryō. Merchants will now show ${player.merchantSlots + 1} items!`, 'gain');
+  };
+
+  const handleUpgradeTreasureQuality = () => {
+    if (!player || player.treasureQuality === TreasureQuality.RARE) return;
+    const cost = player.treasureQuality === TreasureQuality.BROKEN
+      ? MERCHANT.QUALITY_UPGRADE_COSTS.COMMON
+      : MERCHANT.QUALITY_UPGRADE_COSTS.RARE;
+    if (player.ryo < cost) {
+      addLog(`Not enough Ryō! Need ${cost} to upgrade treasure quality.`, 'danger');
+      return;
+    }
+    const newQuality = player.treasureQuality === TreasureQuality.BROKEN
+      ? TreasureQuality.COMMON
+      : TreasureQuality.RARE;
+    setPlayer(p => {
+      if (!p) return null;
+      return { ...p, ryo: p.ryo - cost, treasureQuality: newQuality };
+    });
+    addLog(`Paid ${cost} Ryō. Treasure quality upgraded to ${newQuality}!`, 'gain');
   };
 
   const handleTrainingComplete = (stat: PrimaryStat, intensity: TrainingIntensity) => {
@@ -1302,6 +1446,7 @@ const App: React.FC = () => {
       case Rarity.EPIC: return 'text-purple-400';
       case Rarity.RARE: return 'text-blue-400';
       case Rarity.CURSED: return 'text-red-600 animate-pulse';
+      case Rarity.BROKEN: return 'text-stone-500';
       default: return 'text-zinc-400';
     }
   };
@@ -1356,22 +1501,8 @@ const App: React.FC = () => {
     <div className="h-screen bg-black text-gray-300 flex overflow-hidden font-sans">
       {/* Left Panel - Hidden during combat */}
       {!isCombat && (
-        <div className="hidden lg:flex w-[320px] flex-col border-r border-zinc-900 bg-zinc-950 p-4">
-          <LeftSidebarPanel
-            selectedComponent={selectedComponent}
-            onSelectComponent={setSelectedComponent}
-            onSellComponent={sellComponent}
-            onSynthesize={handleSynthesize}
-            onEquipFromBag={equipFromBag}
-            onSellEquipped={sellEquipped}
-            onUnequipToBag={unequipToBag}
-            onDisassembleEquipped={handleDisassembleEquipped}
-            onStartSynthesisEquipped={startSynthesisEquipped}
-            onReorderBag={reorderBag}
-            onDragBagToEquip={dragBagToEquip}
-            onDragEquipToBag={dragEquipToBag}
-            onSwapEquipment={swapEquipment}
-          />
+        <div className="hidden lg:flex w-[280px] flex-col border-r border-zinc-900 bg-zinc-950 p-4">
+          <LeftSidebarPanel />
         </div>
       )}
 
@@ -1473,8 +1604,12 @@ const App: React.FC = () => {
               discountPercent={merchantDiscount}
               player={player}
               playerStats={playerStats}
+              floor={floor}
               onBuyItem={buyItem}
               onLeave={leaveMerchant}
+              onReroll={handleMerchantReroll}
+              onBuySlot={handleBuyMerchantSlot}
+              onUpgradeQuality={handleUpgradeTreasureQuality}
               getRarityColor={getRarityColor}
               getDamageTypeColor={getDamageTypeColor}
               isProcessing={isProcessingLoot}
@@ -1502,6 +1637,27 @@ const App: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Right Panel - Hidden during combat */}
+      {!isCombat && (
+        <div className="hidden lg:flex w-[280px] flex-col border-l border-zinc-900 bg-zinc-950 p-4">
+          <RightSidebarPanel
+            selectedComponent={selectedComponent}
+            onSelectComponent={setSelectedComponent}
+            onSellComponent={sellComponent}
+            onSynthesize={handleSynthesize}
+            onEquipFromBag={equipFromBag}
+            onSellEquipped={sellEquipped}
+            onUnequipToBag={unequipToBag}
+            onDisassembleEquipped={handleDisassembleEquipped}
+            onStartSynthesisEquipped={startSynthesisEquipped}
+            onReorderBag={reorderBag}
+            onDragBagToEquip={dragBagToEquip}
+            onDragEquipToBag={dragEquipToBag}
+            onSwapEquipment={swapEquipment}
+          />
+        </div>
+      )}
 
       {/* Approach Selector Modal */}
       {showApproachSelector && selectedBranchingRoom && (selectedBranchingRoom.activities.combat || selectedBranchingRoom.activities.eliteChallenge) && player && playerStats && (() => {

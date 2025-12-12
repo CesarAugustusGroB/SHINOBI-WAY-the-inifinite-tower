@@ -75,6 +75,7 @@ import {
   PassiveSkillEffect
 } from '../types';
 import { ELEMENTAL_CYCLE } from '../constants';
+import { BALANCE } from '../config';
 
 // ============================================================================
 // PASSIVE SKILL BONUS AGGREGATOR
@@ -356,14 +357,17 @@ export function calculateDerivedStats(
 export function aggregateEquipmentBonuses(equipment: Record<EquipmentSlot, Item | null>): ItemStatBonus {
   const bonuses: ItemStatBonus = {};
 
-  Object.values(equipment).forEach(item => {
+  Object.entries(equipment).forEach(([slot, item]) => {
     if (!item || !item.stats) return;
+
+    // PRIMARY slot (SLOT_1) gets 50% stat bonus
+    const multiplier = slot === EquipmentSlot.SLOT_1 ? BALANCE.PRIMARY_SLOT_MULTIPLIER : 1.0;
 
     const stats = item.stats;
     (Object.keys(stats) as Array<keyof ItemStatBonus>).forEach(key => {
       const value = stats[key];
       if (value !== undefined) {
-        bonuses[key] = (bonuses[key] || 0) + value;
+        bonuses[key] = (bonuses[key] || 0) + Math.floor(value * multiplier);
       }
     });
   });

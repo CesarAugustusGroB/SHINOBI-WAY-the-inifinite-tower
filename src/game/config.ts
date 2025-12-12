@@ -17,6 +17,9 @@ export const BALANCE = {
   FLOOR_SCALING: 0.08,
   DIFFICULTY_SCALING: 0.0025,
 
+  // Equipment
+  PRIMARY_SLOT_MULTIPLIER: 1.5, // Primary slot gets 50% stat bonus
+
   // Combat
   MAX_DEFENSE_PERCENT: 0.75,
   BASE_HIT_CHANCE: 0.85,
@@ -51,4 +54,35 @@ export const TIER_XP_BONUS: Record<string, number> = {
   Jonin: 20,
   'Kage Level': 200,
   'S-Rank': 100,
+} as const;
+
+// Crafting costs for the new equipment system
+export const CRAFTING_COSTS = {
+  // Upgrade: 2× Broken (same type) → Common
+  UPGRADE_BROKEN_BASE: 100,
+  UPGRADE_BROKEN_PER_FLOOR: 15,
+
+  // Synthesize: Common + Common (same or different) → Rare Artifact
+  SYNTHESIZE_BASE: 200,
+  SYNTHESIZE_PER_FLOOR: 30,
+
+  // Upgrade: 2× Rare Artifact (same) → Epic Artifact
+  UPGRADE_ARTIFACT_BASE: 400,
+  UPGRADE_ARTIFACT_PER_FLOOR: 75,
+} as const;
+
+// Merchant system constants
+export const MERCHANT = {
+  // Cost to buy additional merchant slots (index = slot number - 1)
+  SLOT_COSTS: [0, 150, 350, 600] as const,
+
+  // Reroll inventory cost
+  REROLL_BASE_COST: 30,
+  REROLL_FLOOR_SCALING: 8,
+
+  // Treasure quality upgrade costs
+  QUALITY_UPGRADE_COSTS: {
+    COMMON: 300,  // BROKEN → COMMON
+    RARE: 700,    // COMMON → RARE
+  },
 } as const;

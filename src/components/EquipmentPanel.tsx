@@ -29,6 +29,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
       case Rarity.EPIC: return 'text-purple-400';
       case Rarity.RARE: return 'text-blue-400';
       case Rarity.CURSED: return 'text-red-600 animate-pulse';
+      case Rarity.BROKEN: return 'text-stone-500';
       default: return 'text-zinc-400';
     }
   };
@@ -58,13 +59,15 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     return map[key] || key.toUpperCase();
   };
 
-  // Themed slot names
+  // Themed slot names (Primary slot gets +50% stats)
   const SLOT_NAMES: Record<EquipmentSlot, string> = {
-    [EquipmentSlot.SLOT_1]: 'Primary',
+    [EquipmentSlot.SLOT_1]: 'Primary (+50%)',
     [EquipmentSlot.SLOT_2]: 'Secondary',
     [EquipmentSlot.SLOT_3]: 'Utility',
     [EquipmentSlot.SLOT_4]: 'Accessory',
   };
+
+  const isPrimarySlot = (slot: EquipmentSlot) => slot === EquipmentSlot.SLOT_1;
 
   const handleSlotClick = (slot: EquipmentSlot, item: Item | null) => {
     if (!item) return;
@@ -183,11 +186,15 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                   ? 'border-amber-500 bg-amber-500/20 scale-[1.02]'
                   : isMenuOpen
                     ? 'border-amber-500 bg-amber-500/10'
-                    : 'border-zinc-800 bg-black/40 hover:border-zinc-600'
+                    : isPrimarySlot(slot)
+                      ? 'border-amber-700/50 bg-amber-950/20 hover:border-amber-600'
+                      : 'border-zinc-800 bg-black/40 hover:border-zinc-600'
             } ${item ? 'group' : ''}`}
           >
             <div className="flex justify-between items-center mb-0.5">
-              <span className="text-[9px] uppercase text-zinc-600 font-bold tracking-wider">
+              <span className={`text-[9px] uppercase font-bold tracking-wider ${
+                isPrimarySlot(slot) ? 'text-amber-500' : 'text-zinc-600'
+              }`}>
                 {SLOT_NAMES[slot]}
               </span>
               {item && (

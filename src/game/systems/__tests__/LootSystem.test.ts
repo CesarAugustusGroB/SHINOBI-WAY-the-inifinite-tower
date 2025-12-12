@@ -17,53 +17,74 @@ import { ComponentId, EquipmentSlot, MAX_BAG_SLOTS, Rarity } from '../../types';
 import { createMockPlayer, createMockComponent, createMockArtifact } from './testFixtures';
 
 describe('synthesize', () => {
-  it('combines two components into an artifact', () => {
+  it('combines two COMMON components into a RARE artifact', () => {
     const compA = createMockComponent(ComponentId.NINJA_STEEL, { strength: 10 });
+    compA.rarity = Rarity.COMMON;
     const compB = createMockComponent(ComponentId.NINJA_STEEL, { strength: 10 });
+    compB.rarity = Rarity.COMMON;
 
-    const artifact = synthesize(compA, compB);
+    const result = synthesize(compA, compB, 1);
 
-    expect(artifact).not.toBeNull();
-    expect(artifact!.isComponent).toBe(false);
-    expect(artifact!.rarity).toBe(Rarity.EPIC);
-    expect(artifact!.recipe).toEqual([ComponentId.NINJA_STEEL, ComponentId.NINJA_STEEL]);
+    expect(result.success).toBe(true);
+    expect(result.item).not.toBeNull();
+    expect(result.item!.isComponent).toBe(false);
+    expect(result.item!.rarity).toBe(Rarity.RARE);
+    expect(result.item!.recipe).toEqual([ComponentId.NINJA_STEEL, ComponentId.NINJA_STEEL]);
+    expect(result.cost).toBeGreaterThan(0);
   });
 
-  it('returns null for non-component items', () => {
+  it('returns failure for non-component items', () => {
     const artifact = createMockArtifact();
     const component = createMockComponent();
+    component.rarity = Rarity.COMMON;
 
-    const result = synthesize(artifact, component);
+    const result = synthesize(artifact, component, 1);
 
-    expect(result).toBeNull();
+    expect(result.success).toBe(false);
+    expect(result.item).toBeUndefined();
   });
 
   it('combines stats from both components', () => {
     const compA = createMockComponent(ComponentId.NINJA_STEEL, { strength: 10 });
+    compA.rarity = Rarity.COMMON;
     const compB = createMockComponent(ComponentId.SPIRIT_TAG, { spirit: 8 });
+    compB.rarity = Rarity.COMMON;
 
-    const artifact = synthesize(compA, compB);
+    const result = synthesize(compA, compB, 1);
 
-    expect(artifact).not.toBeNull();
+    expect(result.success).toBe(true);
+    expect(result.item).not.toBeNull();
     // Stats should be combined (capped to 2 highest)
-    const statKeys = Object.keys(artifact!.stats);
+    const statKeys = Object.keys(result.item!.stats);
     expect(statKeys.length).toBeLessThanOrEqual(2);
+  });
+
+  it('scales cost with floor', () => {
+    const compA = createMockComponent(ComponentId.NINJA_STEEL, { strength: 10 });
+    compA.rarity = Rarity.COMMON;
+    const compB = createMockComponent(ComponentId.SPIRIT_TAG, { spirit: 8 });
+    compB.rarity = Rarity.COMMON;
+
+    const floor1Result = synthesize(compA, compB, 1);
+    const floor10Result = synthesize(compA, compB, 10);
+
+    expect(floor10Result.cost).toBeGreaterThan(floor1Result.cost);
   });
 });
 
 describe('disassemble', () => {
-  it('breaks artifact into two components', () => {
+  it('breaks artifact into one random component', () => {
     const artifact = createMockArtifact(
       [ComponentId.NINJA_STEEL, ComponentId.SPIRIT_TAG],
       { strength: 20 }
     );
 
-    const components = disassemble(artifact);
+    const component = disassemble(artifact);
 
-    expect(components).not.toBeNull();
-    expect(components!.length).toBe(2);
-    expect(components![0].isComponent).toBe(true);
-    expect(components![1].isComponent).toBe(true);
+    expect(component).not.toBeNull();
+    expect(component!.isComponent).toBe(true);
+    // Should be one of the recipe components
+    expect([ComponentId.NINJA_STEEL, ComponentId.SPIRIT_TAG]).toContain(component!.componentId);
   });
 
   it('returns null for component items', () => {
@@ -74,16 +95,15 @@ describe('disassemble', () => {
     expect(result).toBeNull();
   });
 
-  it('returns 50% of artifact value split between components', () => {
+  it('returns 50% of artifact value for the component', () => {
     const artifact = createMockArtifact();
     artifact.value = 400;
 
-    const components = disassemble(artifact);
+    const component = disassemble(artifact);
 
-    expect(components).not.toBeNull();
-    // Total returned value should be ~200 (50% of 400)
-    const totalValue = components![0].value + components![1].value;
-    expect(totalValue).toBe(200); // 400 * 0.5 = 200
+    expect(component).not.toBeNull();
+    // Returned value should be ~200 (50% of 400)
+    expect(component!.value).toBe(200); // 400 * 0.5 = 200
   });
 });
 

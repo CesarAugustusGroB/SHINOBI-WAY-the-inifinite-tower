@@ -1,16 +1,21 @@
 import React from 'react';
-import { Item, Player, Rarity, EquipmentSlot, DamageType, SLOT_MAPPING } from '../game/types';
-import { Coins } from 'lucide-react';
+import { Item, Player, Rarity, EquipmentSlot, DamageType, SLOT_MAPPING, TreasureQuality, MAX_MERCHANT_SLOTS } from '../game/types';
+import { Coins, RefreshCw, ShoppingBag, Gem } from 'lucide-react';
 import Tooltip from '../components/Tooltip';
 import { formatStatName } from '../game/utils/tooltipFormatters';
+import { MERCHANT } from '../game/config';
 
 interface MerchantProps {
   merchantItems: Item[];
   discountPercent: number;
   player: Player | null;
   playerStats: any;
+  floor: number;
   onBuyItem: (item: Item) => void;
   onLeave: () => void;
+  onReroll: () => void;
+  onBuySlot: () => void;
+  onUpgradeQuality: () => void;
   getRarityColor: (rarity: Rarity) => string;
   getDamageTypeColor: (dt: DamageType) => string;
   isProcessing?: boolean;
@@ -21,8 +26,12 @@ const Merchant: React.FC<MerchantProps> = ({
   discountPercent,
   player,
   playerStats,
+  floor,
   onBuyItem,
   onLeave,
+  onReroll,
+  onBuySlot,
+  onUpgradeQuality,
   getRarityColor,
   getDamageTypeColor,
   isProcessing = false
@@ -45,10 +54,64 @@ const Merchant: React.FC<MerchantProps> = ({
           </span>
         )}
       </div>
-      <div className="flex items-center justify-center gap-2 mb-10">
+      <div className="flex items-center justify-center gap-2 mb-4">
         <Coins className="text-yellow-500" size={16} />
         <span className="text-yellow-500 font-mono">{player?.ryo || 0} Ryō</span>
       </div>
+
+      {/* Merchant Services Section */}
+      {player && (
+        <div className="flex flex-wrap items-center justify-center gap-3 mb-8 p-4 bg-zinc-900/50 border border-zinc-800 rounded">
+          {/* Player Status */}
+          <div className="flex items-center gap-4 text-[10px] text-zinc-500 mr-4">
+            <span>Quality: <span className="text-zinc-300">{player.treasureQuality}</span></span>
+            <span>Slots: <span className="text-zinc-300">{player.merchantSlots}/{MAX_MERCHANT_SLOTS}</span></span>
+          </div>
+
+          {/* Reroll Button */}
+          <Tooltip content={<span>Refresh merchant inventory</span>}>
+            <button
+              type="button"
+              onClick={onReroll}
+              disabled={isProcessing || player.ryo < MERCHANT.REROLL_BASE_COST + (floor * MERCHANT.REROLL_FLOOR_SCALING)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw size={12} />
+              Reroll ({MERCHANT.REROLL_BASE_COST + (floor * MERCHANT.REROLL_FLOOR_SCALING)} Ryō)
+            </button>
+          </Tooltip>
+
+          {/* Buy Slot Button */}
+          {player.merchantSlots < MAX_MERCHANT_SLOTS && (
+            <Tooltip content={<span>Merchants will show more items</span>}>
+              <button
+                type="button"
+                onClick={onBuySlot}
+                disabled={isProcessing || player.ryo < MERCHANT.SLOT_COSTS[player.merchantSlots]}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase bg-blue-900/30 border border-blue-800 text-blue-300 hover:bg-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ShoppingBag size={12} />
+                +1 Slot ({MERCHANT.SLOT_COSTS[player.merchantSlots]} Ryō)
+              </button>
+            </Tooltip>
+          )}
+
+          {/* Upgrade Quality Button */}
+          {player.treasureQuality !== TreasureQuality.RARE && (
+            <Tooltip content={<span>Improve quality of treasure drops</span>}>
+              <button
+                type="button"
+                onClick={onUpgradeQuality}
+                disabled={isProcessing || player.ryo < (player.treasureQuality === TreasureQuality.BROKEN ? MERCHANT.QUALITY_UPGRADE_COSTS.COMMON : MERCHANT.QUALITY_UPGRADE_COSTS.RARE)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase bg-purple-900/30 border border-purple-800 text-purple-300 hover:bg-purple-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Gem size={12} />
+                Quality ↑ ({player.treasureQuality === TreasureQuality.BROKEN ? MERCHANT.QUALITY_UPGRADE_COSTS.COMMON : MERCHANT.QUALITY_UPGRADE_COSTS.RARE} Ryō)
+              </button>
+            </Tooltip>
+          )}
+        </div>
+      )}
 
       {merchantItems.length === 0 ? (
         <p className="text-center text-zinc-600 mb-10">The merchant has nothing left to sell.</p>

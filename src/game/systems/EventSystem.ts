@@ -69,6 +69,8 @@ import {
   PrimaryStat,
   GameEvent,
   CharacterStats,
+  TreasureQuality,
+  MAX_MERCHANT_SLOTS,
 } from '../types';
 
 /**
@@ -251,6 +253,21 @@ export const applyOutcomeEffects = (
   // Apply buffs (store for combat system)
   if (effects.buffs) {
     updated.activeBuffs = [...updated.activeBuffs, ...effects.buffs];
+  }
+
+  // Upgrade treasure quality (BROKEN → COMMON → RARE)
+  if (effects.upgradeTreasureQuality) {
+    if (updated.treasureQuality === TreasureQuality.BROKEN) {
+      updated.treasureQuality = TreasureQuality.COMMON;
+    } else if (updated.treasureQuality === TreasureQuality.COMMON) {
+      updated.treasureQuality = TreasureQuality.RARE;
+    }
+    // Already at RARE - no change (alternative reward should be given)
+  }
+
+  // Add merchant slot (up to MAX_MERCHANT_SLOTS)
+  if (effects.addMerchantSlot && updated.merchantSlots < MAX_MERCHANT_SLOTS) {
+    updated.merchantSlots += 1;
   }
 
   return updated;

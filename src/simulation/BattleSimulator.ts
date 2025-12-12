@@ -14,7 +14,9 @@ import {
   EffectType,
   Clan,
   EquipmentSlot,
-  ApproachType
+  ApproachType,
+  TreasureQuality,
+  DEFAULT_MERCHANT_SLOTS,
 } from '../game/types';
 import {
   calculateDerivedStats,
@@ -117,7 +119,9 @@ export function createSimPlayer(config: PlayerBuildConfig): Player {
     },
     skills: skills.map(s => ({ ...s, currentCooldown: 0 })),
     activeBuffs: [],
-    componentBag: []
+    componentBag: [],
+    treasureQuality: TreasureQuality.BROKEN,
+    merchantSlots: DEFAULT_MERCHANT_SLOTS,
   };
 }
 

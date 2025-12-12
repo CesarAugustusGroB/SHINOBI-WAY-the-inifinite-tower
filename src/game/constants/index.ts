@@ -8,6 +8,7 @@ import { WAVES_ARC_EVENTS } from './events/wavesArcEvents';
 import { EXAMS_ARC_EVENTS } from './events/examsArcEvents';
 import { ROGUE_ARC_EVENTS } from './events/rogueArcEvents';
 import { WAR_ARC_EVENTS } from './events/warArcEvents';
+import { GENERIC_EVENTS } from './events/genericEvents';
 
 // Exploration System Exports
 export * from './terrain';
@@ -2694,6 +2695,7 @@ export const AMBUSH_ENEMIES = [
 // EVENT DEFINITIONS
 // ============================================================================
 export const EVENTS: GameEvent[] = [
+  ...GENERIC_EVENTS, // Generic events that can appear in any arc (treasure upgrades, etc.)
   ...ACADEMY_ARC_EVENTS,
   ...WAVES_ARC_EVENTS,
   ...EXAMS_ARC_EVENTS,

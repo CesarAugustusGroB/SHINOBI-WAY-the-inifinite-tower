@@ -1,4 +1,4 @@
-import { Player, Clan, EquipmentSlot } from '../types';
+import { Player, Clan, EquipmentSlot, TreasureQuality, DEFAULT_MERCHANT_SLOTS } from '../types';
 import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS, getClanStartingSkills } from '../constants';
 import { calculateDerivedStats, getPlayerFullStats } from '../systems/StatSystem';
 
@@ -33,6 +33,9 @@ export const createPlayer = (clan: Clan): Player => {
     skills,
     activeBuffs: [],
     componentBag: [], // Empty component bag for synthesis system
+    // Progression systems
+    treasureQuality: TreasureQuality.BROKEN,  // Start with broken quality drops
+    merchantSlots: DEFAULT_MERCHANT_SLOTS,     // Start with 1 merchant slot
   };
 };
 

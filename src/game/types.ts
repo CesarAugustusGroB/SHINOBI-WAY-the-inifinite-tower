@@ -181,11 +181,19 @@ export enum Clan {
 }
 
 export enum Rarity {
-  COMMON = 'Common',
-  RARE = 'Rare',
-  EPIC = 'Epic',
+  BROKEN = 'Broken',      // Lowest tier - drops from treasure/enemies
+  COMMON = 'Common',      // Upgraded from 2x Broken (same type)
+  RARE = 'Rare',          // Synthesized from 2x Common (any types)
+  EPIC = 'Epic',          // Upgraded from 2x Rare Artifact (same)
   LEGENDARY = 'Legendary',
   CURSED = 'Cursed'
+}
+
+// Treasure quality determines what tier of items drop from treasure rooms
+export enum TreasureQuality {
+  BROKEN = 'Broken',   // Default starting tier
+  COMMON = 'Common',   // Upgraded quality
+  RARE = 'Rare'        // Highest upgradeable quality
 }
 
 export enum SkillTier {
@@ -323,8 +331,13 @@ export interface PassiveEffect {
 }
 
 // Synthesis system constants
-export const MAX_BAG_SLOTS = 8;
+export const MAX_BAG_SLOTS = 12;  // Increased from 8 for new crafting system
 export const DISASSEMBLE_RETURN_RATE = 0.5; // 50% value return when breaking artifacts
+
+// Merchant slot system constants
+export const DEFAULT_MERCHANT_SLOTS = 1;
+export const MAX_MERCHANT_SLOTS = 4;
+export const DEFAULT_TREASURE_QUALITY = TreasureQuality.BROKEN;
 
 // ============================================================================
 // EFFECTS & BUFFS
@@ -514,7 +527,11 @@ export interface Player {
   activeBuffs: Buff[];
 
   // Synthesis system - component inventory
-  componentBag: Item[];  // Max MAX_BAG_SLOTS (8) components for crafting
+  componentBag: Item[];  // Max MAX_BAG_SLOTS (12) components for crafting
+
+  // Progression systems
+  treasureQuality: TreasureQuality;  // What tier items drop from treasure (upgradeable)
+  merchantSlots: number;              // How many items shown at merchant (1-4)
 }
 
 export interface Enemy {
@@ -601,6 +618,10 @@ export interface EventOutcome {
 
     // Persistent buffs
     buffs?: Buff[];
+
+    // Player progression upgrades
+    upgradeTreasureQuality?: boolean; // Permanently upgrade treasure quality (BROKEN → COMMON → RARE)
+    addMerchantSlot?: boolean; // Add a merchant slot
 
     // Combat triggers
     triggerCombat?: {

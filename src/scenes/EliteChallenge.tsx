@@ -26,6 +26,7 @@ const EliteChallenge: React.FC<EliteChallengeProps> = ({
 
   const getRarityColor = (rarity: Rarity): string => {
     switch (rarity) {
+      case Rarity.BROKEN: return 'text-stone-500';
       case Rarity.COMMON: return 'text-zinc-400';
       case Rarity.RARE: return 'text-blue-400';
       case Rarity.EPIC: return 'text-purple-400';

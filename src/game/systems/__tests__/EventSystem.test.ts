@@ -18,8 +18,11 @@ import { createMockPlayer, BASE_STATS } from './testFixtures';
 
 describe('checkRequirements', () => {
   const player = createMockPlayer();
+  const derived = calculateDerivedStats(player.primaryStats, {});
   const playerStats = {
-    derived: calculateDerivedStats(player.primaryStats, {}),
+    primary: player.primaryStats,
+    effectivePrimary: player.primaryStats,
+    derived,
   };
 
   it('returns true when no requirements', () => {
@@ -28,14 +31,14 @@ describe('checkRequirements', () => {
 
   it('returns true when stat requirement met', () => {
     const requirements = {
-      minStat: { stat: 'strength', value: 5 },
+      minStat: { stat: PrimaryStat.STRENGTH, value: 5 },
     };
     expect(checkRequirements(player, requirements, playerStats)).toBe(true);
   });
 
   it('returns false when stat requirement not met', () => {
     const requirements = {
-      minStat: { stat: 'strength', value: 50 },
+      minStat: { stat: PrimaryStat.STRENGTH, value: 50 },
     };
     expect(checkRequirements(player, requirements, playerStats)).toBe(false);
   });
@@ -133,8 +136,11 @@ describe('rollOutcome', () => {
 });
 
 describe('applyOutcomeEffects', () => {
+  const derived = calculateDerivedStats(BASE_STATS, {});
   const playerStats = {
-    derived: calculateDerivedStats(BASE_STATS, {}),
+    primary: BASE_STATS,
+    effectivePrimary: BASE_STATS,
+    derived,
   };
 
   it('applies stat changes', () => {

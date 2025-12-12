@@ -75,12 +75,14 @@ import {
   Player,
   DISASSEMBLE_RETURN_RATE,
   MAX_BAG_SLOTS,
-  SLOT_MAPPING
+  SLOT_MAPPING,
+  TreasureQuality,
+  PassiveEffect
 } from '../types';
 import { SKILLS } from '../constants';
 import { COMPONENT_DEFINITIONS, COMPONENT_DROP_WEIGHTS, getTotalDropWeight } from '../constants/components';
 import { findRecipe, SYNTHESIS_RECIPES } from '../constants/synthesis';
-import { BALANCE } from '../config';
+import { BALANCE, CRAFTING_COSTS } from '../config';
 
 /** Generates a random 7-character ID for item tracking */
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -233,8 +235,34 @@ function weightedRandomComponent(): ComponentId {
 }
 
 /**
- * Generate a component item that drops from enemies
- * Components scale with floor level like regular items
+ * Generate a BROKEN tier component (lowest quality)
+ * These drop from treasure and enemies by default
+ */
+export const generateBrokenComponent = (currentFloor: number, _difficulty: number): Item => {
+  const componentId = weightedRandomComponent();
+  const def = COMPONENT_DEFINITIONS[componentId];
+
+  // Broken items have reduced stats (40-60% of normal)
+  const floorScaling = 1 + (currentFloor * BALANCE.FLOOR_SCALING);
+  const qualityRoll = 0.4 + (Math.random() * 0.2); // 0.4 to 0.6
+  const statValue = Math.floor(def.baseValue * floorScaling * qualityRoll);
+
+  return {
+    id: generateId(),
+    name: `Broken ${def.name}`,
+    rarity: Rarity.BROKEN,
+    stats: { [def.primaryStat]: statValue },
+    value: statValue * 8, // Lower value than common
+    description: `${def.description} (Damaged - needs repair)`,
+    isComponent: true,
+    componentId,
+    icon: def.icon,
+  };
+};
+
+/**
+ * Generate a COMMON tier component
+ * These are created by upgrading 2x Broken components
  */
 export const generateComponent = (currentFloor: number, difficulty: number): Item => {
   const componentId = weightedRandomComponent();
@@ -248,7 +276,7 @@ export const generateComponent = (currentFloor: number, difficulty: number): Ite
   return {
     id: generateId(),
     name: def.name,
-    rarity: Rarity.COMMON, // Components are always common rarity
+    rarity: Rarity.COMMON,
     stats: { [def.primaryStat]: statValue },
     value: statValue * 15,
     description: def.description,
@@ -259,11 +287,44 @@ export const generateComponent = (currentFloor: number, difficulty: number): Ite
 };
 
 /**
- * Generate loot from combat - 100% components
- * This is the main drop function for post-combat rewards
+ * Generate a component based on player's treasure quality tier
+ */
+export const generateComponentByQuality = (
+  currentFloor: number,
+  difficulty: number,
+  quality: TreasureQuality
+): Item => {
+  switch (quality) {
+    case TreasureQuality.BROKEN:
+      return generateBrokenComponent(currentFloor, difficulty);
+    case TreasureQuality.COMMON:
+      return generateComponent(currentFloor, difficulty);
+    case TreasureQuality.RARE: {
+      // Rare quality: same as Common but with boosted stats
+      const item = generateComponent(currentFloor, difficulty);
+      item.rarity = Rarity.RARE;
+      // Boost stat values by 25%
+      for (const key of Object.keys(item.stats) as (keyof ItemStatBonus)[]) {
+        const val = item.stats[key];
+        if (val !== undefined) {
+          item.stats[key] = Math.floor(val * 1.25);
+        }
+      }
+      item.value = Math.floor(item.value * 1.5);
+      item.name = `Quality ${item.name}`;
+      return item;
+    }
+    default:
+      return generateBrokenComponent(currentFloor, difficulty);
+  }
+};
+
+/**
+ * Generate loot from combat - now drops BROKEN components by default
+ * Use generateComponentByQuality for treasure quality scaling
  */
 export const generateLoot = (currentFloor: number, difficulty: number): Item => {
-  return generateComponent(currentFloor, difficulty);
+  return generateBrokenComponent(currentFloor, difficulty);
 };
 
 /**
@@ -319,17 +380,91 @@ export const generateRandomArtifact = (currentFloor: number, difficulty: number)
 };
 
 /**
- * Synthesize two components into an artifact
- * Returns null if the combination is invalid
+ * Result of a crafting operation
  */
-export const synthesize = (componentA: Item, componentB: Item): Item | null => {
+export interface CraftResult {
+  success: boolean;
+  item?: Item;
+  cost: number;
+  reason?: string;
+}
+
+/**
+ * Upgrade two BROKEN components of the same type into one COMMON component
+ * Cost: 100 + floor×15
+ */
+export const upgradeComponent = (
+  componentA: Item,
+  componentB: Item,
+  floor: number
+): CraftResult => {
+  // Validation
+  if (!componentA.isComponent || !componentB.isComponent) {
+    return { success: false, cost: 0, reason: 'Both items must be components' };
+  }
+
+  if (componentA.rarity !== Rarity.BROKEN || componentB.rarity !== Rarity.BROKEN) {
+    return { success: false, cost: 0, reason: 'Both components must be BROKEN tier' };
+  }
+
+  if (componentA.componentId !== componentB.componentId) {
+    return { success: false, cost: 0, reason: 'Components must be the same type' };
+  }
+
+  // Calculate cost
+  const cost = CRAFTING_COSTS.UPGRADE_BROKEN_BASE + (floor * CRAFTING_COSTS.UPGRADE_BROKEN_PER_FLOOR);
+
+  // Create COMMON component with combined stats
+  const def = COMPONENT_DEFINITIONS[componentA.componentId!];
+  const primaryStat = def.primaryStat as keyof ItemStatBonus;
+  const combinedStatValue = (componentA.stats[primaryStat] || 0) + (componentB.stats[primaryStat] || 0);
+
+  const result: Item = {
+    id: generateId(),
+    name: def.name,
+    rarity: Rarity.COMMON,
+    stats: { [primaryStat]: combinedStatValue },
+    value: Math.floor((componentA.value + componentB.value) * 1.5),
+    description: def.description,
+    isComponent: true,
+    componentId: componentA.componentId,
+    icon: def.icon,
+  };
+
+  return { success: true, item: result, cost };
+};
+
+/**
+ * Synthesize two COMMON components into a RARE artifact
+ * Components can be the same or different types (must have a recipe)
+ * Cost: 200 + floor×30
+ */
+export const synthesize = (
+  componentA: Item,
+  componentB: Item,
+  floor: number
+): CraftResult => {
   // Both items must be components
-  if (!componentA.isComponent || !componentB.isComponent) return null;
-  if (!componentA.componentId || !componentB.componentId) return null;
+  if (!componentA.isComponent || !componentB.isComponent) {
+    return { success: false, cost: 0, reason: 'Both items must be components' };
+  }
+  if (!componentA.componentId || !componentB.componentId) {
+    return { success: false, cost: 0, reason: 'Invalid components' };
+  }
+
+  // Components must be COMMON tier
+  if (componentA.rarity !== Rarity.COMMON || componentB.rarity !== Rarity.COMMON) {
+    return { success: false, cost: 0, reason: 'Both components must be COMMON tier' };
+  }
 
   // Find matching recipe
   const recipe = findRecipe(componentA.componentId, componentB.componentId);
-  if (!recipe) return null;
+  if (!recipe) {
+    return { success: false, cost: 0, reason: 'No recipe found for this combination' };
+  }
+
+  // Calculate cost
+  const cost = CRAFTING_COSTS.SYNTHESIZE_BASE + (floor * CRAFTING_COSTS.SYNTHESIZE_PER_FLOOR);
 
   // Combine stats from both components
   const combinedStats: ItemStatBonus = {};
@@ -357,10 +492,10 @@ export const synthesize = (componentA: Item, componentB: Item): Item | null => {
   // Cap to maximum 2 stat bonuses
   const cappedStats = capStatsToTwo(combinedStats);
 
-  return {
+  const artifact: Item = {
     id: generateId(),
     name: recipe.name,
-    rarity: Rarity.EPIC, // All synthesized artifacts are Epic
+    rarity: Rarity.RARE, // Synthesized artifacts are now RARE
     stats: cappedStats,
     value: (componentA.value + componentB.value) * 2,
     description: recipe.description,
@@ -369,52 +504,134 @@ export const synthesize = (componentA: Item, componentB: Item): Item | null => {
     passive: recipe.passive,
     icon: recipe.icon,
   };
+
+  return { success: true, item: artifact, cost };
 };
 
 /**
- * Disassemble an artifact back into its component materials
- * Returns 50% of the artifact's value split between two components
+ * Boost a passive effect's value by 1.5× for Epic tier
+ */
+const boostPassive = (passive?: PassiveEffect): PassiveEffect | undefined => {
+  if (!passive) return undefined;
+  return {
+    ...passive,
+    value: passive.value !== undefined ? Math.floor(passive.value * 1.5) : undefined,
+  };
+};
+
+/**
+ * Upgrade two identical RARE artifacts into one EPIC artifact
+ * The Epic artifact has the same passive but with 1.5× values
+ * Cost: 400 + floor×75
+ */
+export const upgradeArtifact = (
+  artifactA: Item,
+  artifactB: Item,
+  floor: number
+): CraftResult => {
+  // Validation: must be artifacts (not components)
+  if (artifactA.isComponent || artifactB.isComponent) {
+    return { success: false, cost: 0, reason: 'Items must be artifacts, not components' };
+  }
+
+  // Must be RARE tier
+  if (artifactA.rarity !== Rarity.RARE || artifactB.rarity !== Rarity.RARE) {
+    return { success: false, cost: 0, reason: 'Both artifacts must be RARE tier' };
+  }
+
+  // Must be the same artifact type (same recipe)
+  if (!artifactA.recipe || !artifactB.recipe) {
+    return { success: false, cost: 0, reason: 'Invalid artifacts' };
+  }
+
+  const recipeA = [...artifactA.recipe].sort().join(',');
+  const recipeB = [...artifactB.recipe].sort().join(',');
+  if (recipeA !== recipeB) {
+    return { success: false, cost: 0, reason: 'Artifacts must be the same type' };
+  }
+
+  // Calculate cost
+  const cost = CRAFTING_COSTS.UPGRADE_ARTIFACT_BASE + (floor * CRAFTING_COSTS.UPGRADE_ARTIFACT_PER_FLOOR);
+
+  // Create EPIC artifact with boosted stats (75% of combined)
+  const upgradedStats: ItemStatBonus = {};
+  for (const key of Object.keys(artifactA.stats) as (keyof ItemStatBonus)[]) {
+    const valA = artifactA.stats[key] || 0;
+    const valB = artifactB.stats[key] || 0;
+    upgradedStats[key] = Math.floor((valA + valB) * 0.75);
+  }
+  // Also include any stats only in B
+  for (const key of Object.keys(artifactB.stats) as (keyof ItemStatBonus)[]) {
+    if (upgradedStats[key] === undefined) {
+      const valB = artifactB.stats[key] || 0;
+      upgradedStats[key] = Math.floor(valB * 0.75);
+    }
+  }
+
+  const artifact: Item = {
+    id: generateId(),
+    name: artifactA.name, // Same name
+    rarity: Rarity.EPIC,
+    stats: upgradedStats,
+    value: Math.floor((artifactA.value + artifactB.value) * 1.5),
+    description: artifactA.description,
+    isComponent: false,
+    recipe: artifactA.recipe,
+    passive: boostPassive(artifactA.passive), // 1.5× passive values
+    icon: artifactA.icon,
+  };
+
+  return { success: true, item: artifact, cost };
+};
+
+/**
+ * Disassemble an artifact back into ONE random component of the previous tier
+ * - EPIC artifact → returns 1 RARE component
+ * - RARE artifact → returns 1 COMMON component
  * Returns null if the item cannot be disassembled
  */
-export const disassemble = (artifact: Item): Item[] | null => {
+export const disassemble = (artifact: Item): Item | null => {
   // Can only disassemble artifacts (not components or legacy items)
   if (artifact.isComponent || !artifact.recipe) return null;
 
   const [compIdA, compIdB] = artifact.recipe;
-  const defA = COMPONENT_DEFINITIONS[compIdA];
-  const defB = COMPONENT_DEFINITIONS[compIdB];
+  // Randomly pick one of the two component types
+  const returnedCompId = Math.random() < 0.5 ? compIdA : compIdB;
+  const def = COMPONENT_DEFINITIONS[returnedCompId];
 
-  // Return value is 50% of artifact value, split between components
+  // Determine return tier based on artifact tier
+  let returnRarity: Rarity;
+  let namePrefix = '';
+
+  if (artifact.rarity === Rarity.EPIC) {
+    // Epic → Rare component (but components can't be rare, so return Common)
+    returnRarity = Rarity.COMMON;
+  } else if (artifact.rarity === Rarity.RARE) {
+    // Rare → Common component
+    returnRarity = Rarity.COMMON;
+  } else {
+    // Fallback for legacy items
+    returnRarity = Rarity.BROKEN;
+    namePrefix = 'Broken ';
+  }
+
+  // Calculate return value (50% of artifact value)
   const returnValue = Math.floor(artifact.value * DISASSEMBLE_RETURN_RATE);
-  const valuePerComponent = Math.floor(returnValue / 2);
 
-  // Estimate stat values from returned value
-  const statValue = Math.floor(valuePerComponent / 15);
+  // Estimate stat value from returned value
+  const statValue = Math.floor(returnValue / 15);
 
-  return [
-    {
-      id: generateId(),
-      name: defA.name,
-      rarity: Rarity.COMMON,
-      stats: { [defA.primaryStat]: statValue },
-      value: valuePerComponent,
-      description: defA.description,
-      isComponent: true,
-      componentId: compIdA,
-      icon: defA.icon,
-    },
-    {
-      id: generateId(),
-      name: defB.name,
-      rarity: Rarity.COMMON,
-      stats: { [defB.primaryStat]: statValue },
-      value: valuePerComponent,
-      description: defB.description,
-      isComponent: true,
-      componentId: compIdB,
-      icon: defB.icon,
-    },
-  ];
+  return {
+    id: generateId(),
+    name: namePrefix + def.name,
+    rarity: returnRarity,
+    stats: { [def.primaryStat]: statValue },
+    value: returnValue,
+    description: def.description,
+    isComponent: true,
+    componentId: returnedCompId,
+    icon: def.icon,
+  };
 };
 
 /**
