@@ -36,7 +36,7 @@ const PrimaryStatsPanel: React.FC<PrimaryStatsPanelProps> = ({ player, effective
     );
 
     return (
-      <Tooltip content={tooltipContent}>
+      <Tooltip content={tooltipContent} position="right">
         <div className="flex items-center justify-between text-xs text-zinc-400 py-1.5 px-2 rounded hover:bg-zinc-800 transition-colors group cursor-help">
           <div className="flex items-center gap-2">
             <span className={`${color} group-hover:text-zinc-300 transition-colors`}>{icon}</span>

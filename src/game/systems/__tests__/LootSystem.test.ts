@@ -134,12 +134,12 @@ describe('equipItem', () => {
 
     expect(result.success).toBe(true);
     expect(result.player.equipment[EquipmentSlot.SLOT_1]).toEqual(newItem);
-    expect(result.player.componentBag).toContain(existingItem);
+    expect(result.player.bag).toContain(existingItem);
     expect(result.replacedItem).toEqual(existingItem);
   });
 
   it('fails if bag is full and slot is occupied', () => {
-    // Fill bag to max
+    // Fill bag to max (all slots occupied)
     const fullBag = Array(MAX_BAG_SLOTS).fill(null).map(() => createMockComponent());
     const existingItem = createMockComponent();
     const player = createMockPlayer({
@@ -149,14 +149,14 @@ describe('equipItem', () => {
         [EquipmentSlot.SLOT_3]: null,
         [EquipmentSlot.SLOT_4]: null,
       },
-      componentBag: fullBag,
+      bag: fullBag,
     });
     const newItem = createMockComponent();
 
     const result = equipItem(player, newItem, EquipmentSlot.SLOT_1);
 
     expect(result.success).toBe(false);
-    expect(result.reason).toContain('bag is full');
+    expect(result.reason).toContain('Bag is full');
   });
 });
 
@@ -168,13 +168,14 @@ describe('addToBag', () => {
     const result = addToBag(player, item);
 
     expect(result).not.toBeNull();
-    expect(result!.componentBag.length).toBe(1);
-    expect(result!.componentBag[0]).toEqual(item);
+    // Item should be in the first empty slot (index 0)
+    expect(result!.bag[0]).toEqual(item);
+    expect(result!.bag.filter(i => i !== null).length).toBe(1);
   });
 
   it('returns null when bag is full', () => {
     const fullBag = Array(MAX_BAG_SLOTS).fill(null).map(() => createMockComponent());
-    const player = createMockPlayer({ componentBag: fullBag });
+    const player = createMockPlayer({ bag: fullBag });
     const item = createMockComponent();
 
     const result = addToBag(player, item);
@@ -184,28 +185,35 @@ describe('addToBag', () => {
 });
 
 describe('hasBagSpace', () => {
-  it('returns true when bag has space', () => {
-    const player = createMockPlayer({ componentBag: [] });
+  it('returns true when bag has space (has null slots)', () => {
+    // Default bag is all nulls
+    const player = createMockPlayer();
     expect(hasBagSpace(player)).toBe(true);
   });
 
   it('returns false when bag is full', () => {
     const fullBag = Array(MAX_BAG_SLOTS).fill(null).map(() => createMockComponent());
-    const player = createMockPlayer({ componentBag: fullBag });
+    const player = createMockPlayer({ bag: fullBag });
     expect(hasBagSpace(player)).toBe(false);
   });
 });
 
 describe('removeFromBag', () => {
-  it('removes item by id', () => {
+  it('removes item by id (sets slot to null)', () => {
     const item1 = createMockComponent();
     const item2 = createMockComponent();
-    const player = createMockPlayer({ componentBag: [item1, item2] });
+    // Create a bag with items at positions 0 and 1
+    const bag = Array(MAX_BAG_SLOTS).fill(null) as (typeof item1 | null)[];
+    bag[0] = item1;
+    bag[1] = item2;
+    const player = createMockPlayer({ bag });
 
     const result = removeFromBag(player, item1.id);
 
-    expect(result.componentBag.length).toBe(1);
-    expect(result.componentBag[0].id).toBe(item2.id);
+    // First slot should now be null, second slot should still have item2
+    expect(result.bag[0]).toBeNull();
+    expect(result.bag[1]?.id).toBe(item2.id);
+    expect(result.bag.filter(i => i !== null).length).toBe(1);
   });
 });
 

@@ -12,7 +12,7 @@ import {
 import { useGame } from '../contexts/GameContext';
 import { Item, EquipmentSlot, DragData, Rarity } from '../game/types';
 import EquipmentPanel from './EquipmentPanel';
-import ComponentBag from './ComponentBag';
+import Bag from './Bag';
 import { Coins, TrendingUp } from 'lucide-react';
 
 interface RightSidebarPanelProps {
@@ -34,7 +34,7 @@ interface RightSidebarPanelProps {
   onSwapEquipment?: (fromSlot: EquipmentSlot, toSlot: EquipmentSlot) => void;
 }
 
-// Drag preview component
+// Drag preview component - icon only
 const ItemDragPreview: React.FC<{ item: Item }> = ({ item }) => {
   const getRarityColor = (r: Rarity) => {
     switch (r) {
@@ -49,10 +49,9 @@ const ItemDragPreview: React.FC<{ item: Item }> = ({ item }) => {
 
   return (
     <div
-      className={`px-3 py-2 rounded border-2 ${getRarityColor(item.rarity)} backdrop-blur-sm shadow-lg`}
+      className={`w-10 h-10 flex items-center justify-center rounded border-2 ${getRarityColor(item.rarity)} backdrop-blur-sm shadow-lg text-xl`}
     >
-      <span className="text-lg mr-2">{item.icon || '?'}</span>
-      <span className="text-sm font-medium text-white">{item.name}</span>
+      {item.icon || '?'}
     </div>
   );
 };
@@ -146,10 +145,10 @@ const RightSidebarPanel: React.FC<RightSidebarPanelProps> = ({
           isDragging={!!activeDrag}
         />
 
-        {/* Component Bag - only show when handlers are available */}
+        {/* Bag - only show when handlers are available */}
         {onSelectComponent && onSellComponent && (
-          <ComponentBag
-            components={player.componentBag}
+          <Bag
+            items={player.bag}
             onSelectComponent={onSelectComponent}
             onSellComponent={onSellComponent}
             selectedComponent={selectedComponent || null}

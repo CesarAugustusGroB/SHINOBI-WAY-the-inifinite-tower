@@ -119,7 +119,7 @@ export function createSimPlayer(config: PlayerBuildConfig): Player {
     },
     skills: skills.map(s => ({ ...s, currentCooldown: 0 })),
     activeBuffs: [],
-    componentBag: [],
+    bag: Array(12).fill(null), // 12 fixed slots
     treasureQuality: TreasureQuality.BROKEN,
     merchantSlots: DEFAULT_MERCHANT_SLOTS,
   };

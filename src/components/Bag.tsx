@@ -6,8 +6,8 @@ import { getRecipesUsingComponent, findRecipe } from '../game/constants/synthesi
 import { formatStatName } from '../game/utils/tooltipFormatters';
 import Tooltip from './Tooltip';
 
-interface ComponentBagProps {
-  components: Item[];
+interface BagProps {
+  items: (Item | null)[];  // Fixed 12-slot array with null for empty
   onSelectComponent: (item: Item | null) => void;
   onSellComponent: (item: Item) => void;
   selectedComponent: Item | null;
@@ -83,7 +83,7 @@ const BagSlot: React.FC<BagSlotProps> = ({
   return (
     <div className="relative">
       <Tooltip
-        position="right"
+        position="left"
         content={
           item ? (
             <div className="space-y-2 p-1 max-w-[200px]">
@@ -113,9 +113,9 @@ const BagSlot: React.FC<BagSlotProps> = ({
                 </div>
               )}
               <div className="text-[10px] text-yellow-600 pt-1 border-t border-zinc-800">
-                Sell: {sellValue} Ryō (60%)
+                Sell: {sellValue} Ryo (60%)
               </div>
-              <div className="text-[9px] text-zinc-500 pt-1">Drag to move • Click for actions</div>
+              <div className="text-[9px] text-zinc-500 pt-1">Drag to move - Click for actions</div>
             </div>
           ) : (
             <div className="text-[10px] text-zinc-500">Empty slot - drop items here</div>
@@ -160,8 +160,8 @@ const BagSlot: React.FC<BagSlotProps> = ({
   );
 };
 
-const ComponentBag: React.FC<ComponentBagProps> = ({
-  components,
+const Bag: React.FC<BagProps> = ({
+  items,
   onSelectComponent,
   onSellComponent,
   selectedComponent,
@@ -171,6 +171,9 @@ const ComponentBag: React.FC<ComponentBagProps> = ({
 }) => {
   const [synthesisMode, setSynthesisMode] = useState(false);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+
+  // Count non-null items
+  const itemCount = items.filter(item => item !== null).length;
 
   const getRarityColor = (r: Rarity) => {
     switch (r) {
@@ -245,14 +248,11 @@ const ComponentBag: React.FC<ComponentBagProps> = ({
     return findRecipe(selectedComponent.componentId, item.componentId) !== null;
   };
 
-  // Create 8-slot grid (4x2)
-  const slots = Array(MAX_BAG_SLOTS).fill(null).map((_, i) => components[i] || null);
-
   return (
     <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
       <div className="flex justify-between items-center mb-2">
         <h3 className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">
-          Component Bag ({components.length}/{MAX_BAG_SLOTS})
+          Bag ({itemCount}/{MAX_BAG_SLOTS})
         </h3>
         {synthesisMode && selectedComponent && (
           <button
@@ -271,9 +271,9 @@ const ComponentBag: React.FC<ComponentBagProps> = ({
         </div>
       )}
 
-      {/* 4x2 Grid */}
+      {/* 4x3 Grid (12 slots) */}
       <div className="grid grid-cols-4 gap-1">
-        {slots.map((item, index) => {
+        {items.map((item, index) => {
           const isSelected = selectedComponent?.id === item?.id;
           const canCombine = item ? canCombineWithSelected(item) : false;
           const isMenuOpen = item && activeMenu === item.id && !synthesisMode;
@@ -343,7 +343,7 @@ const ComponentBag: React.FC<ComponentBagProps> = ({
 
       {/* Help text */}
       <div className="text-[8px] text-zinc-600 mt-2 text-center">
-        Drag to reorder/equip • Click for actions • Right-click to quick sell
+        Drag to reorder/equip - Click for actions - Right-click to quick sell
       </div>
 
       {/* Synthesis preview when two compatible components are selected */}
@@ -351,8 +351,8 @@ const ComponentBag: React.FC<ComponentBagProps> = ({
         <div className="mt-2 pt-2 border-t border-zinc-800">
           <div className="text-[9px] text-zinc-500 mb-1">Available combinations:</div>
           <div className="grid grid-cols-2 gap-1 max-h-20 overflow-y-auto">
-            {components
-              .filter(c => c.id !== selectedComponent.id && c.componentId)
+            {items
+              .filter((c): c is Item => c !== null && c.id !== selectedComponent.id && !!c.componentId)
               .map(c => {
                 const recipe = c.componentId && selectedComponent.componentId
                   ? findRecipe(selectedComponent.componentId, c.componentId)
@@ -364,7 +364,7 @@ const ComponentBag: React.FC<ComponentBagProps> = ({
                     onClick={() => handleComponentClick(c)}
                     className="text-[9px] text-purple-400 bg-purple-500/10 rounded px-1 py-0.5 cursor-pointer hover:bg-purple-500/20"
                   >
-                    + {c.icon} → {recipe.name}
+                    + {c.icon} - {recipe.name}
                   </div>
                 );
               })}
@@ -375,4 +375,4 @@ const ComponentBag: React.FC<ComponentBagProps> = ({
   );
 };
 
-export default ComponentBag;
+export default Bag;

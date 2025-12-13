@@ -63,8 +63,8 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
   const SLOT_NAMES: Record<EquipmentSlot, string> = {
     [EquipmentSlot.SLOT_1]: 'Primary (+50%)',
     [EquipmentSlot.SLOT_2]: 'Secondary',
-    [EquipmentSlot.SLOT_3]: 'Utility',
-    [EquipmentSlot.SLOT_4]: 'Accessory',
+    [EquipmentSlot.SLOT_3]: 'Secondary',
+    [EquipmentSlot.SLOT_4]: 'Secondary',
   };
 
   const isPrimarySlot = (slot: EquipmentSlot) => slot === EquipmentSlot.SLOT_1;
@@ -98,7 +98,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     const item = equipment[slot];
     const isMenuOpen = activeMenu === slot;
     const sellValue = item ? Math.floor(item.value * 0.6) : 0;
-    const canUnequip = item?.isComponent;
+    const canUnequip = !!item; // Any item can be moved to bag
     const canDisassemble = item && !item.isComponent && item.recipe;
 
     // Make this slot droppable (to receive items from bag or other equipment)
@@ -172,7 +172,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
 
     return (
       <div key={slot} className="relative">
-        <Tooltip content={tooltipContent}>
+        <Tooltip content={tooltipContent} position="left">
           <div
             ref={combinedRef}
             style={style}
@@ -181,7 +181,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
             onClick={() => handleSlotClick(slot, item)}
             className={`mb-1.5 p-2 border rounded transition-all cursor-pointer touch-none ${
               isDragging
-                ? 'opacity-50 scale-95 border-amber-500'
+                ? 'border-dashed border-zinc-600 bg-zinc-900/30'
                 : isOver && globalDragging
                   ? 'border-amber-500 bg-amber-500/20 scale-[1.02]'
                   : isMenuOpen
@@ -189,9 +189,9 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                     : isPrimarySlot(slot)
                       ? 'border-amber-700/50 bg-amber-950/20 hover:border-amber-600'
                       : 'border-zinc-800 bg-black/40 hover:border-zinc-600'
-            } ${item ? 'group' : ''}`}
+            } ${item && !isDragging ? 'group' : ''}`}
           >
-            <div className="flex justify-between items-center mb-0.5">
+            <div className={`flex justify-between items-center mb-0.5 ${isDragging ? 'invisible' : ''}`}>
               <span className={`text-[9px] uppercase font-bold tracking-wider ${
                 isPrimarySlot(slot) ? 'text-amber-500' : 'text-zinc-600'
               }`}>
@@ -205,7 +205,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
             </div>
             <div className={`text-xs font-medium truncate font-serif tracking-wide ${
               item ? getRarityColor(item.rarity) : 'text-zinc-700 italic'
-            }`}>
+            } ${isDragging ? 'invisible' : ''}`}>
               {item ? (item.icon ? `${item.icon} ${item.name}` : item.name) : "Empty"}
             </div>
           </div>
@@ -224,7 +224,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
               <span className="text-zinc-400">+{sellValue} Ryō</span>
             </button>
 
-            {/* Unequip to bag - only for components */}
+            {/* Move to Bag - available for all items */}
             {canUnequip && onUnequip && (
               <button
                 type="button"
@@ -236,7 +236,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
             )}
 
             {/* Synthesize - only for components */}
-            {canUnequip && onStartSynthesis && (
+            {item.isComponent && onStartSynthesis && (
               <button
                 type="button"
                 onClick={() => handleStartSynthesis(slot, item)}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 
-type TooltipPosition = 'bottom' | 'right' | 'top';
+type TooltipPosition = 'bottom' | 'right' | 'top' | 'left';
 
 interface TooltipProps {
   content: React.ReactNode;
@@ -20,6 +20,11 @@ const Tooltip: React.FC<TooltipProps> = ({ content, children, className = "w-ful
       setCoords({
         top: rect.top + rect.height / 2,
         left: rect.right + 8
+      });
+    } else if (tooltipPosition === 'left') {
+      setCoords({
+        top: rect.top + rect.height / 2,
+        left: rect.left - 8
       });
     } else if (tooltipPosition === 'top') {
       setCoords({
@@ -41,6 +46,9 @@ const Tooltip: React.FC<TooltipProps> = ({ content, children, className = "w-ful
     if (tooltipPosition === 'right') {
       return `${base} transform -translate-y-1/2`;
     }
+    if (tooltipPosition === 'left') {
+      return `${base} transform -translate-x-full -translate-y-1/2`;
+    }
     if (tooltipPosition === 'top') {
       return `${base} transform -translate-x-1/2 -translate-y-full`;
     }
@@ -50,6 +58,9 @@ const Tooltip: React.FC<TooltipProps> = ({ content, children, className = "w-ful
   const getArrowClasses = () => {
     if (tooltipPosition === 'right') {
       return "absolute left-0 top-1/2 transform -translate-x-1/2 -translate-y-1/2 rotate-45 w-2 h-2 bg-black border-l border-b border-zinc-700";
+    }
+    if (tooltipPosition === 'left') {
+      return "absolute right-0 top-1/2 transform translate-x-1/2 -translate-y-1/2 rotate-45 w-2 h-2 bg-black border-r border-t border-zinc-700";
     }
     if (tooltipPosition === 'top') {
       return "absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-black border-r border-b border-zinc-700";

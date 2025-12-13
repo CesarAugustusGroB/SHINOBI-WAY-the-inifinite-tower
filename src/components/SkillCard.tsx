@@ -51,7 +51,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({
     // Default fallback image
     return "https://i.pinimg.com/736x/2c/a6/34/2ca6347bd392eb997d74720838b90839.jpg";
   };
-  
+
   const bgImage = getSkillBackground();
 
   // Get border color based on action type
@@ -92,18 +92,18 @@ export const SkillCard: React.FC<SkillCardProps> = ({
       `}
     >
       {/* LAYER 1: BACKGROUND IMAGE */}
-      <img 
-        src={bgImage} 
-        alt={skill.name} 
+      <img
+        src={bgImage}
+        alt={skill.name}
         className="absolute inset-0 w-full h-full object-cover z-0 opacity-70 group-hover:opacity-90 transition-opacity"
       />
-      
+
       {/* Gradient Overlay for text readability */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent z-10"></div>
 
       {/* LAYER 2: CONTENT */}
       <div className="relative z-20 w-full h-full p-3 flex flex-col justify-between">
-        
+
         {/* Top Row: Name and Level */}
         <div className="flex justify-between items-start">
           <div>

@@ -58,7 +58,7 @@
  * ## EQUIPMENT SLOTS
  *
  * - 4 equipment slots for artifacts/components
- * - Component bag: 8 slots for inventory
+ * - Bag: 12 fixed slots for components and artifacts
  * - Swapping equipped items moves old item to bag
  *
  * =============================================================================
@@ -183,19 +183,21 @@ export const equipItem = (player: Player, item: Item, targetSlot?: EquipmentSlot
 
   // If slot is occupied, check bag space
   if (existingItem) {
-    if (player.componentBag.length >= MAX_BAG_SLOTS) {
+    const emptySlotIndex = player.bag.findIndex(slot => slot === null);
+    if (emptySlotIndex === -1) {
       return {
         player,
         success: false,
-        reason: 'Component bag is full. Sell or discard items first.'
+        reason: 'Bag is full. Sell or discard items first.'
       };
     }
 
     // Move old item to bag, equip new item
-    const newBag = [...player.componentBag, existingItem];
+    const newBag = [...player.bag];
+    newBag[emptySlotIndex] = existingItem;
     const newEquip = { ...player.equipment, [slotToUse]: item };
     return {
-      player: { ...player, equipment: newEquip, componentBag: newBag },
+      player: { ...player, equipment: newEquip, bag: newBag },
       success: true,
       replacedItem: existingItem
     };
@@ -656,33 +658,53 @@ export const grantHashiramaCell = (currentFloor: number): Item => {
 };
 
 /**
- * Add a component to the player's bag
+ * Add an item to the player's bag at the first available slot
  * Returns updated player or null if bag is full
  */
 export const addToBag = (player: Player, item: Item): Player | null => {
-  if (player.componentBag.length >= MAX_BAG_SLOTS) {
+  const emptyIndex = player.bag.findIndex(slot => slot === null);
+  if (emptyIndex === -1) {
     return null; // Bag is full
   }
-
-  return {
-    ...player,
-    componentBag: [...player.componentBag, item],
-  };
+  const newBag = [...player.bag];
+  newBag[emptyIndex] = item;
+  return { ...player, bag: newBag };
 };
 
 /**
- * Remove a component from the player's bag by ID
+ * Add an item to a specific bag slot
+ * Returns updated player or null if slot is occupied or invalid
+ */
+export const addToBagAtIndex = (player: Player, item: Item, index: number): Player | null => {
+  if (index < 0 || index >= MAX_BAG_SLOTS) return null;
+  if (player.bag[index] !== null) return null;
+  const newBag = [...player.bag];
+  newBag[index] = item;
+  return { ...player, bag: newBag };
+};
+
+/**
+ * Swap two bag slots (for drag-and-drop reordering)
+ */
+export const swapBagSlots = (player: Player, indexA: number, indexB: number): Player => {
+  const newBag = [...player.bag];
+  [newBag[indexA], newBag[indexB]] = [newBag[indexB], newBag[indexA]];
+  return { ...player, bag: newBag };
+};
+
+/**
+ * Remove an item from the player's bag by ID (sets slot to null)
  */
 export const removeFromBag = (player: Player, itemId: string): Player => {
   return {
     ...player,
-    componentBag: player.componentBag.filter(item => item.id !== itemId),
+    bag: player.bag.map(item => item?.id === itemId ? null : item),
   };
 };
 
 /**
- * Check if the player's bag has space
+ * Check if the player's bag has at least one empty slot
  */
 export const hasBagSpace = (player: Player): boolean => {
-  return player.componentBag.length < MAX_BAG_SLOTS;
+  return player.bag.some(slot => slot === null);
 };

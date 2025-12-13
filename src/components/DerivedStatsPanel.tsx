@@ -23,7 +23,7 @@ const DerivedStatsPanel: React.FC<DerivedStatsPanelProps> = ({ derived }) => {
     );
 
     return (
-      <Tooltip content={tooltipContent}>
+      <Tooltip content={tooltipContent} position="right">
         <div className="flex justify-between items-center text-[10px] py-1 cursor-help hover:bg-zinc-800/50 px-1 rounded">
           <span className="text-zinc-500 uppercase tracking-wide">{label}</span>
           <span className={`font-mono font-bold ${color}`}>{value}</span>

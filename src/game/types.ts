@@ -526,8 +526,8 @@ export interface Player {
   skills: Skill[];
   activeBuffs: Buff[];
 
-  // Synthesis system - component inventory
-  componentBag: Item[];  // Max MAX_BAG_SLOTS (12) components for crafting
+  // Bag - 12 fixed slots for components and artifacts
+  bag: (Item | null)[];  // Fixed 12-slot array (null = empty slot)
 
   // Progression systems
   treasureQuality: TreasureQuality;  // What tier items drop from treasure (upgradeable)

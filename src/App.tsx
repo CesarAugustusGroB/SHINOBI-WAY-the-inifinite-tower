@@ -358,7 +358,7 @@ const App: React.FC = () => {
       },
       skills: [SKILLS.BASIC_ATTACK, SKILLS.SHURIKEN, { ...startSkill, level: 1 }],
       activeBuffs: [],
-      componentBag: [],
+      bag: Array(MAX_BAG_SLOTS).fill(null),
       treasureQuality: TreasureQuality.BROKEN,
       merchantSlots: DEFAULT_MERCHANT_SLOTS,
     };
@@ -854,19 +854,19 @@ const App: React.FC = () => {
     setPlayer(prev => prev ? {
       ...prev,
       ryo: prev.ryo + value,
-      componentBag: prev.componentBag.filter(c => c.id !== item.id)
+      bag: prev.bag.map(c => c?.id === item.id ? null : c)
     } : null);
     addLog(`Sold ${item.name} for ${value} Ryō.`, 'loot');
     setSelectedComponent(null);
   };
 
-  // Equip item from component bag
+  // Equip item from bag
   const equipFromBag = (item: Item) => {
     if (!player) return;
-    // Remove from bag first, then try to equip
+    // Remove from bag first (set to null), then try to equip
     const playerWithoutItem = {
       ...player,
-      componentBag: player.componentBag.filter(c => c.id !== item.id)
+      bag: player.bag.map(c => c?.id === item.id ? null : c)
     };
     const result = equipItemFn(playerWithoutItem, item);
     if (!result.success) {
@@ -927,12 +927,16 @@ const App: React.FC = () => {
       return;
     }
 
-    // Remove both items from bag, deduct cost, and add the new item
-    const updatedBag = player.componentBag
-      .filter(c => c.id !== compA.id && c.id !== compB.id)
-      .concat(result.item);
+    // Remove both items from bag (set to null), deduct cost, and add the new item to first empty slot
+    const newBag = player.bag.map(c =>
+      c?.id === compA.id || c?.id === compB.id ? null : c
+    );
+    const emptyIndex = newBag.findIndex(slot => slot === null);
+    if (emptyIndex !== -1) {
+      newBag[emptyIndex] = result.item;
+    }
 
-    setPlayer({ ...player, componentBag: updatedBag, ryo: player.ryo - result.cost });
+    setPlayer({ ...player, bag: newBag, ryo: player.ryo - result.cost });
     addLog(`${actionName} ${result.item.name} for ${result.cost} Ryō!`, 'gain');
     setSelectedComponent(null);
   };
@@ -953,12 +957,16 @@ const App: React.FC = () => {
       return;
     }
 
-    // Remove both components from bag, deduct cost, and add the upgraded component
-    const updatedBag = player.componentBag
-      .filter(c => c.id !== compA.id && c.id !== compB.id)
-      .concat(result.item);
+    // Remove both components from bag (set to null), deduct cost, and add the upgraded component
+    const newBag = player.bag.map(c =>
+      c?.id === compA.id || c?.id === compB.id ? null : c
+    );
+    const emptyIndex = newBag.findIndex(slot => slot === null);
+    if (emptyIndex !== -1) {
+      newBag[emptyIndex] = result.item;
+    }
 
-    setPlayer({ ...player, componentBag: updatedBag, ryo: player.ryo - result.cost });
+    setPlayer({ ...player, bag: newBag, ryo: player.ryo - result.cost });
     addLog(`Upgraded to ${result.item.name} for ${result.cost} Ryō!`, 'gain');
     setSelectedComponent(null);
   };
@@ -979,12 +987,16 @@ const App: React.FC = () => {
       return;
     }
 
-    // Remove both artifacts from bag, deduct cost, and add the upgraded artifact
-    const updatedBag = player.componentBag
-      .filter(c => c.id !== artifactA.id && c.id !== artifactB.id)
-      .concat(result.item);
+    // Remove both artifacts from bag (set to null), deduct cost, and add the upgraded artifact
+    const newBag = player.bag.map(c =>
+      c?.id === artifactA.id || c?.id === artifactB.id ? null : c
+    );
+    const emptyIndex = newBag.findIndex(slot => slot === null);
+    if (emptyIndex !== -1) {
+      newBag[emptyIndex] = result.item;
+    }
 
-    setPlayer({ ...player, componentBag: updatedBag, ryo: player.ryo - result.cost });
+    setPlayer({ ...player, bag: newBag, ryo: player.ryo - result.cost });
     addLog(`Forged ${result.item.name} for ${result.cost} Ryō!`, 'gain');
     setSelectedComponent(null);
   };
@@ -1001,17 +1013,20 @@ const App: React.FC = () => {
     addLog(`Sold ${item.name} for ${value} Ryō.`, 'loot');
   };
 
-  // Unequip component to bag
+  // Unequip item to bag (both components and artifacts)
   const unequipToBag = (slot: EquipmentSlot, item: Item) => {
-    if (!player || !item.isComponent) return;
-    if (player.componentBag.length >= MAX_BAG_SLOTS) {
-      addLog('Component bag is full!', 'danger');
+    if (!player) return;
+    const emptyIndex = player.bag.findIndex(s => s === null);
+    if (emptyIndex === -1) {
+      addLog('Bag is full!', 'danger');
       return;
     }
+    const newBag = [...player.bag];
+    newBag[emptyIndex] = item;
     setPlayer(prev => prev ? {
       ...prev,
       equipment: { ...prev.equipment, [slot]: null },
-      componentBag: [...prev.componentBag, item]
+      bag: newBag
     } : null);
     addLog(`Moved ${item.name} to bag.`, 'info');
   };
@@ -1019,15 +1034,18 @@ const App: React.FC = () => {
   // Unequip component and start synthesis mode
   const startSynthesisEquipped = (slot: EquipmentSlot, item: Item) => {
     if (!player || !item.isComponent) return;
-    if (player.componentBag.length >= MAX_BAG_SLOTS) {
-      addLog('Component bag is full!', 'danger');
+    const emptyIndex = player.bag.findIndex(s => s === null);
+    if (emptyIndex === -1) {
+      addLog('Bag is full!', 'danger');
       return;
     }
     // Move to bag and select for synthesis
+    const newBag = [...player.bag];
+    newBag[emptyIndex] = item;
     setPlayer(prev => prev ? {
       ...prev,
       equipment: { ...prev.equipment, [slot]: null },
-      componentBag: [...prev.componentBag, item]
+      bag: newBag
     } : null);
     setSelectedComponent(item);
     addLog(`Select another component to synthesize with ${item.name}.`, 'info');
@@ -1044,15 +1062,18 @@ const App: React.FC = () => {
     }
 
     // Check bag space for 1 component
-    if (player.componentBag.length + 1 > MAX_BAG_SLOTS) {
+    const emptyIndex = player.bag.findIndex(s => s === null);
+    if (emptyIndex === -1) {
       addLog('Not enough bag space for component!', 'danger');
       return;
     }
 
+    const newBag = [...player.bag];
+    newBag[emptyIndex] = component;
     setPlayer(prev => prev ? {
       ...prev,
       equipment: { ...prev.equipment, [slot]: null },
-      componentBag: [...prev.componentBag, component]
+      bag: newBag
     } : null);
     addLog(`Disassembled ${item.name} into ${component.name}!`, 'loot');
   };
@@ -1061,16 +1082,16 @@ const App: React.FC = () => {
   // DRAG-AND-DROP HANDLERS
   // ============================================================================
 
-  // Reorder items within the component bag
+  // Swap items within the bag (position-based, supports empty slots)
   const reorderBag = (fromIndex: number, toIndex: number) => {
     if (!player) return;
     if (fromIndex === toIndex) return;
 
-    const newBag = [...player.componentBag];
-    const [movedItem] = newBag.splice(fromIndex, 1);
-    newBag.splice(toIndex, 0, movedItem);
+    const newBag = [...player.bag];
+    // Swap positions (handles null slots too)
+    [newBag[fromIndex], newBag[toIndex]] = [newBag[toIndex], newBag[fromIndex]];
 
-    setPlayer({ ...player, componentBag: newBag });
+    setPlayer({ ...player, bag: newBag });
   };
 
   // Equip item from bag to a specific slot via drag
@@ -1078,64 +1099,65 @@ const App: React.FC = () => {
     if (!player) return;
 
     const existingItem = player.equipment[targetSlot];
+    const newBag = [...player.bag];
 
-    // Remove dragged item from bag
-    const newBag = player.componentBag.filter((_, i) => i !== bagIndex);
+    // Clear source bag slot
+    newBag[bagIndex] = null;
 
-    // If target slot has an item, move it to the bag position we just freed
+    // If target slot has an item, put it in the vacated bag slot
     if (existingItem) {
-      // Check if existing item is a component (can go to bag)
-      if (existingItem.isComponent) {
-        newBag.splice(bagIndex, 0, existingItem);
-        addLog(`Swapped ${item.name} with ${existingItem.name}.`, 'info');
-      } else {
-        // Artifact in slot - can't swap, just equip if bag not full
-        addLog(`Equipped ${item.name}. ${existingItem.name} remains equipped.`, 'info');
-        return; // Don't allow swap with artifact
-      }
+      newBag[bagIndex] = existingItem;
+      addLog(`Swapped ${item.name} with ${existingItem.name}.`, 'info');
     } else {
       addLog(`Equipped ${item.name}.`, 'loot');
     }
 
     setPlayer({
       ...player,
-      componentBag: newBag,
+      bag: newBag,
       equipment: { ...player.equipment, [targetSlot]: item }
     });
     setSelectedComponent(null);
   };
 
-  // Unequip item from equipment to bag via drag
+  // Unequip item from equipment to bag via drag (both components and artifacts)
   const dragEquipToBag = (item: Item, slot: EquipmentSlot, targetBagIndex?: number) => {
     if (!player) return;
 
-    // Only components can be unequipped to bag
-    if (!item.isComponent) {
-      addLog('Only components can be moved to bag.', 'danger');
-      return;
-    }
+    const newBag = [...player.bag];
 
-    // Check bag space
-    if (player.componentBag.length >= MAX_BAG_SLOTS) {
-      addLog('Component bag is full!', 'danger');
-      return;
-    }
+    if (targetBagIndex !== undefined && targetBagIndex >= 0 && targetBagIndex < MAX_BAG_SLOTS) {
+      // Swap with existing item at target position (or place in empty slot)
+      const existingItem = newBag[targetBagIndex];
+      newBag[targetBagIndex] = item;
 
-    const newBag = [...player.componentBag];
-    if (targetBagIndex !== undefined && targetBagIndex >= 0 && targetBagIndex <= newBag.length) {
-      // Insert at specific position
-      newBag.splice(targetBagIndex, 0, item);
+      // Put existing bag item in equipment slot (if any)
+      setPlayer({
+        ...player,
+        equipment: { ...player.equipment, [slot]: existingItem },
+        bag: newBag
+      });
+
+      if (existingItem) {
+        addLog(`Swapped ${item.name} with ${existingItem.name}.`, 'info');
+      } else {
+        addLog(`Moved ${item.name} to bag.`, 'info');
+      }
     } else {
-      // Append to end
-      newBag.push(item);
+      // Find first empty slot
+      const emptySlot = newBag.findIndex(s => s === null);
+      if (emptySlot === -1) {
+        addLog('Bag is full!', 'danger');
+        return;
+      }
+      newBag[emptySlot] = item;
+      setPlayer({
+        ...player,
+        equipment: { ...player.equipment, [slot]: null },
+        bag: newBag
+      });
+      addLog(`Moved ${item.name} to bag.`, 'info');
     }
-
-    setPlayer({
-      ...player,
-      equipment: { ...player.equipment, [slot]: null },
-      componentBag: newBag
-    });
-    addLog(`Moved ${item.name} to bag.`, 'info');
   };
 
   // Swap items between two equipment slots

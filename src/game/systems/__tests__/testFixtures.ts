@@ -187,6 +187,7 @@ import {
   TerrainType,
   TreasureQuality,
   DEFAULT_MERCHANT_SLOTS,
+  MAX_BAG_SLOTS,
 } from '../../types';
 
 // ============================================================================
@@ -212,7 +213,7 @@ export const createMockPlayer = (overrides: Partial<Player> = {}): Player => ({
   },
   skills: [],
   activeBuffs: [],
-  componentBag: [],
+  bag: Array(MAX_BAG_SLOTS).fill(null),
   treasureQuality: TreasureQuality.BROKEN,
   merchantSlots: DEFAULT_MERCHANT_SLOTS,
   ...overrides,

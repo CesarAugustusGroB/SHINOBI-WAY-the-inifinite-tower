@@ -58,9 +58,9 @@ const Loot: React.FC<LootProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onLeaveAll, isProcessing]);
 
-  // Check if bag has space
-  const bagHasSpace = player ? player.componentBag.length < MAX_BAG_SLOTS : false;
-  const bagSlotCount = player?.componentBag.length || 0;
+  // Check if bag has space (count non-null slots)
+  const bagHasSpace = player ? player.bag.some(s => s === null) : false;
+  const bagSlotCount = player?.bag.filter(s => s !== null).length || 0;
   return (
     <div className="w-full max-w-6xl z-10">
       <h2 className="text-2xl text-center mb-2 text-zinc-500 font-serif tracking-[0.5em] uppercase">Spoils of War</h2>

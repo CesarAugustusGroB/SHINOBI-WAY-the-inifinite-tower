@@ -155,8 +155,8 @@ const ScrollDiscovery: React.FC<ScrollDiscoveryProps> = ({
                       <span className={getDamageTypeColor(skill.damageType)}>{skill.damageType}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-zinc-600">Scales with</span>
-                      <span className={getStatColor(skill.scalingStat)}>{formatScalingStat(skill.scalingStat)}</span>
+                      <span className="text-zinc-600">Multiplier</span>
+                      <span className="text-amber-400">{skill.damageMult}x {formatScalingStat(skill.scalingStat)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-zinc-600">Element</span>
@@ -227,6 +227,10 @@ const ScrollDiscovery: React.FC<ScrollDiscoveryProps> = ({
                   <div className="flex justify-between">
                     <span>Element</span>
                     <span className={getElementColor(skill.element)}>{skill.element}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Multiplier</span>
+                    <span className="text-amber-400">{skill.damageMult}x {formatScalingStat(skill.scalingStat)}</span>
                   </div>
                 </div>
 
