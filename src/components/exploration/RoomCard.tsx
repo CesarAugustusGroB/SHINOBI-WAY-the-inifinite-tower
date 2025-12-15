@@ -21,7 +21,7 @@ import {
   Lock,
   Sparkles,
 } from 'lucide-react';
-import { getCurrentActivity } from '../../game/systems/BranchingFloorSystem';
+import { getCurrentActivity } from '../../game/systems/LocationSystem';
 import { getBranchingRoomColors } from '../../game/constants/roomTypeMapping';
 
 interface RoomCardProps {

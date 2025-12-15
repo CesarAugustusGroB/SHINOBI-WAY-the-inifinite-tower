@@ -9,7 +9,7 @@ import {
   getCurrentActivity,
   completeActivity,
   getCurrentRoom,
-} from '../game/systems/BranchingFloorSystem';
+} from '../game/systems/LocationSystem';
 
 export type ActivityType = 'combat' | 'eliteChallenge' | 'merchant' | 'event' | 'rest' | 'training' | 'treasure' | 'scrollDiscovery';
 

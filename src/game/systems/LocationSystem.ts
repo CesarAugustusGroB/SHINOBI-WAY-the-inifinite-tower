@@ -35,34 +35,10 @@
  * 6. rest - Heal HP and restore chakra
  * 7. training - Spend HP/chakra to gain stats
  * 8. treasure - Collect components and ryo
- *
  * ## EXIT ROOM PROBABILITY
  * The exit room appears dynamically based on exploration progress:
  *
- * - Minimum rooms before exit: 3 + floor (capped at 18)
- *   - Floor 1: 4 rooms minimum
- *   - Floor 10: 13 rooms minimum
- *   - Floor 15+: 18 rooms minimum
- *
- * - After minimum is reached:
- *   - Base 20% chance per new room
- *   - +10% per additional room beyond minimum
- *   - Maximum 80% chance (always some exploration required)
- *
- * ## SEMI-BOSS (Exit Guardian)
- * Exit rooms contain a "Guardian" enemy with boosted stats:
- * - Willpower: ×1.3 (more HP)
- * - Strength: ×1.2 (more physical damage/defense)
- * - Spirit: ×1.2 (more elemental defense)
- *
- * ## ELITE CHALLENGES (Artifact Source)
- * - Only source of artifacts in the game
- * - 15% chance to appear in SHRINE or RUINS room types
- * - Elite enemy with +15 difficulty
- * - Guaranteed artifact drop on victory
- *
- * =============================================================================
- */
+**/
 
 import {
   BranchingFloor,
@@ -386,7 +362,7 @@ function generateActivities(
 
     activities.treasure = {
       items: [generateComponentByQuality(floor, difficulty + 5, quality)],
-      ryo: 75 + floor * 15 + Math.floor(Math.random() * 100),
+      ryo: 50 + floor * 10 + Math.floor(Math.random() * 67),
       collected: false,
     };
   }
@@ -575,7 +551,7 @@ export function generateChildrenForRoom(
         },
         treasure: {
           items: treasureItems,
-          ryo: 100 + floor * 15,
+          ryo: 67 + floor * 10,
           collected: false,
         },
       };

@@ -1171,7 +1171,7 @@ export interface RoomTypeConfig {
 // REGION EXPLORATION SYSTEM
 // ============================================================================
 // Region > Location > Room hierarchy with intel-gated path navigation
-// Replaces BranchingFloorSystem for post-Academy arcs
+// For post-Academy arcs (Floors 11+)
 
 export enum LocationType {
   SETTLEMENT = 'settlement',     // Villages, camps - merchants, rest, social
@@ -1430,4 +1430,84 @@ export interface RegionConfig {
   biome: string;
   lootTheme: RegionLootTheme;
   baseDifficulty: number;
+}
+
+// ============================================================================
+// CARD-BASED LOCATION SELECTION SYSTEM
+// ============================================================================
+// Replaces node-map with 3-card selection from a weighted deck
+
+/**
+ * Global intel pool - accumulates from intel missions
+ * Higher intel reveals more info on location cards
+ */
+export interface IntelPool {
+  totalIntel: number;      // Accumulated from intel missions
+  maxIntel: number;        // Cap (default: 10)
+}
+
+/**
+ * Intel reveal levels for location cards
+ */
+export enum IntelRevealLevel {
+  NONE = 0,     // "???" placeholder, danger hidden
+  PARTIAL = 1,  // Danger level + location type shown
+  FULL = 2,     // One bonus feature (special loot/event)
+}
+
+/**
+ * Location entry in the deck with drawing metadata
+ */
+export interface DeckLocation {
+  locationId: string;
+  dangerLevel: number;
+  isCompleted: boolean;
+  baseWeight: number;        // Higher for lower danger (10 - dangerLevel)
+  completionPenalty: number; // 0.3 if completed, 1.0 otherwise
+}
+
+/**
+ * Deck state for weighted location drawing
+ */
+export interface LocationDeck {
+  regionId: string;
+  locations: DeckLocation[];
+}
+
+/**
+ * A single drawn card representing a location choice
+ */
+export interface LocationCard {
+  locationId: string;
+  location: Location;
+  intelLevel: IntelRevealLevel;
+  isRevisit: boolean;        // Has player completed this before?
+}
+
+/**
+ * Display info for a card based on intel level
+ */
+export interface CardDisplayInfo {
+  name: string;              // "???" if no intel
+  subtitle: string;          // Location type or "Unknown Territory"
+  dangerLevel: number | null;
+  locationType: LocationType | null;
+  specialFeature: string | null; // Only at FULL intel
+  showMystery: boolean;
+  revisitBadge: boolean;
+}
+
+/**
+ * Progress-based tier weights for drawing cards
+ * Progress 0-25%:   Low (danger 1-2) = 80%, Mid (3-4) = 18%, High (5-7) = 2%
+ * Progress 25-50%:  Low = 40%, Mid = 50%, High = 10%
+ * Progress 50-75%:  Low = 15%, Mid = 45%, High = 40%
+ * Progress 75-100%: Low = 5%, Mid = 25%, High = 70%
+ */
+export type DangerTier = 'low' | 'mid' | 'high';
+
+export interface TierWeights {
+  low: number;   // Danger 1-2
+  mid: number;   // Danger 3-4
+  high: number;  // Danger 5-7
 }

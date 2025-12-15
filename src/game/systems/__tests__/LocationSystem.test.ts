@@ -1,5 +1,5 @@
 /**
- * BranchingFloorSystem Unit Tests
+ * LocationSystem Unit Tests
  * Tests floor generation, room navigation, and activity management
  */
 
@@ -13,7 +13,7 @@ import {
   isFloorComplete,
   getRoomById,
   getCurrentRoom,
-} from '../BranchingFloorSystem';
+} from '../LocationSystem';
 import { BranchingRoomType, ACTIVITY_ORDER } from '../../types';
 import { createMockPlayer } from './testFixtures';
 

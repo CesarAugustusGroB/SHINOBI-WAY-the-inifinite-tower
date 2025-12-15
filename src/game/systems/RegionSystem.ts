@@ -4,7 +4,7 @@
  * =============================================================================
  *
  * Manages the hierarchical exploration: Region > Location > Room
- * Replaces BranchingFloorSystem for post-Academy arcs (Floors 11+)
+ * For post-Academy arcs (Floors 11+)
  *
  * ## REGION STRUCTURE
  * - Regions contain 10-15 Locations
@@ -45,6 +45,15 @@ import {
   Enemy,
   ACTIVITY_ORDER,
   ElementType,
+  // Card-based location selection types
+  IntelPool,
+  IntelRevealLevel,
+  LocationDeck,
+  DeckLocation,
+  LocationCard,
+  CardDisplayInfo,
+  TierWeights,
+  DangerTier,
 } from '../types';
 import { generateEnemy } from './EnemySystem';
 import {
@@ -115,11 +124,11 @@ export function calculateLocationXP(dangerLevel: number, baseDifficulty: number)
 
 /**
  * Calculate Ryo gain based on danger level.
- * Formula: (effectiveFloor * 15) + random(0-24)
+ * Formula: (effectiveFloor * 10) + random(0-16)
  */
 export function calculateLocationRyo(dangerLevel: number, baseDifficulty: number): number {
   const effectiveFloor = dangerToFloor(dangerLevel, baseDifficulty);
-  return (effectiveFloor * 15) + Math.floor(Math.random() * 25);
+  return (effectiveFloor * 10) + Math.floor(Math.random() * 17);
 }
 
 /**
@@ -137,7 +146,7 @@ export function calculateMerchantRerollCost(
 }
 
 // ============================================================================
-// ROOM GENERATION (Adapted from BranchingFloorSystem)
+// ROOM GENERATION (Adapted from LocationSystem)
 // ============================================================================
 
 /**
@@ -160,7 +169,7 @@ const DIAMOND_STRUCTURE: Record<number, { tier: RoomTier; position: RoomPosition
 
 /**
  * Create a single room for a location.
- * Adapted from BranchingFloorSystem.createRoom
+ * Adapted from LocationSystem.createRoom
  */
 function createLocationRoom(
   roomIndex: number,
@@ -236,7 +245,7 @@ function selectRoomTypeForLocation(locationType: LocationType, tier: RoomTier): 
 
 /**
  * Generate activities for a location room.
- * Adapted from BranchingFloorSystem.generateActivities
+ * Adapted from LocationSystem.generateActivities
  */
 function generateLocationActivities(
   room: BranchingRoom,
@@ -364,7 +373,7 @@ function generateLocationActivities(
 
     activities.treasure = {
       items: [generateComponentByQuality(floor, difficulty + 5, quality)],
-      ryo: 75 + floor * 15 + Math.floor(Math.random() * 100),
+      ryo: 50 + floor * 10 + Math.floor(Math.random() * 67),
       collected: false,
     };
   }
@@ -685,6 +694,46 @@ export function enterLocation(region: Region, locationId: string): Region {
       return {
         ...loc,
         isCurrent: true,
+        currentRoomId: entranceRoom?.id || null,
+        rooms: loc.rooms.map((room, idx) => ({
+          ...room,
+          isCurrent: idx === 0,
+          isAccessible: idx === 0,
+        })),
+      };
+    }
+    return { ...loc, isCurrent: false };
+  });
+
+  return {
+    ...region,
+    currentLocationId: locationId,
+    locations: updatedLocations,
+    visitedLocationIds: region.visitedLocationIds.includes(locationId)
+      ? region.visitedLocationIds
+      : [...region.visitedLocationIds, locationId],
+  };
+}
+
+/**
+ * Enter a location from a drawn card (bypasses accessibility check).
+ * Card deck system already controls which locations can be drawn.
+ */
+export function enterLocationFromCard(region: Region, locationId: string): Region {
+  const location = region.locations.find(l => l.id === locationId);
+  if (!location) {
+    return region;
+  }
+
+  // Set current room to entrance
+  const entranceRoom = location.rooms.find(r => r.depth === 1);
+
+  const updatedLocations = region.locations.map(loc => {
+    if (loc.id === locationId) {
+      return {
+        ...loc,
+        isCurrent: true,
+        isAccessible: true, // Mark as accessible when entering from card
         currentRoomId: entranceRoom?.id || null,
         rooms: loc.rooms.map((room, idx) => ({
           ...room,
@@ -1065,7 +1114,7 @@ export function getAccessibleLocations(region: Region): Location[] {
 
 /**
  * Convert a Location's room data into a BranchingFloor-compatible structure.
- * This allows reusing BranchingExplorationMap for location exploration.
+ * This allows reusing LocationMap for location exploration.
  */
 export function locationToBranchingFloor(region: Region): BranchingFloor | null {
   const location = getCurrentLocation(region);
@@ -1102,7 +1151,7 @@ export function locationToBranchingFloor(region: Region): BranchingFloor | null 
 
 /**
  * Sync BranchingFloor changes back to Region state.
- * Called after BranchingFloorSystem operations (moveToRoom, completeActivity).
+ * Called after LocationSystem operations (moveToRoom, completeActivity).
  */
 export function syncFloorToRegion(region: Region, floor: BranchingFloor): Region {
   const location = getCurrentLocation(region);
@@ -1121,5 +1170,345 @@ export function syncFloorToRegion(region: Region, floor: BranchingFloor): Region
     locations: region.locations.map(l =>
       l.id === location.id ? updatedLocation : l
     ),
+  };
+}
+
+// ============================================================================
+// CARD-BASED LOCATION SELECTION SYSTEM
+// ============================================================================
+// Replaces node-map with 3-card selection from a weighted deck
+
+/**
+ * Get danger tier from danger level.
+ */
+function getDangerTier(dangerLevel: number): DangerTier {
+  if (dangerLevel <= 2) return 'low';
+  if (dangerLevel <= 4) return 'mid';
+  return 'high';
+}
+
+/**
+ * Get tier weights based on region progress percentage.
+ *
+ * Progress 0-25%:   Low (danger 1-2) = 80%, Mid (3-4) = 18%, High (5-7) = 2%
+ * Progress 25-50%:  Low = 40%, Mid = 50%, High = 10%
+ * Progress 50-75%:  Low = 15%, Mid = 45%, High = 40%
+ * Progress 75-100%: Low = 5%, Mid = 25%, High = 70%
+ */
+function getTierWeights(progressPercent: number): TierWeights {
+  if (progressPercent < 25) {
+    return { low: 0.80, mid: 0.18, high: 0.02 };
+  } else if (progressPercent < 50) {
+    return { low: 0.40, mid: 0.50, high: 0.10 };
+  } else if (progressPercent < 75) {
+    return { low: 0.15, mid: 0.45, high: 0.40 };
+  } else {
+    return { low: 0.05, mid: 0.25, high: 0.70 };
+  }
+}
+
+/**
+ * Weighted random selection from an array of items with weights.
+ */
+function weightedRandomSelect<T extends { calculatedWeight: number }>(items: T[]): T {
+  const totalWeight = items.reduce((sum, item) => sum + item.calculatedWeight, 0);
+  if (totalWeight === 0) {
+    // Fallback to uniform random if all weights are 0
+    return items[Math.floor(Math.random() * items.length)];
+  }
+
+  let random = Math.random() * totalWeight;
+  for (const item of items) {
+    random -= item.calculatedWeight;
+    if (random <= 0) {
+      return item;
+    }
+  }
+  return items[items.length - 1]; // Fallback
+}
+
+/**
+ * Initialize a location deck from a region.
+ * All locations are added to the deck with base weights based on danger level.
+ */
+export function initializeLocationDeck(region: Region): LocationDeck {
+  return {
+    regionId: region.id,
+    locations: region.locations.map(loc => ({
+      locationId: loc.id,
+      dangerLevel: loc.dangerLevel,
+      isCompleted: loc.isCompleted,
+      baseWeight: 10 - loc.dangerLevel, // Lower danger = higher base weight
+      completionPenalty: loc.isCompleted ? 0.3 : 1.0,
+    })),
+  };
+}
+
+/**
+ * Update deck after a location is completed.
+ * Completed locations return to deck with reduced weight.
+ */
+export function updateDeckAfterCompletion(deck: LocationDeck, locationId: string): LocationDeck {
+  return {
+    ...deck,
+    locations: deck.locations.map(loc => {
+      if (loc.locationId === locationId) {
+        return {
+          ...loc,
+          isCompleted: true,
+          completionPenalty: 0.3, // 30% of original weight
+        };
+      }
+      return loc;
+    }),
+  };
+}
+
+/**
+ * Calculate intel reveal level for a location card.
+ *
+ * - NONE (0 intel): Mystery card
+ * - PARTIAL (1+ intel): Name and danger visible
+ * - FULL (3+ intel OR previously visited): One special feature shown
+ */
+export function calculateIntelLevel(intelPool: IntelPool, location: Location): IntelRevealLevel {
+  const intel = intelPool.totalIntel;
+
+  // FULL reveal requires 3+ intel OR location was previously visited
+  if (intel >= 3 || location.isCompleted) {
+    return IntelRevealLevel.FULL;
+  }
+
+  // PARTIAL reveal requires 1+ intel
+  if (intel >= 1) {
+    return IntelRevealLevel.PARTIAL;
+  }
+
+  // No intel = mysterious placeholder
+  return IntelRevealLevel.NONE;
+}
+
+/**
+ * Get the location type display label.
+ */
+function getLocationTypeLabel(type: LocationType): string {
+  const labels: Record<LocationType, string> = {
+    [LocationType.SETTLEMENT]: 'Settlement',
+    [LocationType.WILDERNESS]: 'Wilderness',
+    [LocationType.STRONGHOLD]: 'Stronghold',
+    [LocationType.LANDMARK]: 'Landmark',
+    [LocationType.SECRET]: 'Secret Area',
+    [LocationType.BOSS]: 'Boss Lair',
+  };
+  return labels[type] || 'Unknown';
+}
+
+/**
+ * Determine the special feature to display for a location at FULL intel.
+ * Returns the highest priority feature.
+ */
+function determineSpecialFeature(location: Location): string | null {
+  // Priority order for special features
+  if (location.flags.isBoss) return 'REGION BOSS';
+  if (location.flags.isSecret) return 'SECRET AREA';
+  if (location.flags.hasMerchant) return 'Merchant Available';
+  if (location.flags.hasTraining) return 'Training Grounds';
+  if (location.flags.hasRest) return 'Rest Point';
+  if (location.tiedStoryEvents && location.tiedStoryEvents.length > 0) return 'Story Event';
+  return null;
+}
+
+/**
+ * Get display info for a card based on intel level.
+ * Determines what information is shown to the player.
+ */
+export function getCardDisplayInfo(card: LocationCard): CardDisplayInfo {
+  const { location, intelLevel, isRevisit } = card;
+
+  switch (intelLevel) {
+    case IntelRevealLevel.NONE:
+      return {
+        name: '???',
+        subtitle: 'Unknown Territory',
+        dangerLevel: null,
+        locationType: null,
+        specialFeature: null,
+        showMystery: true,
+        revisitBadge: false,
+      };
+
+    case IntelRevealLevel.PARTIAL:
+      return {
+        name: location.name,
+        subtitle: getLocationTypeLabel(location.type),
+        dangerLevel: location.dangerLevel,
+        locationType: location.type,
+        specialFeature: null,
+        showMystery: false,
+        revisitBadge: isRevisit,
+      };
+
+    case IntelRevealLevel.FULL:
+      return {
+        name: location.name,
+        subtitle: getLocationTypeLabel(location.type),
+        dangerLevel: location.dangerLevel,
+        locationType: location.type,
+        specialFeature: determineSpecialFeature(location),
+        showMystery: false,
+        revisitBadge: isRevisit,
+      };
+
+    default:
+      return {
+        name: '???',
+        subtitle: 'Unknown',
+        dangerLevel: null,
+        locationType: null,
+        specialFeature: null,
+        showMystery: true,
+        revisitBadge: false,
+      };
+  }
+}
+
+/**
+ * Draw location cards from the deck.
+ * Uses progress-weighted random selection based on danger tiers.
+ *
+ * @param region - The current region
+ * @param deck - The location deck
+ * @param intelPool - Player's intel pool
+ * @param count - Number of cards to draw (default: 3)
+ * @returns Array of drawn LocationCards
+ */
+export function drawLocationCards(
+  region: Region,
+  deck: LocationDeck,
+  intelPool: IntelPool,
+  count: number = 3
+): LocationCard[] {
+  // Calculate progress percentage
+  const progressPercent = region.totalLocations > 0
+    ? (region.locationsCompleted / region.totalLocations) * 100
+    : 0;
+
+  const tierWeights = getTierWeights(progressPercent);
+  const drawnCards: LocationCard[] = [];
+
+  // Calculate weights for all locations
+  const weightedLocations = deck.locations.map(deckLoc => {
+    const location = region.locations.find(l => l.id === deckLoc.locationId);
+    if (!location) {
+      return { ...deckLoc, calculatedWeight: 0, location: null };
+    }
+
+    const tier = getDangerTier(deckLoc.dangerLevel);
+    let weight = tierWeights[tier] * deckLoc.baseWeight;
+
+    // Apply completion modifier (completed = 30% base weight)
+    weight *= deckLoc.completionPenalty;
+
+    // Boss location only available at 75%+ progress
+    if (location.flags.isBoss && progressPercent < 75) {
+      weight = 0;
+    }
+
+    // Secret locations require discovery first
+    if (location.flags.isSecret && !location.isDiscovered) {
+      weight = 0;
+    }
+
+    return { ...deckLoc, calculatedWeight: weight, location };
+  }).filter(item => item.location !== null && item.calculatedWeight > 0);
+
+  // Draw cards
+  for (let i = 0; i < count; i++) {
+    if (weightedLocations.length === 0) break;
+
+    const selected = weightedRandomSelect(weightedLocations);
+    const location = region.locations.find(l => l.id === selected.locationId)!;
+    const intelLevel = calculateIntelLevel(intelPool, location);
+
+    drawnCards.push({
+      locationId: selected.locationId,
+      location,
+      intelLevel,
+      isRevisit: selected.isCompleted,
+    });
+
+    // Note: We don't remove from weightedLocations to allow same location
+    // to appear multiple times (as per requirements)
+  }
+
+  // If we couldn't draw enough cards, fill with whatever is available
+  while (drawnCards.length < count && weightedLocations.length > 0) {
+    const randomIndex = Math.floor(Math.random() * weightedLocations.length);
+    const selected = weightedLocations[randomIndex];
+    const location = region.locations.find(l => l.id === selected.locationId)!;
+    const intelLevel = calculateIntelLevel(intelPool, location);
+
+    drawnCards.push({
+      locationId: selected.locationId,
+      location,
+      intelLevel,
+      isRevisit: selected.isCompleted,
+    });
+  }
+
+  return drawnCards;
+}
+
+/**
+ * Create initial intel pool for a new region.
+ */
+export function createInitialIntelPool(): IntelPool {
+  return {
+    totalIntel: 0,
+    maxIntel: 10,
+  };
+}
+
+/**
+ * Add intel to the pool (called after completing intel missions).
+ */
+export function addIntel(intelPool: IntelPool, amount: number = 1): IntelPool {
+  return {
+    ...intelPool,
+    totalIntel: Math.min(intelPool.totalIntel + amount, intelPool.maxIntel),
+  };
+}
+
+/**
+ * Prepare a location for revisit by stripping one-time content.
+ * Called when a completed location is selected again.
+ */
+export function prepareLocationForRevisit(location: Location): Location {
+  return {
+    ...location,
+    rooms: location.rooms.map(room => ({
+      ...room,
+      activities: {
+        // Keep repeatable activities
+        combat: room.activities.combat ? { ...room.activities.combat, completed: false } : undefined,
+        merchant: room.activities.merchant,
+        rest: room.activities.rest,
+        training: room.activities.training,
+        // Remove one-time activities
+        event: undefined,
+        treasure: undefined,
+        scrollDiscovery: undefined,
+        eliteChallenge: undefined,
+      },
+      isCleared: false,
+      isAccessible: room.depth === 1, // Only entrance accessible
+      isCurrent: room.depth === 1,
+    })),
+    // Reset progress
+    roomsCleared: 0,
+    currentRoomId: null,
+    isCompleted: false,
+    // No intel mission on revisit
+    intelMission: null,
   };
 }

@@ -86,7 +86,7 @@ src/
 │       └── useGameStore.ts        # Custom React hook for clan bonuses
 ├── components/                    # Reusable React UI components (organized by domain)
 │   ├── combat/                    # Combat UI (ApproachSelector, SkillCard, GameLog, FloatingText)
-│   ├── exploration/               # Maps & navigation (RegionMap, BranchingExplorationMap, RoomCard, LocationCard)
+│   ├── exploration/               # Maps & navigation (RegionMap, LocationMap, RoomCard, LocationCard)
 │   ├── inventory/                 # Items & equipment (Bag, EquipmentPanel)
 │   ├── character/                 # Player display (PlayerHUD, PrimaryStatsPanel, DerivedStatsPanel)
 │   ├── modals/                    # Popups (RewardModal, EventResultModal)
@@ -162,7 +162,7 @@ The game uses a **Region → Location → Room** hierarchy (`RegionSystem.ts`):
 ### Key State Flow in App.tsx
 
 1. **Region Map:** Player selects location → `handleEnterLocation(location)`
-2. **Location Explorer:** Player navigates rooms using BranchingExplorationMap
+2. **Location Explorer:** Player navigates rooms using LocationMap
 3. **Room Selection:** Player clicks room → `handleLocationRoomEnter(room)`
 4. **Activity Processing:** Based on activity type, triggers combat/event/etc.
 5. **Combat Flow:** `COMBAT` → victory → rewards → `returnToMap()`

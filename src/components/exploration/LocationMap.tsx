@@ -6,9 +6,9 @@ import {
   CharacterStats,
 } from '../../game/types';
 import RoomCard from './RoomCard';
-import { getCurrentRoom, getChildRooms } from '../../game/systems/BranchingFloorSystem';
+import { getCurrentRoom, getChildRooms } from '../../game/systems/LocationSystem';
 
-interface BranchingExplorationMapProps {
+interface LocationMapProps {
   branchingFloor: BranchingFloor;
   player: Player;
   playerStats: CharacterStats;
@@ -16,7 +16,7 @@ interface BranchingExplorationMapProps {
   onRoomEnter: (room: BranchingRoom) => void;
 }
 
-const BranchingExplorationMap: React.FC<BranchingExplorationMapProps> = ({
+const LocationMap: React.FC<LocationMapProps> = ({
   branchingFloor,
   player,
   playerStats,
@@ -297,4 +297,4 @@ const BranchingExplorationMap: React.FC<BranchingExplorationMapProps> = ({
   );
 };
 
-export default BranchingExplorationMap;
+export default LocationMap;

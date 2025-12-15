@@ -5,7 +5,9 @@ import {
   EquipmentSlot, MAX_BAG_SLOTS, ScrollDiscoveryActivity,
   GameEvent, EventChoice, EventOutcome,
   TreasureQuality, DEFAULT_MERCHANT_SLOTS, MAX_MERCHANT_SLOTS,
-  Region, Location, LocationPath
+  Region, Location, LocationPath,
+  // Card-based location selection types
+  IntelPool, LocationDeck, LocationCard
 } from './game/types';
 import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS } from './game/constants';
 import {
@@ -41,10 +43,11 @@ import {
   getCurrentActivity,
   completeActivity,
   getCurrentRoom
-} from './game/systems/BranchingFloorSystem';
+} from './game/systems/LocationSystem';
 import {
   generateRegion,
   enterLocation,
+  enterLocationFromCard,
   getCurrentLocation,
   completeIntelMission,
   skipIntelMission,
@@ -59,6 +62,13 @@ import {
   calculateLocationXP,
   calculateLocationRyo,
   calculateMerchantRerollCost,
+  // Card-based location selection functions
+  initializeLocationDeck,
+  drawLocationCards,
+  createInitialIntelPool,
+  addIntel,
+  updateDeckAfterCompletion,
+  prepareLocationForRevisit,
 } from './game/systems/RegionSystem';
 import { LAND_OF_WAVES_CONFIG } from './game/constants/regions';
 import { resolveEventChoice } from './game/systems/EventSystem';
@@ -84,9 +94,9 @@ import RightSidebarPanel from './components/layout/RightSidebarPanel';
 // Combat components
 import ApproachSelector from './components/combat/ApproachSelector';
 // Exploration components
-import BranchingExplorationMap from './components/exploration/BranchingExplorationMap';
+import LocationMap from './components/exploration/LocationMap';
 import RegionMap from './components/exploration/RegionMap';
-import PathChoiceModal from './components/exploration/PathChoiceModal';
+// PathChoiceModal removed - cards now replace path selection modal
 // Character components
 import PlayerHUD from './components/character/PlayerHUD';
 // Modal components
@@ -143,10 +153,16 @@ const App: React.FC = () => {
   // --- Region Exploration State ---
   const [region, setRegion] = useState<Region | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
-  const [showPathChoice, setShowPathChoice] = useState(false);
+  // showPathChoice removed - cards now replace path selection modal
   const [intelMissionEnemy, setIntelMissionEnemy] = useState<Enemy | null>(null);
   const [isIntelMissionCombat, setIsIntelMissionCombat] = useState(false);
   const [locationFloor, setLocationFloor] = useState<import('./game/types').BranchingFloor | null>(null);
+
+  // --- Card-Based Location Selection State ---
+  const [locationDeck, setLocationDeck] = useState<LocationDeck | null>(null);
+  const [intelPool, setIntelPool] = useState<IntelPool>({ totalIntel: 0, maxIntel: 10 });
+  const [drawnCards, setDrawnCards] = useState<LocationCard[]>([]);
+  const [selectedCardIndex, setSelectedCardIndex] = useState<number | null>(null);
 
   // --- Shared Combat/Exploration State ---
   // This hook owns state needed by both useCombat and useExploration
@@ -481,6 +497,16 @@ const App: React.FC = () => {
     setBranchingFloor(null);
     setLocationFloor(null);
     setSelectedBranchingRoom(null);
+
+    // Initialize card-based location selection
+    const initialDeck = initializeLocationDeck(wavesRegion);
+    const initialIntelPool = createInitialIntelPool();
+    const initialCards = drawLocationCards(wavesRegion, initialDeck, initialIntelPool, 3);
+    setLocationDeck(initialDeck);
+    setIntelPool(initialIntelPool);
+    setDrawnCards(initialCards);
+    setSelectedCardIndex(null);
+
     setGameState(GameState.REGION_MAP);
   };
 
@@ -872,39 +898,65 @@ const App: React.FC = () => {
   // REGION EXPLORATION HANDLERS
   // ============================================================================
 
-  // Handle selecting a location on the region map
-  const handleLocationSelect = (location: Location) => {
-    logLocationSelect(location.id, location.name);
-    setSelectedLocation(location);
+  // Handle selecting a card on the region map
+  const handleCardSelect = (index: number) => {
+    if (index >= 0 && index < drawnCards.length) {
+      const card = drawnCards[index];
+      logLocationSelect(card.locationId, card.location.name);
+      setSelectedCardIndex(index);
+      setSelectedLocation(card.location);
+    }
   };
 
-  // Handle entering a location from the region map
-  const handleEnterLocation = (location: Location) => {
-    if (!region) return;
-    logLocationEnter(location.id, location.name, location.dangerLevel);
-    const updatedRegion = enterLocation(region, location.id);
-    setRegion(updatedRegion);
-    setSelectedLocation(location);
+  // Handle entering location from selected card
+  const handleEnterSelectedLocation = () => {
+    if (!region || !locationDeck || selectedCardIndex === null) return;
 
-    // Create a BranchingFloor from the location for use with BranchingExplorationMap
+    const selectedCard = drawnCards[selectedCardIndex];
+    if (!selectedCard) return;
+
+    let locationToEnter = selectedCard.location;
+
+    // If revisiting, strip one-time content
+    if (selectedCard.isRevisit) {
+      locationToEnter = prepareLocationForRevisit(locationToEnter);
+      // Update the location in region with revisit version
+      const updatedLocations = region.locations.map(loc =>
+        loc.id === locationToEnter.id ? locationToEnter : loc
+      );
+      const regionWithRevisit = { ...region, locations: updatedLocations };
+      setRegion(regionWithRevisit);
+    }
+
+    logLocationEnter(locationToEnter.id, locationToEnter.name, locationToEnter.dangerLevel);
+    const updatedRegion = enterLocationFromCard(
+      selectedCard.isRevisit ? { ...region, locations: region.locations.map(loc =>
+        loc.id === locationToEnter.id ? locationToEnter : loc
+      )} : region,
+      locationToEnter.id
+    );
+    setRegion(updatedRegion);
+    setSelectedLocation(locationToEnter);
+
+    // Create a BranchingFloor from the location for use with LocationMap
     const locationFloorData = locationToBranchingFloor(updatedRegion);
     setLocationFloor(locationFloorData);
 
-    addLog(`Entering ${location.name}...`, 'info');
+    addLog(`Entering ${locationToEnter.name}${selectedCard.isRevisit ? ' (Revisit)' : ''}...`, 'info');
     setGameState(GameState.LOCATION_EXPLORE);
   };
 
-  // Handle selecting a room within a location (for BranchingExplorationMap)
+  // Handle selecting a room within a location (for LocationMap)
   const handleLocationRoomSelect = (room: BranchingRoom) => {
     logRoomSelect(room.id, room.name);
     setSelectedBranchingRoom(room);
   };
 
-  // Handle entering a room within a location (for BranchingExplorationMap)
+  // Handle entering a room within a location (for LocationMap)
   const handleLocationRoomEnter = (room: BranchingRoom) => {
     if (!locationFloor || !region || !player || !playerStats) return;
 
-    // Move to the room using BranchingFloorSystem
+    // Move to the room using LocationSystem
     const updatedFloor = moveToRoom(locationFloor, room.id, player);
     setLocationFloor(updatedFloor);
 
@@ -1064,7 +1116,7 @@ const App: React.FC = () => {
 
   // Handle completing the intel mission (victory)
   const handleIntelMissionVictory = () => {
-    if (!region || !player || !locationFloor) return;
+    if (!region || !player || !locationFloor || !locationDeck) return;
     const location = getCurrentLocation(region);
     logIntelMissionVictory(location?.name || 'Unknown');
     let updatedRegion = completeIntelMission(region);
@@ -1081,68 +1133,95 @@ const App: React.FC = () => {
     setRegion(updatedRegion);
     setIntelMissionEnemy(null);
     setEnemy(null);
-    addLog('Intel acquired! You may now choose your path.', 'gain');
+
+    // Add intel to pool and update deck
+    const updatedIntelPool = addIntel(intelPool, 1);
+    setIntelPool(updatedIntelPool);
+
+    // Update deck with completed location
+    if (location) {
+      const updatedDeck = updateDeckAfterCompletion(locationDeck, location.id);
+      setLocationDeck(updatedDeck);
+
+      // Draw new cards for returning to region map
+      const newCards = drawLocationCards(updatedRegion, updatedDeck, updatedIntelPool, 3);
+      setDrawnCards(newCards);
+      setSelectedCardIndex(null);
+    }
+
+    addLog('Intel acquired! Choose your next destination.', 'gain');
 
     // Check if this was the boss (region complete)
     if (isRegionComplete(updatedRegion)) {
       addLog('The region boss has been defeated! A new path opens...', 'gain');
       // TODO: Transition to next region or back to floor system
-      setGameState(GameState.REGION_MAP);
-    } else {
-      setShowPathChoice(true);
-      setGameState(GameState.PATH_CHOICE);
     }
+
+    // Go directly to region map with new cards (no path choice needed - cards are the choice)
+    setGameState(GameState.REGION_MAP);
   };
 
   // Handle skipping the intel mission
   const handleIntelMissionSkip = () => {
-    if (!region) return;
+    if (!region || !locationDeck) return;
     const location = getCurrentLocation(region);
     if (!location?.intelMission?.skipAllowed) return;
 
     logIntelMissionSkip(location.name);
     const updatedRegion = skipIntelMission(region);
     setRegion(updatedRegion);
-    addLog('You avoided the fight but lost your path choice...', 'danger');
+    addLog('You avoided the fight. Less intel, but you can still choose from available destinations.', 'danger');
 
-    // Auto-select random path
-    const randomPath = getRandomPath(updatedRegion);
-    if (randomPath) {
-      const targetLoc = updatedRegion.locations.find(l => l.id === randomPath.targetLocationId);
-      logPathRandom(randomPath.id, targetLoc?.name || 'Unknown');
-      const finalRegion = choosePath(updatedRegion, randomPath.id);
-      setRegion(finalRegion);
-      setGameState(GameState.REGION_MAP);
-    }
+    // Update deck with completed location (no intel added)
+    const updatedDeck = updateDeckAfterCompletion(locationDeck, location.id);
+    setLocationDeck(updatedDeck);
+
+    // Draw new cards for region map (with current intel - no bonus)
+    const newCards = drawLocationCards(updatedRegion, updatedDeck, intelPool, 3);
+    setDrawnCards(newCards);
+    setSelectedCardIndex(null);
+
+    setGameState(GameState.REGION_MAP);
   };
 
-  // Handle path choice
+  // Handle path choice (legacy - kept for compatibility but cards are now the primary choice)
   const handlePathChoice = (path: LocationPath) => {
-    if (!region) return;
+    if (!region || !locationDeck) return;
     const targetLoc = region.locations.find(l => l.id === path.targetLocationId);
     logPathChoice(path.id, targetLoc?.name || 'Unknown', path.pathType);
     const updatedRegion = choosePath(region, path.id);
     setRegion(updatedRegion);
-    setShowPathChoice(false);
+
+    // Draw new cards after path choice
+    const newCards = drawLocationCards(updatedRegion, locationDeck, intelPool, 3);
+    setDrawnCards(newCards);
+    setSelectedCardIndex(null);
+
     addLog(`Traveling to the next location...`, 'info');
     setGameState(GameState.REGION_MAP);
   };
 
-  // Handle leaving a location (back to region map)
+  // Handle leaving a location (back to region map with new cards)
   const handleLeaveLocation = () => {
-    if (!region) return;
+    if (!region || !locationDeck) return;
     const location = getCurrentLocation(region);
 
     if (location?.isCompleted || location?.intelMission?.completed || location?.intelMission?.skipped) {
-      // If location complete, show path choice or go to region map
-      const reason = hasEarnedPathChoice(region) ? 'path choice' : 'completed';
-      logLocationLeave(location.id, location.name, reason);
-      if (hasEarnedPathChoice(region)) {
-        setShowPathChoice(true);
-        setGameState(GameState.PATH_CHOICE);
-      } else {
-        setGameState(GameState.REGION_MAP);
-      }
+      // Location complete - draw new cards and return to region map
+      const earnedIntel = hasEarnedPathChoice(region);
+      logLocationLeave(location.id, location.name, earnedIntel ? 'with intel' : 'completed');
+
+      // Draw new cards for the region map (cards are the new path choice)
+      const newCards = drawLocationCards(region, locationDeck, intelPool, 3);
+      setDrawnCards(newCards);
+      setSelectedCardIndex(null);
+
+      addLog(earnedIntel
+        ? 'Intel acquired! Choose your next destination.'
+        : 'Location cleared. Choose your next destination.',
+        earnedIntel ? 'gain' : 'info'
+      );
+      setGameState(GameState.REGION_MAP);
     } else {
       // Can't leave incomplete location
       addLog('Complete the location before leaving.', 'danger');
@@ -2163,15 +2242,18 @@ const App: React.FC = () => {
             />
           )}
 
-          {/* Region Map - Shows all locations in the region */}
+          {/* Region Map - Card-based location selection */}
           {gameState === GameState.REGION_MAP && region && player && playerStats && (
             <div className="w-full h-full flex flex-col">
               <RegionMap
                 region={region}
                 player={player}
                 playerStats={playerStats}
-                onLocationSelect={handleLocationSelect}
-                onEnterLocation={handleEnterLocation}
+                intelPool={intelPool}
+                drawnCards={drawnCards}
+                selectedIndex={selectedCardIndex}
+                onCardSelect={handleCardSelect}
+                onEnterLocation={handleEnterSelectedLocation}
               />
               <PlayerHUD
                 player={player}
@@ -2181,13 +2263,13 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {/* Location Explorer - Uses BranchingExplorationMap for location rooms */}
+          {/* Location Explorer - Uses LocationMap for location rooms */}
           {gameState === GameState.LOCATION_EXPLORE && region && locationFloor && player && playerStats && (() => {
             const currentLocation = getCurrentLocation(region);
             if (!currentLocation) return null;
             return (
               <div className="w-full h-full flex flex-col">
-                <BranchingExplorationMap
+                <LocationMap
                   branchingFloor={locationFloor}
                   player={player}
                   playerStats={playerStats}
@@ -2244,18 +2326,11 @@ const App: React.FC = () => {
             );
           })()}
 
-          {/* Path Choice Modal - Select next location after intel mission */}
-          {gameState === GameState.PATH_CHOICE && region && showPathChoice && (
-            <PathChoiceModal
-              region={region}
-              hasIntel={hasEarnedPathChoice(region)}
-              onChoosePath={handlePathChoice}
-              onClose={() => {
-                setShowPathChoice(false);
-                setGameState(GameState.REGION_MAP);
-              }}
-            />
-          )}
+          {/* Path Choice - DEPRECATED: Cards now replace path selection modal
+              The card-based location selection system in RegionMap replaces the
+              need for a separate path choice modal. Cards are drawn after completing
+              a location and intel is accumulated to reveal more info about destinations.
+          */}
         </div>
       </div>
 

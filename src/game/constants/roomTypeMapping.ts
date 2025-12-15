@@ -225,7 +225,7 @@ const BRANCHING_ROOM_COLOR_MAP: Record<BranchingRoomType, BranchingRoomColors> =
 
 /**
  * Get color scheme for BranchingRoom types.
- * Used by RoomCard.tsx and BranchingExplorationMap.tsx.
+ * Used by RoomCard.tsx and LocationMap.tsx.
  *
  * @param type - The BranchingRoomType
  * @param isCleared - Whether the room has been cleared
