@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { HELP_TEXT } from '../game/constants/helpText';
-import { ArrowLeft, Flame, Wind, Zap, Mountain, Droplet, Sword, Brain, Sparkles, Shield } from 'lucide-react';
+import { ArrowLeft, Flame, Wind, Zap, Mountain, Droplet, Sword, Brain, Sparkles, Shield, Map, MapPin, Box, Hammer, Target, TreePine } from 'lucide-react';
 
 interface GameGuideProps {
   onBack: () => void;
 }
 
-type Tab = 'STATS' | 'ELEMENTS' | 'EFFECTS' | 'COMBAT' | 'CLANS' | 'PROGRESSION' | 'EQUIPMENT' | 'DUNGEONS';
+type Tab = 'STATS' | 'ELEMENTS' | 'EFFECTS' | 'COMBAT' | 'CLANS' | 'PROGRESSION' | 'EQUIPMENT' | 'EXPLORATION' | 'CRAFTING';
 
 // Static Tailwind class mappings (dynamic class names don't work with Tailwind's JIT)
 const RANK_COLOR_CLASSES: Record<string, { text: string; border: string }> = {
@@ -41,7 +41,7 @@ const GameGuide: React.FC<GameGuideProps> = ({ onBack }) => {
 
         {/* Tabs */}
         <div className="flex justify-center gap-1 bg-zinc-900/5 p-3 border-b border-zinc-800/10 flex-wrap">
-          {['STATS', 'ELEMENTS', 'EFFECTS', 'COMBAT', 'CLANS', 'PROGRESSION', 'EQUIPMENT', 'DUNGEONS'].map((tab) => (
+          {['STATS', 'ELEMENTS', 'EFFECTS', 'COMBAT', 'CLANS', 'PROGRESSION', 'EQUIPMENT', 'EXPLORATION', 'CRAFTING'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as Tab)}
@@ -198,6 +198,48 @@ const GameGuide: React.FC<GameGuideProps> = ({ onBack }) => {
                 </div>
               </section>
 
+              {/* Approaches */}
+              <section className="bg-white/50 p-5 rounded border border-zinc-300">
+                <h3 className="font-black uppercase tracking-widest mb-4 border-b border-zinc-400 pb-2 text-lg flex items-center gap-2">
+                  <Target size={18} /> Combat Approaches
+                </h3>
+                <p className="text-xs text-zinc-600 mb-3">Choose your approach before combat begins to set your tactical stance:</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {HELP_TEXT.COMBAT_MECHANICS.APPROACHES.map((approach, idx) => (
+                    <div key={idx} className={`p-3 rounded border ${
+                      approach.color === 'red' ? 'bg-red-50/80 border-red-200' :
+                      approach.color === 'blue' ? 'bg-blue-50/80 border-blue-200' :
+                      approach.color === 'green' ? 'bg-green-50/80 border-green-200' :
+                      'bg-zinc-50/80 border-zinc-200'
+                    }`}>
+                      <div className={`font-bold text-sm uppercase tracking-wider mb-1 ${
+                        approach.color === 'red' ? 'text-red-900' :
+                        approach.color === 'blue' ? 'text-blue-900' :
+                        approach.color === 'green' ? 'text-green-900' :
+                        'text-zinc-900'
+                      }`}>{approach.type}</div>
+                      <div className="text-xs text-zinc-700">{approach.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* Terrain */}
+              <section className="bg-white/50 p-5 rounded border border-zinc-300">
+                <h3 className="font-black uppercase tracking-widest mb-4 border-b border-zinc-400 pb-2 text-lg flex items-center gap-2">
+                  <TreePine size={18} /> Terrain Effects
+                </h3>
+                <p className="text-xs text-zinc-600 mb-3">Different terrains provide unique combat modifiers:</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {HELP_TEXT.COMBAT_MECHANICS.TERRAIN.map((terrain, idx) => (
+                    <div key={idx} className="bg-zinc-100/80 p-3 rounded border border-zinc-200">
+                      <div className="font-bold text-zinc-900 text-sm uppercase tracking-wider mb-1">{terrain.type}</div>
+                      <div className="text-xs text-zinc-700">{terrain.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
               <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-red-50/80 p-4 rounded border border-red-200">
                   <div className="font-bold text-red-900 text-sm mb-2 flex items-center gap-2"><Flame size={16} /> GUTS Mechanic</div>
@@ -248,12 +290,18 @@ const GameGuide: React.FC<GameGuideProps> = ({ onBack }) => {
             <div className="space-y-6 max-w-4xl mx-auto text-zinc-800">
               <section className="bg-white/50 p-5 rounded border border-zinc-300">
                 <h3 className="font-black uppercase tracking-widest mb-3 text-lg">Enemy Scaling Formula</h3>
-                <div className="bg-zinc-900 text-zinc-300 p-3 rounded font-mono text-xs mb-4 shadow-inner">
+                <div className="bg-zinc-900 text-zinc-300 p-3 rounded font-mono text-sm mb-3 shadow-inner">
                   {HELP_TEXT.PROGRESSION.SCALING.formula}
                 </div>
+                <div className="bg-zinc-800 text-zinc-400 p-3 rounded font-mono text-xs mb-4 space-y-1">
+                  {HELP_TEXT.PROGRESSION.SCALING.breakdown.map((line, idx) => (
+                    <div key={idx}>{line}</div>
+                  ))}
+                </div>
+                <h4 className="font-bold text-sm text-zinc-800 mb-2">Examples:</h4>
                 <div className="space-y-2">
                   {HELP_TEXT.PROGRESSION.SCALING.examples.map((ex, idx) => (
-                    <div key={idx} className="text-sm bg-white/30 p-2 rounded">{ex.text}</div>
+                    <div key={idx} className="text-xs bg-white/30 p-2 rounded font-mono">{ex.text}</div>
                   ))}
                 </div>
               </section>
@@ -331,26 +379,88 @@ const GameGuide: React.FC<GameGuideProps> = ({ onBack }) => {
             </div>
           )}
 
-          {/* --- DUNGEONS TAB --- */}
-          {activeTab === 'DUNGEONS' && (
+          {/* --- EXPLORATION TAB --- */}
+          {activeTab === 'EXPLORATION' && (
             <div className="space-y-6 max-w-4xl mx-auto text-zinc-800">
+              {/* Region Hierarchy */}
+              <section className="bg-white/50 p-5 rounded border border-zinc-300">
+                <h3 className="font-black uppercase tracking-widest mb-4 text-lg flex items-center gap-2">
+                  <Map size={20} /> Region Hierarchy
+                </h3>
+                <div className="flex flex-col md:flex-row items-center justify-center gap-4 mb-4">
+                  {HELP_TEXT.EXPLORATION.HIERARCHY.map((item, idx) => (
+                    <React.Fragment key={idx}>
+                      <div className="bg-zinc-900/90 text-white p-4 rounded-lg text-center min-w-[140px]">
+                        <div className="font-black text-lg uppercase tracking-wider text-yellow-400">{item.term}</div>
+                        <div className="text-xs text-zinc-400 mt-1">{item.desc}</div>
+                      </div>
+                      {idx < HELP_TEXT.EXPLORATION.HIERARCHY.length - 1 && (
+                        <span className="text-2xl text-zinc-500 font-bold hidden md:block">→</span>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+              </section>
+
+              {/* Danger Levels */}
+              <section className="bg-white/50 p-5 rounded border border-zinc-300">
+                <h3 className="font-black uppercase tracking-widest mb-3 text-lg flex items-center gap-2">
+                  <Target size={18} /> Danger Levels
+                </h3>
+                <p className="text-sm text-zinc-700 mb-3">{HELP_TEXT.EXPLORATION.DANGER_LEVELS.desc}</p>
+                <div className="bg-zinc-900 text-zinc-300 p-3 rounded font-mono text-xs mb-3 shadow-inner">
+                  {HELP_TEXT.EXPLORATION.DANGER_LEVELS.formula}
+                </div>
+                <p className="text-xs text-zinc-600 italic">{HELP_TEXT.EXPLORATION.DANGER_LEVELS.note}</p>
+              </section>
+
+              {/* Room Activities */}
               <section>
-                <h3 className="font-black uppercase tracking-widest mb-3 text-lg">Room Types</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {HELP_TEXT.DUNGEONS.ROOM_TYPES.map((room, idx) => (
-                    <div key={idx} className="bg-white/50 p-3 rounded border border-zinc-300">
-                      <div className="font-black text-zinc-900 text-sm mb-1 uppercase tracking-wider">{room.type}</div>
-                      <p className="text-xs text-zinc-700 mb-2">{room.desc}</p>
-                      <div className="text-xs font-mono text-zinc-600 bg-white/40 p-1.5 rounded">Reward: {room.reward}</div>
+                <h3 className="font-black uppercase tracking-widest mb-3 text-lg">Room Activities</h3>
+                <p className="text-xs text-zinc-600 mb-3">Activities are processed in this order within each room:</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {HELP_TEXT.EXPLORATION.ACTIVITIES.map((act) => (
+                    <div key={act.order} className="bg-white/50 p-3 rounded border border-zinc-300 flex items-center gap-3">
+                      <div className="w-8 h-8 bg-zinc-900 text-white rounded-full flex items-center justify-center font-black text-sm">
+                        {act.order}
+                      </div>
+                      <div>
+                        <div className="font-bold text-zinc-900 text-sm uppercase">{act.activity}</div>
+                        <div className="text-xs text-zinc-600">{act.desc}</div>
+                      </div>
                     </div>
                   ))}
                 </div>
               </section>
 
+              {/* Room States & Intel Mission */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <section className="bg-white/50 p-4 rounded border border-zinc-300">
+                  <h3 className="font-black uppercase tracking-widest mb-3 text-sm">Room States</h3>
+                  <div className="space-y-2">
+                    {HELP_TEXT.EXPLORATION.ROOM_STATES.map((rs, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${idx === 0 ? 'bg-green-500' : idx === 1 ? 'bg-blue-500' : 'bg-yellow-500'}`}></div>
+                        <span className="font-bold text-xs text-zinc-900">{rs.state}:</span>
+                        <span className="text-xs text-zinc-600">{rs.desc}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="bg-yellow-50/80 p-4 rounded border border-yellow-200">
+                  <h3 className="font-black uppercase tracking-widest mb-2 text-sm text-yellow-900 flex items-center gap-2">
+                    <MapPin size={14} /> {HELP_TEXT.EXPLORATION.INTEL_MISSION.title}
+                  </h3>
+                  <p className="text-xs text-yellow-800">{HELP_TEXT.EXPLORATION.INTEL_MISSION.desc}</p>
+                </section>
+              </div>
+
+              {/* Enemy Archetypes */}
               <section>
                 <h3 className="font-black uppercase tracking-widest mb-3 text-lg">Enemy Archetypes</h3>
                 <div className="space-y-3">
-                  {HELP_TEXT.DUNGEONS.ARCHETYPES.map((arch, idx) => (
+                  {HELP_TEXT.EXPLORATION.ARCHETYPES.map((arch, idx) => (
                     <div key={idx} className="bg-white/50 p-3 rounded border border-zinc-300">
                       <div className="font-black text-zinc-900 text-sm mb-2 uppercase tracking-wider">{arch.archetype}</div>
                       <div className="text-xs space-y-1 text-zinc-700">
@@ -363,10 +473,11 @@ const GameGuide: React.FC<GameGuideProps> = ({ onBack }) => {
                 </div>
               </section>
 
+              {/* Story Arcs */}
               <section>
                 <h3 className="font-black uppercase tracking-widest mb-3 text-lg">Story Arcs</h3>
                 <div className="space-y-2">
-                  {HELP_TEXT.DUNGEONS.STORY_ARCS.map((arc, idx) => (
+                  {HELP_TEXT.EXPLORATION.STORY_ARCS.map((arc, idx) => (
                     <div key={idx} className="bg-white/50 p-3 rounded border border-zinc-300">
                       <div className="flex justify-between items-start mb-1">
                         <div className="font-black text-zinc-900 text-sm uppercase tracking-wider">Arc {arc.arc}: {arc.name}</div>
@@ -376,6 +487,86 @@ const GameGuide: React.FC<GameGuideProps> = ({ onBack }) => {
                     </div>
                   ))}
                 </div>
+              </section>
+            </div>
+          )}
+
+          {/* --- CRAFTING TAB --- */}
+          {activeTab === 'CRAFTING' && (
+            <div className="space-y-6 max-w-4xl mx-auto text-zinc-800">
+              {/* Overview */}
+              <section className="bg-gradient-to-r from-orange-50 to-yellow-50 p-5 rounded border border-orange-200">
+                <h3 className="font-black uppercase tracking-widest mb-2 text-lg flex items-center gap-2 text-orange-900">
+                  <Hammer size={20} /> {HELP_TEXT.CRAFTING.OVERVIEW.title}
+                </h3>
+                <p className="text-sm text-orange-800">{HELP_TEXT.CRAFTING.OVERVIEW.desc}</p>
+              </section>
+
+              {/* Components */}
+              <section className="bg-white/50 p-5 rounded border border-zinc-300">
+                <h3 className="font-black uppercase tracking-widest mb-3 text-lg flex items-center gap-2">
+                  <Box size={18} /> Components
+                </h3>
+                <p className="text-sm text-zinc-700 mb-4">{HELP_TEXT.CRAFTING.COMPONENTS.desc}</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {HELP_TEXT.CRAFTING.COMPONENTS.examples.map((comp, idx) => (
+                    <div key={idx} className="bg-zinc-100 p-3 rounded border border-zinc-200 text-center">
+                      <div className="font-bold text-zinc-900 text-sm">{comp.name}</div>
+                      <div className="text-xs text-zinc-500 mt-1">{comp.use}</div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* Artifacts */}
+              <section className="bg-white/50 p-5 rounded border border-zinc-300">
+                <h3 className="font-black uppercase tracking-widest mb-3 text-lg flex items-center gap-2">
+                  <Sparkles size={18} /> Artifacts
+                </h3>
+                <p className="text-sm text-zinc-700 mb-4">{HELP_TEXT.CRAFTING.ARTIFACTS.desc}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {HELP_TEXT.CRAFTING.ARTIFACTS.triggers.map((t, idx) => (
+                    <div key={idx} className="bg-purple-50/80 p-3 rounded border border-purple-200">
+                      <div className="font-mono font-bold text-purple-900 text-sm">{t.trigger}</div>
+                      <div className="text-xs text-purple-700 mt-1">{t.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* Bag Capacity */}
+              <section className="bg-blue-50/80 p-4 rounded border border-blue-200">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-blue-900 text-white rounded-lg flex items-center justify-center font-black text-xl">
+                    {HELP_TEXT.CRAFTING.BAG.capacity}
+                  </div>
+                  <div>
+                    <div className="font-bold text-blue-900">Bag Capacity</div>
+                    <div className="text-xs text-blue-700">{HELP_TEXT.CRAFTING.BAG.desc}</div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Synthesis */}
+              <section className="bg-white/50 p-5 rounded border border-zinc-300">
+                <h3 className="font-black uppercase tracking-widest mb-3 text-lg">Synthesis Mechanics</h3>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 bg-green-50/80 p-3 rounded border border-green-200">
+                    <div className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">+</div>
+                    <div>
+                      <div className="font-bold text-green-900 text-sm">Combine</div>
+                      <div className="text-xs text-green-700">{HELP_TEXT.CRAFTING.SYNTHESIS.combine}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 bg-red-50/80 p-3 rounded border border-red-200">
+                    <div className="w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold">-</div>
+                    <div>
+                      <div className="font-bold text-red-900 text-sm">Disassemble</div>
+                      <div className="text-xs text-red-700">{HELP_TEXT.CRAFTING.SYNTHESIS.disassemble}</div>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-zinc-600 italic mt-4 border-t border-zinc-200 pt-3">{HELP_TEXT.CRAFTING.SYNTHESIS.tip}</p>
               </section>
             </div>
           )}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Skill, DamageType, ActionType } from '../game/types';
+import { Skill, DamageType, ActionType } from '../../game/types';
 
 interface SkillCardProps {
   skill: Skill;

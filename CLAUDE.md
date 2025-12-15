@@ -84,15 +84,17 @@ src/
 │   │   └── Enemy.ts
 │   └── state/
 │       └── useGameStore.ts        # Custom React hook for clan bonuses
-├── components/                    # Reusable React UI components
-│   ├── BranchingExplorationMap.tsx # Branching room map UI
-│   ├── ExplorationMap.tsx         # Node-based map UI
-│   ├── ApproachSelector.tsx       # Combat approach selection
-│   ├── CharacterSheet.tsx         # Character stats panel
-│   ├── PlayerHUD.tsx              # Player HP/Chakra display
-│   ├── SkillCard.tsx              # Skill display with tooltips
-│   ├── RoomCard.tsx               # Room selection cards
-│   └── ...                        # Other UI components
+├── components/                    # Reusable React UI components (organized by domain)
+│   ├── combat/                    # Combat UI (ApproachSelector, SkillCard, GameLog, FloatingText)
+│   ├── exploration/               # Maps & navigation (RegionMap, BranchingExplorationMap, RoomCard, LocationCard)
+│   ├── inventory/                 # Items & equipment (Bag, EquipmentPanel)
+│   ├── character/                 # Player display (PlayerHUD, PrimaryStatsPanel, DerivedStatsPanel)
+│   ├── modals/                    # Popups (RewardModal, EventResultModal)
+│   ├── layout/                    # Containers (LeftSidebarPanel, RightSidebarPanel, CinematicViewscreen)
+│   ├── events/                    # Event UI (EventChoicePanel)
+│   └── shared/                    # Reusable primitives (Tooltip, StatBar)
+├── utils/
+│   └── colorHelpers.ts            # Rarity color utilities (getRarityTextColor, etc.)
 ├── scenes/                        # Full-screen scene views
 │   ├── MainMenu.tsx
 │   ├── CharacterSelect.tsx

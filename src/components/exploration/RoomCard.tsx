@@ -2,7 +2,7 @@ import React from 'react';
 import {
   BranchingRoom,
   BranchingRoomType,
-} from '../game/types';
+} from '../../game/types';
 import {
   Sword,
   Heart,
@@ -21,8 +21,8 @@ import {
   Lock,
   Sparkles,
 } from 'lucide-react';
-import { getCurrentActivity } from '../game/systems/BranchingFloorSystem';
-import { getBranchingRoomColors } from '../game/constants/roomTypeMapping';
+import { getCurrentActivity } from '../../game/systems/BranchingFloorSystem';
+import { getBranchingRoomColors } from '../../game/constants/roomTypeMapping';
 
 interface RoomCardProps {
   room: BranchingRoom;

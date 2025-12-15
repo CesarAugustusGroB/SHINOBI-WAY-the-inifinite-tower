@@ -537,6 +537,7 @@ export interface Player {
   // Progression systems
   treasureQuality: TreasureQuality;  // What tier items drop from treasure (upgradeable)
   merchantSlots: number;              // How many items shown at merchant (1-4)
+  locationsCleared: number;           // Global count of locations cleared (enemy scaling)
 }
 
 export interface Enemy {

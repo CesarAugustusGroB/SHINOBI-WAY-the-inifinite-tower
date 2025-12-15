@@ -1,7 +1,7 @@
 import React, { forwardRef } from 'react';
-import { Player, Clan, Buff } from '../game/types';
-import StatBar from './StatBar';
-import Tooltip from './Tooltip';
+import { Player, Clan, Buff } from '../../game/types';
+import StatBar from '../shared/StatBar';
+import Tooltip from '../shared/Tooltip';
 import { Coins, TrendingUp } from 'lucide-react';
 import {
   getEffectIcon,
@@ -12,7 +12,7 @@ import {
   getEffectSeverity,
   getSeverityColor,
   isPositiveEffect,
-} from '../game/utils/tooltipFormatters';
+} from '../../game/utils/tooltipFormatters';
 
 interface PlayerHUDProps {
   player: Player;

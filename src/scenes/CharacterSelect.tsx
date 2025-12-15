@@ -1,7 +1,7 @@
 import React from 'react';
 import { Clan, PrimaryAttributes } from '../game/types';
 import { CLAN_STATS, CLAN_START_SKILL } from '../game/constants';
-import Tooltip from '../components/Tooltip';
+import Tooltip from '../components/shared/Tooltip';
 import './CharacterSelect.css';
 
 interface CharacterSelectProps {

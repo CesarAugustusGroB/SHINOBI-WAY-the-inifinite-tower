@@ -11,12 +11,12 @@ import {
   ActionType,
   TurnPhaseState,
 } from '../game/types';
-import StatBar from '../components/StatBar';
-import Tooltip from '../components/Tooltip';
-import { SkillCard } from '../components/SkillCard';
-import { CinematicViewscreen } from '../components/CinematicViewscreen';
-import PlayerHUD from '../components/PlayerHUD';
-import FloatingText, { FloatingTextItem, FloatingTextType } from '../components/FloatingText';
+import StatBar from '../components/shared/StatBar';
+import Tooltip from '../components/shared/Tooltip';
+import { SkillCard } from '../components/combat/SkillCard';
+import { CinematicViewscreen } from '../components/layout/CinematicViewscreen';
+import PlayerHUD from '../components/character/PlayerHUD';
+import FloatingText, { FloatingTextItem, FloatingTextType } from '../components/combat/FloatingText';
 import { Hourglass, Zap, ZapOff } from 'lucide-react';
 import { calculateDamage, formatPercent } from '../game/systems/StatSystem';
 import { getElementEffectiveness } from '../game/constants';

@@ -148,11 +148,16 @@ export const HELP_TEXT = {
   PROGRESSION: {
     SCALING: {
       title: "Enemy Scaling Formula",
-      formula: "Enemy Stat = (Base × (1 + Floor × 0.08)) × (0.75 + Difficulty × 0.0025)",
+      formula: "totalScaling = floorMult × diffMult × 0.85",
+      breakdown: [
+        "floorMult = 1 + (floor × 0.08)  → +8% per floor",
+        "diffMult = 0.50 + (difficulty / 200)  → 50%-100%",
+        "0.85 = Enemy ease factor (15% reduction)"
+      ],
       examples: [
-        { floor: 1, difficulty: 0, text: "Floor 1, Difficulty D: ~1.0x multiplier" },
-        { floor: 25, difficulty: 50, text: "Floor 25, Difficulty B: ~3.0x multiplier" },
-        { floor: 50, difficulty: 100, text: "Floor 50, Difficulty S: ~4.6x multiplier" }
+        { floor: 10, difficulty: 40, text: "Floor 10, Diff 40: 1.8 × 0.70 × 0.85 = 1.07×" },
+        { floor: 25, difficulty: 50, text: "Floor 25, Diff 50: 3.0 × 0.75 × 0.85 = 1.91×" },
+        { floor: 50, difficulty: 100, text: "Floor 50, Diff 100: 5.0 × 1.0 × 0.85 = 4.25×" }
       ]
     },
     DIFFICULTY_RANKS: [
@@ -227,41 +232,56 @@ export const HELP_TEXT = {
   },
 
   // ============================================================================
-  // DUNGEONS - Room Types & Enemy Archetypes
+  // COMBAT MECHANICS - Approaches & Terrain
   // ============================================================================
-  DUNGEONS: {
-    ROOM_TYPES: [
-      {
-        type: "COMBAT",
-        desc: "Standard enemy encounter.",
-        reward: "Normal loot drop"
-      },
-      {
-        type: "ELITE",
-        desc: "Rare, stronger enemy with bonus stats.",
-        reward: "Rare+ loot guaranteed"
-      },
-      {
-        type: "BOSS",
-        desc: "Story boss; fixed encounter with named enemy.",
-        reward: "Epic+ loot guaranteed + story progression"
-      },
-      {
-        type: "EVENT",
-        desc: "Choice-based encounter (not combat).",
-        reward: "Stat buffs or penalties"
-      },
-      {
-        type: "REST",
-        desc: "Safe room to heal and recover.",
-        reward: "Full HP/Chakra restore"
-      },
-      {
-        type: "AMBUSH",
-        desc: "Surprise encounter; less prepared enemies.",
-        reward: "Extra XP bonus"
-      }
+  COMBAT_MECHANICS: {
+    APPROACHES: [
+      { type: "Aggressive", desc: "Offensive stance. Increased damage output but reduced defenses.", color: "red" },
+      { type: "Defensive", desc: "Protective stance. Enhanced defenses but lower damage.", color: "blue" },
+      { type: "Balanced", desc: "Neutral stance. No bonuses or penalties.", color: "gray" },
+      { type: "Evasive", desc: "Mobile stance. Higher evasion chance but inconsistent damage.", color: "green" }
     ],
+    TERRAIN: [
+      { type: "Open Field", desc: "Standard terrain with no special modifiers." },
+      { type: "Forest", desc: "Dense cover. Boosts evasion for both sides." },
+      { type: "Water", desc: "Aquatic environment. Water jutsu enhanced, Fire weakened." },
+      { type: "Rocky", desc: "Unstable ground. Earth jutsu enhanced, Speed reduced." }
+    ]
+  },
+
+  // ============================================================================
+  // EXPLORATION - Region Hierarchy & Activities
+  // ============================================================================
+  EXPLORATION: {
+    HIERARCHY: [
+      { term: "Region", desc: "Themed area containing multiple locations (e.g., Land of Waves)", icon: "map" },
+      { term: "Location", desc: "Specific area within a region with danger level 1-7", icon: "location" },
+      { term: "Room", desc: "Individual explorable space using 1→2→4 branching structure", icon: "room" }
+    ],
+    DANGER_LEVELS: {
+      desc: "Difficulty scaling within each location, ranging from 1 (easiest) to 7 (hardest)",
+      formula: "effectiveFloor = 10 + (dangerLevel × 2) + floor(baseDifficulty / 20)",
+      note: "Higher danger levels mean stronger enemies and better rewards"
+    },
+    ACTIVITIES: [
+      { order: 1, activity: "Combat", desc: "Fight room enemy for XP and loot" },
+      { order: 2, activity: "Elite Challenge", desc: "Optional guardian fight - choose to fight or escape" },
+      { order: 3, activity: "Merchant", desc: "Buy items and equipment with Ryo" },
+      { order: 4, activity: "Event", desc: "Story/choice encounter with multiple outcomes" },
+      { order: 5, activity: "Scroll Discovery", desc: "Learn new jutsu skills" },
+      { order: 6, activity: "Rest", desc: "Restore HP and chakra" },
+      { order: 7, activity: "Training", desc: "Spend resources to upgrade stats" },
+      { order: 8, activity: "Treasure", desc: "Collect components and Ryo" }
+    ],
+    ROOM_STATES: [
+      { state: "Accessible", desc: "Room can be entered from current position" },
+      { state: "Cleared", desc: "All activities in room have been completed" },
+      { state: "Exit", desc: "Final room leading to next area or floor" }
+    ],
+    INTEL_MISSION: {
+      title: "Intel Mission",
+      desc: "Elite fight at room 10 of each location. Defeating the guardian grants a path choice reward and unlocks new routes."
+    },
     ARCHETYPES: [
       {
         archetype: "TANK",
@@ -300,5 +320,42 @@ export const HELP_TEXT = {
       { arc: 3, danger: "1-7", name: "Sasuke Retrieval", desc: "Valley of the End. Conflict escalates; stronger foes." },
       { arc: 4, danger: "1-7", name: "Great Ninja War", desc: "Divine Tree Roots. Legendary enemies appear." }
     ]
+  },
+
+  // ============================================================================
+  // CRAFTING - Synthesis System
+  // ============================================================================
+  CRAFTING: {
+    OVERVIEW: {
+      title: "TFT-Style Crafting",
+      desc: "Combine components to create powerful artifacts with passive effects"
+    },
+    COMPONENTS: {
+      desc: "Basic crafting materials dropped from enemies",
+      examples: [
+        { name: "Ninja Steel", use: "Weapon crafting" },
+        { name: "Spirit Tag", use: "Seal-based artifacts" },
+        { name: "Chakra Pill", use: "Energy restoration items" },
+        { name: "Shadow Essence", use: "Stealth artifacts" }
+      ]
+    },
+    ARTIFACTS: {
+      desc: "Crafted items with passive effects that trigger during combat",
+      triggers: [
+        { trigger: "combat_start", desc: "Activates when battle begins" },
+        { trigger: "on_hit", desc: "Activates when you deal damage" },
+        { trigger: "on_crit", desc: "Activates on critical hits" },
+        { trigger: "below_half_hp", desc: "Activates when HP drops below 50%" }
+      ]
+    },
+    BAG: {
+      capacity: 8,
+      desc: "Your component bag holds up to 8 items (components or artifacts)"
+    },
+    SYNTHESIS: {
+      combine: "Select two components to create an artifact",
+      disassemble: "Break an artifact back into components (returns 50% value)",
+      tip: "Experiment with different combinations to discover new artifacts!"
+    }
   }
 };

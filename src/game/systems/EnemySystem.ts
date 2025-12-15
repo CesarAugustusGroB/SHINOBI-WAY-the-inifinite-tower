@@ -6,15 +6,17 @@
  * This system generates enemies with varied archetypes, scaling, and story
  * arc theming. Enemies are the primary combat challenge in the game.
  *
- * ## STORY ARCS BY FLOOR
+ * ## STORY ARCS (Region-Based)
  *
- * | Floor Range | Arc Name          | Biome                    |
- * |-------------|-------------------|--------------------------|
- * | 1-10        | Academy Graduation| Village Hidden in Leaves |
- * | 11-25       | Land of Waves     | Mist Covered Bridge      |
- * | 26-50       | Chunin Exams      | Forest of Death          |
- * | 51-75       | Sasuke Retrieval  | Valley of the End        |
- * | 76+         | Great Ninja War   | Divine Tree Roots        |
+ * Arcs are determined by the Region's `arc` property.
+ *
+ * | Arc Name    | Biome                    |
+ * |-------------|--------------------------|
+ * | ACADEMY_ARC | Village Hidden in Leaves |
+ * | WAVES_ARC   | Mist Covered Bridge      |
+ * | EXAMS_ARC   | Forest of Death          |
+ * | ROGUE_ARC   | Valley of the End        |
+ * | WAR_ARC     | Divine Tree Roots        |
  *
  * ## ENEMY ARCHETYPES (5 Types)
  *
@@ -28,18 +30,22 @@
  * | CASTER    | Spirit 22, Chakra 18       | Elemental damage  |
  * | GENJUTSU  | Calmness 22, Intelligence 18| Mental attacks  |
  *
- * ## SCALING FORMULA (from DIFFICULTY config)
+ * ## SCALING FORMULA (Danger-Based)
  *
- * totalScaling = floorMult × diffMult × ENEMY_EASE_FACTOR
+ * totalScaling = dangerMult × progressionMult × diffMult × ENEMY_EASE_FACTOR
  *
- * - floorMult = 1 + (floor × FLOOR_SCALING)        // +8% per floor
- * - diffMult = DIFFICULTY_BASE + (difficulty / 200) // 0.50 to 1.0
- * - ENEMY_EASE_FACTOR = 0.85                        // 15% easier
+ * - dangerMult = DANGER_BASE + (dangerLevel × DANGER_PER_LEVEL)
+ *   → D1=0.80, D4=1.25, D7=1.70
+ * - progressionMult = 1 + (locationsCleared × PROGRESSION_PER_LOCATION)
+ *   → +4% per location cleared globally
+ * - diffMult = 0.50 + (difficulty / 200)
+ * - ENEMY_EASE_FACTOR = 0.85
  *
- * Example: Floor 10, Difficulty 40 (default)
- * - floorMult = 1 + (10 × 0.08) = 1.8
+ * Example: Danger 4, 5 locations cleared, difficulty 40
+ * - dangerMult = 0.65 + (4 × 0.15) = 1.25
+ * - progressionMult = 1 + (5 × 0.04) = 1.20
  * - diffMult = 0.50 + 0.20 = 0.70
- * - totalScaling = 1.8 × 0.70 × 0.85 = 1.07× base stats
+ * - totalScaling = 1.25 × 1.20 × 0.70 × 0.85 = 0.89× base stats
  *
  * ## ENEMY TYPES
  *
@@ -87,26 +93,33 @@ interface StoryArc {
 }
 
 /**
- * Determine the current story arc based on floor number.
- * Story arcs affect enemy names, events, and biome theming.
+ * Arc name to StoryArc data mapping.
+ */
+const STORY_ARCS: Record<string, StoryArc> = {
+  'ACADEMY_ARC': { name: 'ACADEMY_ARC', label: 'Academy Graduation', biome: 'Village Hidden in the Leaves' },
+  'WAVES_ARC': { name: 'WAVES_ARC', label: 'Land of Waves', biome: 'Mist Covered Bridge' },
+  'EXAMS_ARC': { name: 'EXAMS_ARC', label: 'Chunin Exams', biome: 'Forest of Death' },
+  'ROGUE_ARC': { name: 'ROGUE_ARC', label: 'Sasuke Retrieval', biome: 'Valley of the End' },
+  'WAR_ARC': { name: 'WAR_ARC', label: 'Great Ninja War', biome: 'Divine Tree Roots' },
+};
+
+/**
+ * Get story arc data by arc name (for region-based system).
+ * Use this when the arc is known from the Region config.
  *
- * @param floor - Current floor number
+ * @param arcName - Arc identifier (e.g., 'WAVES_ARC')
  * @returns StoryArc with name, label, and biome
  */
-export const getStoryArc = (floor: number): StoryArc => {
-  if (floor <= 10) return { name: 'ACADEMY_ARC', label: 'Academy Graduation', biome: 'Village Hidden in the Leaves' };
-  if (floor <= 25) return { name: 'WAVES_ARC', label: 'Land of Waves', biome: 'Mist Covered Bridge' };
-  if (floor <= 50) return { name: 'EXAMS_ARC', label: 'Chunin Exams', biome: 'Forest of Death' };
-  if (floor <= 75) return { name: 'ROGUE_ARC', label: 'Sasuke Retrieval', biome: 'Valley of the End' };
-  return { name: 'WAR_ARC', label: 'Great Ninja War', biome: 'Divine Tree Roots' };
+export const getStoryArcByName = (arcName: string): StoryArc => {
+  return STORY_ARCS[arcName] || STORY_ARCS['WAVES_ARC'];
 };
 
 /**
  * Generate an enemy with appropriate stats, skills, and theming.
  *
  * ## Enemy Generation Flow:
- * 1. Determine story arc for theming
- * 2. Calculate total scaling from floor and difficulty
+ * 1. Determine story arc for theming from arcName
+ * 2. Calculate total scaling from danger level, progression, and difficulty
  * 3. For BOSS: Use fixed boss data from constants
  * 4. For others: Select archetype and generate base stats
  * 5. Scale stats by totalScaling multiplier
@@ -114,24 +127,34 @@ export const getStoryArc = (floor: number): StoryArc => {
  * 7. Assign skills based on archetype
  * 8. Select name from arc-appropriate pool
  *
- * @param currentFloor - Current floor for scaling and arc selection
+ * @param dangerLevel - Location danger level (1-7)
+ * @param locationsCleared - Global count of locations cleared (progression)
  * @param type - Enemy type: NORMAL, ELITE, BOSS, or AMBUSH
  * @param diff - Difficulty value (0-100, affects diffMult)
+ * @param arcName - Arc identifier for theming (e.g., 'WAVES_ARC')
  * @returns Fully generated Enemy ready for combat
  */
-export const generateEnemy = (currentFloor: number, type: 'NORMAL' | 'ELITE' | 'BOSS' | 'AMBUSH', diff: number): Enemy => {
-  const arc = getStoryArc(currentFloor);
+export const generateEnemy = (
+  dangerLevel: number,
+  locationsCleared: number,
+  type: 'NORMAL' | 'ELITE' | 'BOSS' | 'AMBUSH',
+  diff: number,
+  arcName: string
+): Enemy => {
+  const arc = getStoryArcByName(arcName);
 
-  // Calculate scaling multipliers (unified from DIFFICULTY config)
-  // Floor scaling: +8% per floor (floor 10 = 1.8×, floor 50 = 5×)
-  const floorMult = 1 + (currentFloor * DIFFICULTY.FLOOR_SCALING);
+  // Calculate scaling multipliers (danger-based formula)
+  // Danger scaling: D1=0.80, D4=1.25, D7=1.70
+  const dangerMult = DIFFICULTY.DANGER_BASE + (dangerLevel * DIFFICULTY.DANGER_PER_LEVEL);
+  // Progression scaling: +4% per location cleared globally
+  const progressionMult = 1 + (locationsCleared * DIFFICULTY.PROGRESSION_PER_LOCATION);
   // Difficulty scaling: 50% to 100% based on difficulty value
   const diffMult = DIFFICULTY.DIFFICULTY_BASE + (diff / DIFFICULTY.DIFFICULTY_DIVISOR);
   // Apply global ease factor (0.85 = 15% easier)
-  const totalScaling = floorMult * diffMult * DIFFICULTY.ENEMY_EASE_FACTOR;
+  const totalScaling = dangerMult * progressionMult * diffMult * DIFFICULTY.ENEMY_EASE_FACTOR;
 
   if (type === 'BOSS') {
-    const bossData = BOSS_NAMES[currentFloor as keyof typeof BOSS_NAMES] || { name: 'Edo Tensei Legend', element: ElementType.FIRE, skill: SKILLS.RASENGAN };
+    const bossData = BOSS_NAMES[dangerLevel as keyof typeof BOSS_NAMES] || { name: 'Edo Tensei Legend', element: ElementType.FIRE, skill: SKILLS.RASENGAN };
     
     // Set boss image based on name
     let bossImage: string | undefined;

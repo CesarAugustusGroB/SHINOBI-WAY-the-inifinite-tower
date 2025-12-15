@@ -78,15 +78,20 @@ import ScrollDiscovery from './scenes/ScrollDiscovery';
 import GameOver from './scenes/GameOver';
 import GameGuide from './scenes/GameGuide';
 import { attemptEliteEscape } from './game/systems/EliteChallengeSystem';
-import LeftSidebarPanel from './components/LeftSidebarPanel';
-import RightSidebarPanel from './components/RightSidebarPanel';
-import ApproachSelector from './components/ApproachSelector';
-import BranchingExplorationMap from './components/BranchingExplorationMap';
-import RegionMap from './components/RegionMap';
-import PathChoiceModal from './components/PathChoiceModal';
-import PlayerHUD from './components/PlayerHUD';
-import RewardModal from './components/RewardModal';
-import EventResultModal from './components/EventResultModal';
+// Layout components
+import LeftSidebarPanel from './components/layout/LeftSidebarPanel';
+import RightSidebarPanel from './components/layout/RightSidebarPanel';
+// Combat components
+import ApproachSelector from './components/combat/ApproachSelector';
+// Exploration components
+import BranchingExplorationMap from './components/exploration/BranchingExplorationMap';
+import RegionMap from './components/exploration/RegionMap';
+import PathChoiceModal from './components/exploration/PathChoiceModal';
+// Character components
+import PlayerHUD from './components/character/PlayerHUD';
+// Modal components
+import RewardModal from './components/modals/RewardModal';
+import EventResultModal from './components/modals/EventResultModal';
 import { logVictory, logRewardModal, logFlowCheckpoint } from './game/utils/combatDebug';
 import {
   logRoomEnter, logRoomExit, logRoomSelect,
@@ -455,6 +460,7 @@ const App: React.FC = () => {
       bag: Array(MAX_BAG_SLOTS).fill(null),
       treasureQuality: TreasureQuality.BROKEN,
       merchantSlots: DEFAULT_MERCHANT_SLOTS,
+      locationsCleared: 0,
     };
 
     setPlayer(newPlayer);
@@ -747,11 +753,16 @@ const App: React.FC = () => {
     // Check if combat should trigger
     if (result.triggerCombat && result.outcome?.effects.triggerCombat) {
       const combatConfig = result.outcome.effects.triggerCombat;
-      const effectiveFloor = combatConfig.floor || dangerToFloor(currentDangerLevel, currentBaseDifficulty);
+      // Convert floor to danger level (floors 1-3→D1, 4-6→D2, etc.) or use current danger
+      const combatDangerLevel = combatConfig.floor
+        ? Math.min(7, Math.max(1, Math.ceil(combatConfig.floor / 3)))
+        : currentDangerLevel;
       const combatEnemy = generateEnemy(
-        effectiveFloor,
+        combatDangerLevel,
+        player?.locationsCleared ?? 0,
         combatConfig.archetype as 'NORMAL' | 'ELITE' | 'BOSS' || 'NORMAL',
-        combatConfig.difficulty || difficulty
+        combatConfig.difficulty || difficulty,
+        region?.arc ?? 'WAVES_ARC'
       );
       if (combatConfig.name) {
         combatEnemy.name = combatConfig.name;

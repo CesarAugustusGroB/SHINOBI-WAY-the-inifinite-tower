@@ -8,7 +8,7 @@ import {
   CharacterStats,
 } from '../game/types';
 import { Scroll, Zap, Brain, Sparkles } from 'lucide-react';
-import Tooltip from '../components/Tooltip';
+import Tooltip from '../components/shared/Tooltip';
 import {
   formatScalingStat,
   getStatColor,

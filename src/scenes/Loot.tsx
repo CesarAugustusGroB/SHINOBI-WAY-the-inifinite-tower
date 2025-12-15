@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Item, Skill, Player, SkillTier, Rarity, EquipmentSlot, DamageType, MAX_BAG_SLOTS, SLOT_MAPPING } from '../game/types';
 import { Scroll, Package } from 'lucide-react';
-import Tooltip from '../components/Tooltip';
+import Tooltip from '../components/shared/Tooltip';
 import {
   formatStatName,
   formatScalingStat,

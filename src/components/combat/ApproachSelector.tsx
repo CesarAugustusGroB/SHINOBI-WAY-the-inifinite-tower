@@ -6,12 +6,12 @@ import {
   CharacterStats,
   Player,
   Enemy,
-} from '../game/types';
+} from '../../game/types';
 import {
   APPROACH_DEFINITIONS,
   calculateApproachSuccessChance,
   meetsApproachRequirements,
-} from '../game/constants/approaches';
+} from '../../game/constants/approaches';
 import {
   Sword,
   Eye,

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Item, Player, Rarity, EquipmentSlot, DamageType, SLOT_MAPPING, TreasureQuality, MAX_MERCHANT_SLOTS } from '../game/types';
 import { Coins, RefreshCw, ShoppingBag, Gem } from 'lucide-react';
-import Tooltip from '../components/Tooltip';
+import Tooltip from '../components/shared/Tooltip';
 import { formatStatName } from '../game/utils/tooltipFormatters';
 import { MERCHANT } from '../game/config';
 import { calculateMerchantRerollCost } from '../game/systems/RegionSystem';

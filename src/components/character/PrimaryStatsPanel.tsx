@@ -1,9 +1,9 @@
 import React from 'react';
-import { Player, PrimaryAttributes } from '../game/types';
+import { Player, PrimaryAttributes } from '../../game/types';
 import {
   Swords, Brain, Flame, Droplet, Target, Wind, Sparkles, User, Heart, Eye
 } from 'lucide-react';
-import Tooltip from './Tooltip';
+import Tooltip from '../shared/Tooltip';
 
 interface PrimaryStatsPanelProps {
   player: Player;

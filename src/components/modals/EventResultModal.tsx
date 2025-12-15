@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Scroll, Heart, Zap, TrendingUp, Coins, Shield, AlertTriangle, Sparkles, CheckCircle } from 'lucide-react';
-import { EventOutcome } from '../game/types';
+import { EventOutcome } from '../../game/types';
 
 interface EventResultModalProps {
   outcome: {

@@ -9,11 +9,12 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { useGame } from '../contexts/GameContext';
-import { Item, EquipmentSlot, DragData, Rarity } from '../game/types';
-import EquipmentPanel from './EquipmentPanel';
-import Bag from './Bag';
-import { Coins, TrendingUp } from 'lucide-react';
+import { useGame } from '../../contexts/GameContext';
+import { Item, EquipmentSlot, DragData, Rarity } from '../../game/types';
+import EquipmentPanel from '../inventory/EquipmentPanel';
+import Bag from '../inventory/Bag';
+import { Coins } from 'lucide-react';
+import { getRarityDragPreviewColor } from '../../utils/colorHelpers';
 
 interface RightSidebarPanelProps {
   // Synthesis system props
@@ -36,20 +37,9 @@ interface RightSidebarPanelProps {
 
 // Drag preview component - icon only
 const ItemDragPreview: React.FC<{ item: Item }> = ({ item }) => {
-  const getRarityColor = (r: Rarity) => {
-    switch (r) {
-      case Rarity.LEGENDARY: return 'border-orange-500 bg-orange-500/20';
-      case Rarity.EPIC: return 'border-purple-500 bg-purple-500/20';
-      case Rarity.RARE: return 'border-blue-500 bg-blue-500/20';
-      case Rarity.CURSED: return 'border-red-600 bg-red-600/20';
-      case Rarity.BROKEN: return 'border-stone-500 bg-stone-500/20';
-      default: return 'border-zinc-500 bg-zinc-500/20';
-    }
-  };
-
   return (
     <div
-      className={`w-10 h-10 flex items-center justify-center rounded border-2 ${getRarityColor(item.rarity)} backdrop-blur-sm shadow-lg text-xl`}
+      className={`w-10 h-10 flex items-center justify-center rounded border-2 ${getRarityDragPreviewColor(item.rarity)} backdrop-blur-sm shadow-lg text-xl`}
     >
       {item.icon || '?'}
     </div>

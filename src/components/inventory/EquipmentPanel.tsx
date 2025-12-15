@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Item, EquipmentSlot, Rarity, DragData } from '../game/types';
-import Tooltip from './Tooltip';
+import { Item, EquipmentSlot, Rarity, DragData } from '../../game/types';
+import Tooltip from '../shared/Tooltip';
+import { formatStatName } from '../../game/utils/tooltipFormatters';
+import { getRarityTextColorWithEffects } from '../../utils/colorHelpers';
 
 interface EquipmentPanelProps {
   equipment: Record<EquipmentSlot, Item | null>;
@@ -23,41 +25,8 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
 }) => {
   const [activeMenu, setActiveMenu] = useState<EquipmentSlot | null>(null);
 
-  const getRarityColor = (r: Rarity) => {
-    switch (r) {
-      case Rarity.LEGENDARY: return 'text-orange-400 drop-shadow-md';
-      case Rarity.EPIC: return 'text-purple-400';
-      case Rarity.RARE: return 'text-blue-400';
-      case Rarity.CURSED: return 'text-red-600 animate-pulse';
-      case Rarity.BROKEN: return 'text-stone-500';
-      default: return 'text-zinc-400';
-    }
-  };
-
-  const formatStatName = (key: string): string => {
-    const map: Record<string, string> = {
-      willpower: 'Willpower',
-      chakra: 'Chakra',
-      strength: 'Strength',
-      spirit: 'Spirit',
-      intelligence: 'Intelligence',
-      calmness: 'Calmness',
-      speed: 'Speed',
-      accuracy: 'Accuracy',
-      dexterity: 'Dexterity',
-      flatHp: 'HP',
-      flatChakra: 'Chakra',
-      flatPhysicalDef: 'Physical Def',
-      flatElementalDef: 'Elemental Def',
-      flatMentalDef: 'Mental Def',
-      percentPhysicalDef: 'Physical Def %',
-      percentElementalDef: 'Elemental Def %',
-      percentMentalDef: 'Mental Def %',
-      critChance: 'Crit Chance',
-      critDamage: 'Crit Damage'
-    };
-    return map[key] || key.toUpperCase();
-  };
+  // Use imported utilities
+  const getRarityColor = getRarityTextColorWithEffects;
 
   // Themed slot names (Primary slot gets +50% stats)
   const SLOT_NAMES: Record<EquipmentSlot, string> = {

@@ -4,9 +4,9 @@ import {
   BranchingRoom,
   Player,
   CharacterStats,
-} from '../game/types';
+} from '../../game/types';
 import RoomCard from './RoomCard';
-import { getCurrentRoom, getChildRooms } from '../game/systems/BranchingFloorSystem';
+import { getCurrentRoom, getChildRooms } from '../../game/systems/BranchingFloorSystem';
 
 interface BranchingExplorationMapProps {
   branchingFloor: BranchingFloor;

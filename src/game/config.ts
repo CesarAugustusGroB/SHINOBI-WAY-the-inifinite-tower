@@ -16,16 +16,19 @@ export const DIFFICULTY = {
   // Global ease factor - multiplies enemy stats (0.85 = 15% easier)
   ENEMY_EASE_FACTOR: 0.85,
 
-  // Floor scaling (used by EnemySystem, LootSystem)
-  FLOOR_SCALING: 0.08,           // +8% per effective floor
-
   // Difficulty slider scaling
   DIFFICULTY_BASE: 0.50,         // Minimum multiplier at difficulty 0
   DIFFICULTY_DIVISOR: 200,       // difficulty / 200 added to base
 
-  // Danger level scaling (RegionSystem)
-  DANGER_BASE: 0.65,             // Base multiplier at danger 1
-  DANGER_PER_LEVEL: 0.10,        // +10% per danger level
+  // Danger level scaling (enemy generation)
+  DANGER_BASE: 0.65,             // Base multiplier at danger 0
+  DANGER_PER_LEVEL: 0.15,        // +15% per danger level (D1=0.80, D4=1.25, D7=1.70)
+
+  // Progression scaling (locations cleared globally)
+  PROGRESSION_PER_LOCATION: 0.04, // +4% per location cleared
+
+  // Loot scaling (uses effective floor from dangerToFloor)
+  FLOOR_SCALING: 0.08,           // +8% per effective floor for loot
 } as const;
 
 // Game balance constants

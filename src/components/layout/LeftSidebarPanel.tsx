@@ -1,8 +1,8 @@
 import React from 'react';
-import { useGame } from '../contexts/GameContext';
-import LocationPanel from './LocationPanel';
-import PrimaryStatsPanel from './PrimaryStatsPanel';
-import DerivedStatsPanel from './DerivedStatsPanel';
+import { useGame } from '../../contexts/GameContext';
+import LocationPanel from '../exploration/LocationPanel';
+import PrimaryStatsPanel from '../character/PrimaryStatsPanel';
+import DerivedStatsPanel from '../character/DerivedStatsPanel';
 
 interface LeftSidebarPanelProps {
   // Props are now optional - uses context if not provided

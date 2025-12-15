@@ -82,7 +82,7 @@ import {
   DEFAULT_TREASURE_QUALITY,
   TreasureQuality,
 } from '../types';
-import { generateEnemy, getStoryArc } from './EnemySystem';
+import { generateEnemy } from './EnemySystem';
 import { generateLoot, generateRandomArtifact, generateSkillForFloor, generateComponentByQuality } from './LootSystem';
 import {
   ROOM_TYPE_CONFIGS,
@@ -101,6 +101,53 @@ import { EVENTS } from '../constants';
 const generateId = (): string => {
   return `room-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 };
+
+// ============================================================================
+// FLOOR TO DANGER LEVEL CONVERSION
+// ============================================================================
+
+/**
+ * Convert floor number to danger level for enemy scaling.
+ * Maps floors to danger levels 1-7:
+ * - Floors 1-3 → Danger 1
+ * - Floors 4-6 → Danger 2
+ * - Floors 7-9 → Danger 3
+ * - Floors 10-12 → Danger 4
+ * - Floors 13-15 → Danger 5
+ * - Floors 16-18 → Danger 6
+ * - Floors 19+ → Danger 7
+ */
+function floorToDangerLevel(floor: number): number {
+  return Math.min(7, Math.max(1, Math.ceil(floor / 3)));
+}
+
+/**
+ * Determine story arc name based on floor range.
+ * - Floors 1-10: WAVES_ARC (Land of Waves)
+ * - Floors 11-20: EXAMS_ARC (Chunin Exams)
+ * - Floors 21-30: ROGUE_ARC (Sasuke Retrieval)
+ * - Floors 31+: WAR_ARC (Great Ninja War)
+ */
+function getArcNameFromFloor(floor: number): string {
+  if (floor <= 10) return 'WAVES_ARC';
+  if (floor <= 20) return 'EXAMS_ARC';
+  if (floor <= 30) return 'ROGUE_ARC';
+  return 'WAR_ARC';
+}
+
+/**
+ * Get story arc data for a floor (name, label, biome).
+ */
+function getStoryArc(floor: number): { name: string; label: string; biome: string } {
+  const arcName = getArcNameFromFloor(floor);
+  const arcs: Record<string, { name: string; label: string; biome: string }> = {
+    'WAVES_ARC': { name: 'WAVES_ARC', label: 'Land of Waves', biome: 'Mist Covered Bridge' },
+    'EXAMS_ARC': { name: 'EXAMS_ARC', label: 'Chunin Exams', biome: 'Forest of Death' },
+    'ROGUE_ARC': { name: 'ROGUE_ARC', label: 'Sasuke Retrieval', biome: 'Valley of the End' },
+    'WAR_ARC': { name: 'WAR_ARC', label: 'Great Ninja War', biome: 'Divine Tree Roots' },
+  };
+  return arcs[arcName];
+}
 
 // ============================================================================
 // ROOM GENERATION
@@ -200,7 +247,8 @@ function generateActivities(
   if (config.hasCombat === 'required' || (config.hasCombat === 'optional' && Math.random() < 0.5)) {
     const isElite = room.tier === 2 && Math.random() < 0.3;
     const enemyType = isElite ? 'ELITE' : 'NORMAL';
-    const enemy = generateEnemy(floor, enemyType, difficulty);
+    const dangerLevel = floorToDangerLevel(floor);
+    const enemy = generateEnemy(dangerLevel, player?.locationsCleared ?? 0, enemyType, difficulty, arc);
 
     // Select combat modifiers
     const modifiers: CombatModifierType[] = config.combatModifiers
@@ -260,7 +308,8 @@ function generateActivities(
   // Elite Challenge - rare chance in SHRINE and RUINS to fight elite for artifact
   // This is the ONLY source of artifacts in the game
   if ((room.type === BranchingRoomType.SHRINE || room.type === BranchingRoomType.RUINS) && Math.random() < 0.15) {
-    const eliteEnemy = generateEnemy(floor + 1, 'ELITE', difficulty + 15);
+    const eliteDangerLevel = floorToDangerLevel(floor + 1);
+    const eliteEnemy = generateEnemy(eliteDangerLevel, player?.locationsCleared ?? 0, 'ELITE', difficulty + 15, arc);
     eliteEnemy.name = `${eliteEnemy.name} (Artifact Guardian)`;
 
     activities.eliteChallenge = {
@@ -363,10 +412,13 @@ function generateActivities(
  *
  * @param floor - Current floor for base stat scaling
  * @param difficulty - Difficulty modifier (extra +15 applied)
+ * @param locationsCleared - Global count of locations cleared (for scaling)
+ * @param arc - Story arc name for theming
  * @returns Enhanced Enemy with Guardian tier and boosted stats
  */
-function generateGuardian(floor: number, difficulty: number): Enemy {
-  const enemy = generateEnemy(floor, 'ELITE', difficulty + 15);
+function generateGuardian(floor: number, difficulty: number, locationsCleared: number, arc: string): Enemy {
+  const dangerLevel = floorToDangerLevel(floor);
+  const enemy = generateEnemy(dangerLevel, locationsCleared, 'ELITE', difficulty + 15, arc);
 
   // Apply Guardian stat multipliers
   enemy.name = `Guardian ${enemy.name}`;
@@ -517,7 +569,7 @@ export function generateChildrenForRoom(
 
       childRoom.activities = {
         combat: {
-          enemy: generateGuardian(floor, difficulty),
+          enemy: generateGuardian(floor, difficulty, player?.locationsCleared ?? 0, arc),
           modifiers: [CombatModifierType.NONE],
           completed: false,
         },

@@ -1,7 +1,7 @@
 import React from 'react';
 import { GameEvent, Player, EventChoice, CharacterStats } from '../game/types';
 import { MapIcon } from 'lucide-react';
-import EventChoicePanel from '../components/EventChoicePanel';
+import EventChoicePanel from '../components/events/EventChoicePanel';
 
 interface EventProps {
   activeEvent: GameEvent;

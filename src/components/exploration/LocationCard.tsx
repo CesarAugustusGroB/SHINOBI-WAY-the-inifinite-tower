@@ -1,5 +1,5 @@
 import React from 'react';
-import { Location, LocationType } from '../game/types';
+import { Location, LocationType } from '../../game/types';
 
 interface LocationCardProps {
   location: Location;

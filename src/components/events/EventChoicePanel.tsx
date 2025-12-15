@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { EventChoice, Player, RiskLevel, CharacterStats } from '../game/types';
-import { checkRequirements, checkEventCost, getDisabledReason } from '../game/systems/EventSystem';
+import { EventChoice, Player, RiskLevel, CharacterStats } from '../../game/types';
+import { checkRequirements, checkEventCost, getDisabledReason } from '../../game/systems/EventSystem';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 
 interface EventChoicePanelProps {

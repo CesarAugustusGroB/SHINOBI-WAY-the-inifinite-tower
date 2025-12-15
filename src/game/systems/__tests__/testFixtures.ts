@@ -216,6 +216,7 @@ export const createMockPlayer = (overrides: Partial<Player> = {}): Player => ({
   bag: Array(MAX_BAG_SLOTS).fill(null),
   treasureQuality: TreasureQuality.BROKEN,
   merchantSlots: DEFAULT_MERCHANT_SLOTS,
+  locationsCleared: 0,
   ...overrides,
 });
 

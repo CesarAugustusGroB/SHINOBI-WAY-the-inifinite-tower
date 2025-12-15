@@ -7,9 +7,9 @@ import {
   Player,
   CharacterStats,
   LocationType,
-} from '../game/types';
+} from '../../game/types';
 import LocationCard from './LocationCard';
-import { getAccessibleLocations, getDiscoveredLocations } from '../game/systems/RegionSystem';
+import { getAccessibleLocations, getDiscoveredLocations } from '../../game/systems/RegionSystem';
 
 interface RegionMapProps {
   region: Region;

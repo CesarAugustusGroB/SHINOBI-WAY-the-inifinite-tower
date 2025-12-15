@@ -3,8 +3,8 @@ import {
   Region,
   LocationPath,
   PathType,
-} from '../game/types';
-import { getAvailablePaths, getRandomPath, getLocationById } from '../game/systems/RegionSystem';
+} from '../../game/types';
+import { getAvailablePaths, getRandomPath, getLocationById } from '../../game/systems/RegionSystem';
 
 interface PathChoiceModalProps {
   region: Region;

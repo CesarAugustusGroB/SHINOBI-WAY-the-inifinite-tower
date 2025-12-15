@@ -23,6 +23,18 @@ This document defines the canonical terms used throughout the SHINOBI WAY codeba
 
 ## Exploration Terms
 
+### Region Hierarchy (Region → Location → Room)
+
+| Term | Definition | Type/Interface |
+|------|------------|----------------|
+| **Region** | Themed area containing multiple locations | `Region` |
+| **Location** | Specific area within a region with danger level | `Location` |
+| **Danger Level** | Difficulty scaling within location (1-7) | `dangerLevel: number` |
+| **Intel Mission** | Elite fight at room 10 for path choice reward | Room 10 activity |
+| **Path** | Connection between locations | `LocationPath` |
+
+### Room Structure
+
 | Term | Definition | Type/Interface |
 |------|------------|----------------|
 | **Depth** | True distance from floor start | `room.depth` |
@@ -62,6 +74,7 @@ enum GameState {
   MENU,             // Main menu
   CHAR_SELECT,      // Character selection
   EXPLORE,          // Branching room exploration
+  ELITE_CHALLENGE,  // Elite challenge fight vs escape choice
   COMBAT,           // Combat sequence
   LOOT,             // Loot distribution
   MERCHANT,         // Shop/trading

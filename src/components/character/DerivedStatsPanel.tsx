@@ -1,8 +1,8 @@
 import React from 'react';
-import { DerivedStats } from '../game/types';
+import { DerivedStats } from '../../game/types';
 import { Shield, Flame, Eye } from 'lucide-react';
-import Tooltip from './Tooltip';
-import { formatPercent } from '../game/systems/StatSystem';
+import Tooltip from '../shared/Tooltip';
+import { formatPercent } from '../../game/systems/StatSystem';
 
 interface DerivedStatsPanelProps {
   derived: DerivedStats;

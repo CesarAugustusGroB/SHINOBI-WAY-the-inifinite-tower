@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Item, MAX_BAG_SLOTS, Rarity, DragData } from '../game/types';
-import { getRecipesUsingComponent, findRecipe } from '../game/constants/synthesis';
-import { formatStatName } from '../game/utils/tooltipFormatters';
-import Tooltip from './Tooltip';
+import { Item, MAX_BAG_SLOTS, Rarity, DragData } from '../../game/types';
+import { getRecipesUsingComponent, findRecipe } from '../../game/constants/synthesis';
+import { formatStatName } from '../../game/utils/tooltipFormatters';
+import Tooltip from '../shared/Tooltip';
+import { getRarityTextBorderColor } from '../../utils/colorHelpers';
 
 interface BagProps {
   items: (Item | null)[];  // Fixed 12-slot array with null for empty
@@ -175,16 +176,8 @@ const Bag: React.FC<BagProps> = ({
   // Count non-null items
   const itemCount = items.filter(item => item !== null).length;
 
-  const getRarityColor = (r: Rarity) => {
-    switch (r) {
-      case Rarity.LEGENDARY: return 'text-orange-400 border-orange-500';
-      case Rarity.EPIC: return 'text-purple-400 border-purple-500';
-      case Rarity.RARE: return 'text-blue-400 border-blue-500';
-      case Rarity.CURSED: return 'text-red-600 border-red-600';
-      case Rarity.BROKEN: return 'text-stone-500 border-stone-600';
-      default: return 'text-zinc-400 border-zinc-600';
-    }
-  };
+  // Use imported utility
+  const getRarityColor = getRarityTextBorderColor;
 
   const handleComponentClick = (item: Item) => {
     if (synthesisMode && selectedComponent && selectedComponent.id !== item.id) {

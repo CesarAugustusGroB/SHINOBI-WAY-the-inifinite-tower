@@ -46,7 +46,7 @@ import {
   ACTIVITY_ORDER,
   ElementType,
 } from '../types';
-import { generateEnemy, getStoryArc } from './EnemySystem';
+import { generateEnemy } from './EnemySystem';
 import {
   getRoomTypeConfig,
   selectRandomRoomType,
@@ -183,7 +183,7 @@ function createLocationRoom(
   }
 
   const config = getRoomTypeConfig(roomType);
-  const floor = dangerToFloor(dangerLevel, difficulty);
+  const locationsCleared = player?.locationsCleared ?? 0;
 
   const room: BranchingRoom = {
     id: `${locationId}-room-${roomIndex}`,
@@ -212,7 +212,7 @@ function createLocationRoom(
   };
 
   // Generate activities
-  room.activities = generateLocationActivities(room, config, floor, difficulty, arc, player);
+  room.activities = generateLocationActivities(room, config, dangerLevel, locationsCleared, difficulty, arc, player);
 
   return room;
 }
@@ -241,18 +241,21 @@ function selectRoomTypeForLocation(locationType: LocationType, tier: RoomTier): 
 function generateLocationActivities(
   room: BranchingRoom,
   config: ReturnType<typeof getRoomTypeConfig>,
-  floor: number,
+  dangerLevel: number,
+  locationsCleared: number,
   difficulty: number,
   arc: string,
   player?: Player
 ): RoomActivities {
   const activities: RoomActivities = {};
+  // Floor value for loot generation (legacy compatibility)
+  const floor = dangerToFloor(dangerLevel, difficulty);
 
   // Combat
   if (config.hasCombat === 'required' || (config.hasCombat === 'optional' && Math.random() < 0.5)) {
     const isElite = room.tier === 2 && Math.random() < 0.3;
     const enemyType = isElite ? 'ELITE' : 'NORMAL';
-    const enemy = generateEnemy(floor, enemyType, difficulty);
+    const enemy = generateEnemy(dangerLevel, locationsCleared, enemyType, difficulty, arc);
 
     const modifiers: CombatModifierType[] = config.combatModifiers
       ? [config.combatModifiers[Math.floor(Math.random() * config.combatModifiers.length)]]
@@ -304,7 +307,7 @@ function generateLocationActivities(
 
   // Elite Challenge (15% in shrines/ruins)
   if ((room.type === BranchingRoomType.SHRINE || room.type === BranchingRoomType.RUINS) && Math.random() < 0.15) {
-    const eliteEnemy = generateEnemy(floor + 1, 'ELITE', difficulty + 15);
+    const eliteEnemy = generateEnemy(dangerLevel + 1, locationsCleared, 'ELITE', difficulty + 15, arc);
     eliteEnemy.name = `${eliteEnemy.name} (Artifact Guardian)`;
 
     activities.eliteChallenge = {
@@ -377,9 +380,8 @@ function generateLocationActivities(
  * Generate an elite enemy for intel missions.
  * Similar to Guardian but scaled by danger level.
  */
-function generateIntelElite(dangerLevel: number, difficulty: number, locationName: string): Enemy {
-  const floor = dangerToFloor(dangerLevel, difficulty);
-  const enemy = generateEnemy(floor, 'ELITE', difficulty + dangerLevel * 3);
+function generateIntelElite(dangerLevel: number, locationsCleared: number, difficulty: number, locationName: string, arc: string): Enemy {
+  const enemy = generateEnemy(dangerLevel, locationsCleared, 'ELITE', difficulty + dangerLevel * 3, arc);
 
   // Apply scaling based on danger
   const scaling = getDangerScaling(dangerLevel);
@@ -399,9 +401,8 @@ function generateIntelElite(dangerLevel: number, difficulty: number, locationNam
 /**
  * Generate a boss enemy for boss locations.
  */
-function generateRegionBoss(dangerLevel: number, difficulty: number, regionName: string): Enemy {
-  const floor = dangerToFloor(dangerLevel, difficulty);
-  const enemy = generateEnemy(floor + 5, 'BOSS', difficulty + 30);
+function generateRegionBoss(dangerLevel: number, locationsCleared: number, difficulty: number, regionName: string, arc: string): Enemy {
+  const enemy = generateEnemy(dangerLevel + 2, locationsCleared, 'BOSS', difficulty + 30, arc);
 
   // Boss scaling
   enemy.primaryStats.willpower = Math.floor(enemy.primaryStats.willpower * 1.5);
@@ -425,15 +426,16 @@ function generateRegionBoss(dangerLevel: number, difficulty: number, regionName:
 function createIntelMission(
   locationConfig: LocationConfig,
   regionConfig: RegionConfig,
-  difficulty: number
+  difficulty: number,
+  locationsCleared: number
 ): IntelMission {
   const isBoss = locationConfig.flags.isBoss;
   const config = locationConfig.intelMissionConfig;
 
   // Generate enemy
   const enemy = isBoss
-    ? generateRegionBoss(locationConfig.dangerLevel, difficulty, regionConfig.name)
-    : generateIntelElite(locationConfig.dangerLevel, difficulty, locationConfig.name);
+    ? generateRegionBoss(locationConfig.dangerLevel, locationsCleared, difficulty, regionConfig.name, regionConfig.arc)
+    : generateIntelElite(locationConfig.dangerLevel, locationsCleared, difficulty, locationConfig.name, regionConfig.arc);
 
   // Build intel reward
   const intelReward: IntelReward | null = config.revealedPathIds.length > 0 ? {
@@ -538,7 +540,7 @@ function createLocation(
     atmosphereEvents: config.atmosphereEvents,
     tiedStoryEvents: config.tiedStoryEvents,
 
-    intelMission: createIntelMission(config, regionConfig, difficulty),
+    intelMission: createIntelMission(config, regionConfig, difficulty, player?.locationsCleared ?? 0),
 
     forwardPaths: config.forwardPaths.map(p => p.id),
     loopPaths: config.loopPaths?.map(p => p.id),

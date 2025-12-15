@@ -122,6 +122,7 @@ export function createSimPlayer(config: PlayerBuildConfig): Player {
     bag: Array(12).fill(null), // 12 fixed slots
     treasureQuality: TreasureQuality.BROKEN,
     merchantSlots: DEFAULT_MERCHANT_SLOTS,
+    locationsCleared: 0,
   };
 }
 
