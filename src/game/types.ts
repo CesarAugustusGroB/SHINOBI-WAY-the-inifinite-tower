@@ -15,7 +15,12 @@ export enum GameState {
   TRAINING,         // Training scene for stat upgrades
   SCROLL_DISCOVERY, // Finding jutsu scrolls in exploration
   GAME_OVER,
-  GUIDE
+  GUIDE,
+  // Region exploration system states
+  REGION_MAP,       // Region overview showing all locations
+  LOCATION_EXPLORE, // Inside a location (10-room diamond exploration)
+  INTEL_MISSION,    // Elite fight for path choice at Room 10
+  PATH_CHOICE       // Choosing next location after intel mission
 }
 
 export enum ElementType {
@@ -1159,4 +1164,269 @@ export interface RoomTypeConfig {
   // Combat configuration
   combatModifiers?: CombatModifierType[];
   isExitEligible?: boolean;
+}
+
+// ============================================================================
+// REGION EXPLORATION SYSTEM
+// ============================================================================
+// Region > Location > Room hierarchy with intel-gated path navigation
+// Replaces BranchingFloorSystem for post-Academy arcs
+
+export enum LocationType {
+  SETTLEMENT = 'settlement',     // Villages, camps - merchants, rest, social
+  WILDERNESS = 'wilderness',     // Forests, beaches - exploration, medium danger
+  STRONGHOLD = 'stronghold',     // Outposts, hideouts - combat heavy
+  LANDMARK = 'landmark',         // Bridges, monuments - story events, balanced
+  SECRET = 'secret',             // Hidden areas - special rewards, high danger
+  BOSS = 'boss'                  // Final boss location - cannot skip
+}
+
+export enum PathType {
+  FORWARD = 'forward',           // Standard progression path (always visible)
+  BRANCH = 'branch',             // Alternative route at same danger level
+  LOOP = 'loop',                 // Returns to earlier location (one-time use)
+  SECRET = 'secret'              // Hidden path (requires intel to reveal)
+}
+
+// Terrain type for locations (affects combat modifiers)
+export enum LocationTerrainType {
+  NEUTRAL = 'neutral',
+  WATER_ADJACENT = 'water_adjacent',
+  FOREST = 'forest',
+  MIST = 'mist',
+  UNDERGROUND = 'underground',
+  HAZARDOUS = 'hazardous',
+  FORTIFIED = 'fortified',
+  CORRUPTED = 'corrupted',
+  SACRED = 'sacred'
+}
+
+// ============================================================================
+// PATH & NAVIGATION
+// ============================================================================
+
+export interface LocationPath {
+  id: string;
+  targetLocationId: string;
+  pathType: PathType;
+  isRevealed: boolean;           // Hidden until intel gathered
+  isUsed: boolean;               // For loop paths (one-time use)
+  description: string;
+  dangerHint?: string;           // Vague hint about destination danger
+}
+
+export interface UnlockCondition {
+  type: 'intel' | 'item' | 'karma' | 'story_flag' | 'always';
+  requirement: string | number;
+}
+
+// ============================================================================
+// INTEL MISSION SYSTEM
+// ============================================================================
+// Room 10 of each location contains an intel mission (elite fight)
+// Winning grants path choice; skipping means random destination
+
+export interface IntelReward {
+  revealedPaths: PathRevealInfo[];
+  secretHint?: string;           // Hint about secret paths
+  loopHint?: string;             // Hint about loop paths
+  bossInfo?: string;             // Info about the region boss
+}
+
+export interface PathRevealInfo {
+  pathId: string;
+  destinationName: string;
+  destinationIcon: string;
+  dangerLevel: number;
+  hint: string;
+}
+
+export interface IntelMission {
+  elite?: Enemy;                 // Elite enemy for intel mission
+  boss?: Enemy;                  // Boss enemy (for boss locations)
+  flavorText: string;            // Narrative description
+  skipAllowed: boolean;          // Boss locations cannot be skipped
+  completed: boolean;
+  skipped: boolean;
+  intelReward: IntelReward | null;
+  lootReward?: Item[];           // Additional loot for completing
+  bossInfo?: string;             // Info about the enemy or boss
+}
+
+// ============================================================================
+// LOCATION
+// ============================================================================
+// Each location contains 10 rooms in a diamond pattern (1→2→4→2→1)
+// Player visits 5 rooms per location before reaching Room 10 (intel mission)
+
+export interface LocationFlags {
+  isEntry: boolean;              // Starting location for region
+  isBoss: boolean;               // Final boss location
+  isSecret: boolean;             // Hidden location (requires unlock)
+  hasMerchant: boolean;          // Merchant available in this location
+  hasRest: boolean;              // Rest point available
+  hasTraining: boolean;          // Training available
+}
+
+export interface LocationTerrainEffect {
+  type: string;                  // e.g., 'water_damage_bonus', 'fire_damage_penalty'
+  value: number;                 // Modifier value (0.2 = +20%)
+}
+
+export interface Location {
+  id: string;
+  name: string;
+  description: string;
+  type: LocationType;
+  icon: string;
+
+  // Difficulty (1-7 scale)
+  dangerLevel: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+  // Environment
+  terrain: LocationTerrainType;
+  terrainEffects: LocationTerrainEffect[];
+  biome: string;
+  backgroundImage?: string;
+
+  // Room structure (10 rooms, diamond pattern)
+  rooms: BranchingRoom[];
+  currentRoomId: string | null;
+  roomsCleared: number;
+
+  // Content pools
+  enemyPool: string[];           // Enemy IDs that can spawn here
+  lootTable: string;             // Loot table ID for this location
+
+  // Events
+  atmosphereEvents: string[];    // Random ambient events
+  tiedStoryEvents?: string[];    // Story events tied to this location
+
+  // Intel mission (Room 10)
+  intelMission: IntelMission | null;
+
+  // Navigation
+  forwardPaths: string[];        // Path IDs for forward progression
+  loopPaths?: string[];          // Path IDs for backtracking
+  secretPaths?: string[];        // Path IDs for hidden routes
+
+  // State
+  flags: LocationFlags;
+  isDiscovered: boolean;         // Has player found this location?
+  isAccessible: boolean;         // Can player travel here now?
+  isCompleted: boolean;          // Has player cleared this location?
+  isCurrent: boolean;            // Is player currently here?
+
+  // Unlock requirements (for secret locations)
+  unlockCondition?: UnlockCondition;
+}
+
+// ============================================================================
+// REGION
+// ============================================================================
+// A region contains 10-15 locations connected by paths
+// Player progresses forward-only until reaching the boss
+
+export interface RegionLootTheme {
+  primaryElement: ElementType;   // Main element theme (affects loot/enemies)
+  equipmentFocus: string[];      // Stat focus for equipment drops
+  goldMultiplier: number;        // Ryo drop modifier (poor regions = 0.8)
+}
+
+export interface Region {
+  id: string;
+  name: string;
+  description: string;
+  theme: string;                 // Narrative theme description
+
+  // Navigation
+  entryLocationIds: string[];    // Starting location options (1-2)
+  bossLocationId: string;        // Final boss location
+  currentLocationId: string | null;
+
+  // All locations in this region
+  locations: Location[];
+
+  // All paths connecting locations
+  paths: LocationPath[];
+
+  // Progression tracking
+  locationsCompleted: number;
+  totalLocations: number;
+  visitedLocationIds: string[];
+
+  // Intel tracking
+  hasIntel: boolean;             // Does player have path choice?
+  revealedPathIds: string[];     // Paths revealed by intel
+  discoveredSecretIds: string[]; // Secret locations discovered
+
+  // State
+  isCompleted: boolean;
+
+  // Theming
+  arc: string;                   // Story arc (e.g., 'WAVES_ARC')
+  biome: string;                 // Visual biome
+  lootTheme: RegionLootTheme;
+
+  // Scaling
+  baseDifficulty: number;        // Starting difficulty for region
+}
+
+// ============================================================================
+// REGION CONFIGURATION (for data files)
+// ============================================================================
+
+export interface LocationConfig {
+  id: string;
+  name: string;
+  description: string;
+  type: LocationType;
+  icon: string;
+  dangerLevel: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  terrain: LocationTerrainType;
+  terrainEffects: LocationTerrainEffect[];
+  biome: string;
+  enemyPool: string[];
+  lootTable: string;
+  atmosphereEvents: string[];
+  tiedStoryEvents?: string[];
+  forwardPaths: PathConfig[];
+  loopPaths?: PathConfig[];
+  secretPaths?: PathConfig[];
+  flags: LocationFlags;
+  unlockCondition?: UnlockCondition;
+  intelMissionConfig: IntelMissionConfig;
+}
+
+export interface PathConfig {
+  id: string;
+  targetId: string;
+  pathType: PathType;
+  description: string;
+  dangerHint?: string;
+}
+
+export interface IntelMissionConfig {
+  eliteId?: string;              // Elite enemy template ID
+  bossId?: string;               // Boss enemy template ID
+  flavorText: string;
+  skipAllowed: boolean;
+  revealedPathIds: string[];     // Paths revealed on completion
+  secretHint?: string;
+  loopHint?: string;
+  bossInfo?: string;             // Info about the region boss
+}
+
+export interface RegionConfig {
+  id: string;
+  name: string;
+  description: string;
+  theme: string;
+  entryLocationIds: string[];
+  bossLocationId: string;
+  locations: LocationConfig[];
+  arc: string;
+  biome: string;
+  lootTheme: RegionLootTheme;
+  baseDifficulty: number;
 }

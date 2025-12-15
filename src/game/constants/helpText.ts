@@ -295,11 +295,10 @@ export const HELP_TEXT = {
       }
     ],
     STORY_ARCS: [
-      { arc: 1, floors: "1-8", name: "Academy", desc: "Training against basic ninja." },
-      { arc: 2, floors: "9-17", name: "Chunin Exams", desc: "Challenging competitors emerge." },
-      { arc: 3, floors: "18-35", name: "War Arc", desc: "Conflict escalates; stronger foes." },
-      { arc: 4, floors: "36-55", name: "Shippuden", desc: "Legendary enemies appear." },
-      { arc: 5, floors: "56+", name: "Final War", desc: "Ultimate threat; extreme difficulty." }
+      { arc: 1, danger: "1-7", name: "Land of Waves", desc: "Coastal region controlled by Gato. Face bandits and hired ninja." },
+      { arc: 2, danger: "1-7", name: "Chunin Exams", desc: "Forest of Death examination. Challenging competitors emerge." },
+      { arc: 3, danger: "1-7", name: "Sasuke Retrieval", desc: "Valley of the End. Conflict escalates; stronger foes." },
+      { arc: 4, danger: "1-7", name: "Great Ninja War", desc: "Divine Tree Roots. Legendary enemies appear." }
     ]
   }
 };

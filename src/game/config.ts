@@ -11,11 +11,25 @@ export const TIMING = {
   AUTO_PASS_DELAY: 2500, // Delay before auto-passing turn when auto-combat is enabled
 } as const;
 
+// Unified difficulty scaling configuration
+export const DIFFICULTY = {
+  // Global ease factor - multiplies enemy stats (0.85 = 15% easier)
+  ENEMY_EASE_FACTOR: 0.85,
+
+  // Floor scaling (used by EnemySystem, LootSystem)
+  FLOOR_SCALING: 0.08,           // +8% per effective floor
+
+  // Difficulty slider scaling
+  DIFFICULTY_BASE: 0.50,         // Minimum multiplier at difficulty 0
+  DIFFICULTY_DIVISOR: 200,       // difficulty / 200 added to base
+
+  // Danger level scaling (RegionSystem)
+  DANGER_BASE: 0.65,             // Base multiplier at danger 1
+  DANGER_PER_LEVEL: 0.10,        // +10% per danger level
+} as const;
+
 // Game balance constants
 export const BALANCE = {
-  // Scaling factors
-  FLOOR_SCALING: 0.08,
-  DIFFICULTY_SCALING: 0.0025,
 
   // Equipment
   PRIMARY_SLOT_MULTIPLIER: 1.5, // Primary slot gets 50% stat bonus
@@ -79,6 +93,9 @@ export const MERCHANT = {
   // Reroll inventory cost
   REROLL_BASE_COST: 30,
   REROLL_FLOOR_SCALING: 8,
+
+  // Item price multiplier (1.8 = 80% more expensive)
+  ITEM_PRICE_MULTIPLIER: 1.8,
 
   // Treasure quality upgrade costs
   QUALITY_UPGRADE_COSTS: {

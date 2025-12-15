@@ -22,7 +22,6 @@ interface PlayerHUDProps {
       maxChakra: number;
     };
   };
-  floor?: number;
   biome?: string;
 }
 
@@ -43,7 +42,7 @@ const getClanSymbol = (clan: Clan): { symbol: string; color: string; bgColor: st
   }
 };
 
-const PlayerHUD = forwardRef<HTMLDivElement, PlayerHUDProps>(({ player, playerStats, floor, biome }, ref) => {
+const PlayerHUD = forwardRef<HTMLDivElement, PlayerHUDProps>(({ player, playerStats, biome }, ref) => {
   const { symbol, color, bgColor } = getClanSymbol(player.clan);
   const visibleBuffs = player.activeBuffs.slice(0, 4);
   const overflowCount = Math.max(0, player.activeBuffs.length - 4);

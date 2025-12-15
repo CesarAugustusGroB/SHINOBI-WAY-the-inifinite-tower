@@ -370,7 +370,7 @@ const GameGuide: React.FC<GameGuideProps> = ({ onBack }) => {
                     <div key={idx} className="bg-white/50 p-3 rounded border border-zinc-300">
                       <div className="flex justify-between items-start mb-1">
                         <div className="font-black text-zinc-900 text-sm uppercase tracking-wider">Arc {arc.arc}: {arc.name}</div>
-                        <span className="text-xs font-mono bg-white/40 px-2 py-1 rounded">Floors {arc.floors}</span>
+                        <span className="text-xs font-mono bg-white/40 px-2 py-1 rounded">Danger {arc.danger}</span>
                       </div>
                       <p className="text-xs text-zinc-700">{arc.desc}</p>
                     </div>

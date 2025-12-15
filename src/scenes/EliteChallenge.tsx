@@ -6,11 +6,13 @@ import { getEnemyFullStats } from '../game/systems/StatSystem';
 
 interface EliteChallengeProps {
   enemy: Enemy;
-  artifact: Item;
+  artifact: Item | null;
   player: Player;
   playerStats: CharacterStats;
   onFight: () => void;
-  onEscape: () => void;
+  onEscape?: () => void;
+  customTitle?: string;
+  customDescription?: string;
 }
 
 const EliteChallenge: React.FC<EliteChallengeProps> = ({
@@ -19,7 +21,9 @@ const EliteChallenge: React.FC<EliteChallengeProps> = ({
   player,
   playerStats,
   onFight,
-  onEscape
+  onEscape,
+  customTitle,
+  customDescription
 }) => {
   const escapeInfo = getEscapeChanceDescription(playerStats);
   const enemyStats = getEnemyFullStats(enemy);
@@ -43,10 +47,10 @@ const EliteChallenge: React.FC<EliteChallengeProps> = ({
         <Shield size={48} />
       </div>
       <h2 className="text-xl font-bold text-zinc-200 mb-2 font-serif tracking-wide uppercase">
-        Artifact Guardian
+        {customTitle || 'Artifact Guardian'}
       </h2>
       <p className="text-sm text-zinc-600 mb-8 text-center max-w-md">
-        A powerful guardian stands between you and a rare artifact. Will you fight or flee?
+        {customDescription || 'A powerful guardian stands between you and a rare artifact. Will you fight or flee?'}
       </p>
 
       {/* Enemy Info */}
@@ -79,31 +83,33 @@ const EliteChallenge: React.FC<EliteChallengeProps> = ({
         </div>
       </div>
 
-      {/* Artifact Preview */}
-      <div className="w-full bg-zinc-900/50 border border-amber-900/30 p-4 mb-8">
-        <div className="flex items-center gap-2 mb-2">
-          <Zap size={16} className="text-amber-500" />
-          <span className="text-[10px] text-amber-600 uppercase tracking-wider">Guarded Artifact</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className={`font-bold ${getRarityColor(artifact.rarity)}`}>
-              {artifact.icon && <span className="mr-2">{artifact.icon}</span>}
-              {artifact.name}
-            </h4>
-            <p className="text-[10px] text-zinc-600">{artifact.rarity}</p>
+      {/* Artifact Preview - Only shown when artifact exists */}
+      {artifact && (
+        <div className="w-full bg-zinc-900/50 border border-amber-900/30 p-4 mb-8">
+          <div className="flex items-center gap-2 mb-2">
+            <Zap size={16} className="text-amber-500" />
+            <span className="text-[10px] text-amber-600 uppercase tracking-wider">Guarded Artifact</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className={`font-bold ${getRarityColor(artifact.rarity)}`}>
+                {artifact.icon && <span className="mr-2">{artifact.icon}</span>}
+                {artifact.name}
+              </h4>
+              <p className="text-[10px] text-zinc-600">{artifact.rarity}</p>
+            </div>
+          </div>
+          {artifact.description && (
+            <p className="text-xs text-zinc-500 italic mt-2">{artifact.description}</p>
+          )}
+          {/* Show key stats */}
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-mono text-zinc-400">
+            {Object.entries(artifact.stats).slice(0, 4).map(([key, val]) => (
+              val ? <span key={key}>+{val} {key.toUpperCase()}</span> : null
+            ))}
           </div>
         </div>
-        {artifact.description && (
-          <p className="text-xs text-zinc-500 italic mt-2">{artifact.description}</p>
-        )}
-        {/* Show key stats */}
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-mono text-zinc-400">
-          {Object.entries(artifact.stats).slice(0, 4).map(([key, val]) => (
-            val ? <span key={key}>+{val} {key.toUpperCase()}</span> : null
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* Choice Buttons */}
       <div className="w-full space-y-3">
@@ -126,38 +132,42 @@ const EliteChallenge: React.FC<EliteChallengeProps> = ({
           </div>
         </button>
 
-        {/* Escape Button */}
-        <button
-          type="button"
-          onClick={onEscape}
-          className="w-full py-4 bg-cyan-900/20 hover:bg-cyan-900/40 border border-cyan-900 transition-colors group"
-        >
-          <div className="flex items-center justify-center gap-3">
-            <Wind size={20} className="text-cyan-500 group-hover:text-cyan-400" />
-            <div className="text-left flex-1">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-cyan-200 uppercase tracking-wider">
-                  Attempt Escape
-                </span>
-                <span className={`text-sm font-mono ${escapeInfo.chance >= 60 ? 'text-green-400' : escapeInfo.chance >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
-                  {escapeInfo.chance}%
-                </span>
-              </div>
-              <div className="text-[10px] text-zinc-500">
-                Use your speed to slip away. Your Speed: {escapeInfo.speedValue} (+{escapeInfo.speedBonus}% bonus)
-              </div>
-              <div className="text-[9px] text-zinc-600 mt-1">
-                Failure: Must fight anyway
+        {/* Escape Button - Only shown if escape is allowed */}
+        {onEscape && (
+          <button
+            type="button"
+            onClick={onEscape}
+            className="w-full py-4 bg-cyan-900/20 hover:bg-cyan-900/40 border border-cyan-900 transition-colors group"
+          >
+            <div className="flex items-center justify-center gap-3">
+              <Wind size={20} className="text-cyan-500 group-hover:text-cyan-400" />
+              <div className="text-left flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-cyan-200 uppercase tracking-wider">
+                    Attempt Escape
+                  </span>
+                  <span className={`text-sm font-mono ${escapeInfo.chance >= 60 ? 'text-green-400' : escapeInfo.chance >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
+                    {escapeInfo.chance}%
+                  </span>
+                </div>
+                <div className="text-[10px] text-zinc-500">
+                  Use your speed to slip away. Your Speed: {escapeInfo.speedValue} (+{escapeInfo.speedBonus}% bonus)
+                </div>
+                <div className="text-[9px] text-zinc-600 mt-1">
+                  Failure: Must fight anyway
+                </div>
               </div>
             </div>
-          </div>
-        </button>
+          </button>
+        )}
       </div>
 
-      {/* Escape Formula Hint */}
-      <div className="mt-6 text-[9px] text-zinc-700 text-center">
-        Escape chance = 30% base + (Speed x 2), max 80%
-      </div>
+      {/* Escape Formula Hint - Only shown if escape is allowed */}
+      {onEscape && (
+        <div className="mt-6 text-[9px] text-zinc-700 text-center">
+          Escape chance = 30% base + (Speed x 2), max 80%
+        </div>
+      )}
     </div>
   );
 };

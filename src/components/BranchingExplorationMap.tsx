@@ -137,11 +137,8 @@ const BranchingExplorationMap: React.FC<BranchingExplorationMapProps> = ({
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-xl font-serif text-zinc-200 tracking-[0.2em] uppercase">
-              Floor {branchingFloor.floor}
-            </h2>
-            <p className="text-xs text-zinc-500 font-mono">
               {branchingFloor.biome}
-            </p>
+            </h2>
           </div>
           <div className="text-right">
             <p className="text-xs text-zinc-400">

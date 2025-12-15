@@ -28,17 +28,18 @@
  * | CASTER    | Spirit 22, Chakra 18       | Elemental damage  |
  * | GENJUTSU  | Calmness 22, Intelligence 18| Mental attacks  |
  *
- * ## SCALING FORMULA
+ * ## SCALING FORMULA (from DIFFICULTY config)
  *
- * totalScaling = floorMult × diffMult
+ * totalScaling = floorMult × diffMult × ENEMY_EASE_FACTOR
  *
- * - floorMult = 1 + (floor × 0.08)  // +8% per floor
- * - diffMult = 0.50 + (difficulty / 200)  // 0.50 to 1.0 based on difficulty
+ * - floorMult = 1 + (floor × FLOOR_SCALING)        // +8% per floor
+ * - diffMult = DIFFICULTY_BASE + (difficulty / 200) // 0.50 to 1.0
+ * - ENEMY_EASE_FACTOR = 0.85                        // 15% easier
  *
  * Example: Floor 10, Difficulty 40 (default)
  * - floorMult = 1 + (10 × 0.08) = 1.8
  * - diffMult = 0.50 + 0.20 = 0.70
- * - totalScaling = 1.8 × 0.70 = 1.26× base stats
+ * - totalScaling = 1.8 × 0.70 × 0.85 = 1.07× base stats
  *
  * ## ENEMY TYPES
  *
@@ -66,6 +67,7 @@ import {
 } from '../types';
 import { BOSS_NAMES, SKILLS, AMBUSH_ENEMIES, ENEMY_PREFIXES } from '../constants';
 import { calculateDerivedStats } from './StatSystem';
+import { DIFFICULTY } from '../config';
 
 /**
  * Enemy archetype determines base stat distribution and combat style.
@@ -120,12 +122,13 @@ export const getStoryArc = (floor: number): StoryArc => {
 export const generateEnemy = (currentFloor: number, type: 'NORMAL' | 'ELITE' | 'BOSS' | 'AMBUSH', diff: number): Enemy => {
   const arc = getStoryArc(currentFloor);
 
-  // Calculate scaling multipliers
+  // Calculate scaling multipliers (unified from DIFFICULTY config)
   // Floor scaling: +8% per floor (floor 10 = 1.8×, floor 50 = 5×)
-  const floorMult = 1 + (currentFloor * 0.08);
+  const floorMult = 1 + (currentFloor * DIFFICULTY.FLOOR_SCALING);
   // Difficulty scaling: 50% to 100% based on difficulty value
-  const diffMult = 0.50 + (diff / 200);
-  const totalScaling = floorMult * diffMult;
+  const diffMult = DIFFICULTY.DIFFICULTY_BASE + (diff / DIFFICULTY.DIFFICULTY_DIVISOR);
+  // Apply global ease factor (0.85 = 15% easier)
+  const totalScaling = floorMult * diffMult * DIFFICULTY.ENEMY_EASE_FACTOR;
 
   if (type === 'BOSS') {
     const bossData = BOSS_NAMES[currentFloor as keyof typeof BOSS_NAMES] || { name: 'Edo Tensei Legend', element: ElementType.FIRE, skill: SKILLS.RASENGAN };

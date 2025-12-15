@@ -1,7 +1,6 @@
 import React from 'react';
 import { useGame } from '../contexts/GameContext';
-import { getStoryArc } from '../game/systems/EnemySystem';
-import FloorPanel from './FloorPanel';
+import LocationPanel from './LocationPanel';
 import PrimaryStatsPanel from './PrimaryStatsPanel';
 import DerivedStatsPanel from './DerivedStatsPanel';
 
@@ -13,18 +12,22 @@ interface LeftSidebarPanelProps {
 const LeftSidebarPanel: React.FC<LeftSidebarPanelProps> = ({
   storyArcLabel,
 }) => {
-  const { player, playerStats, floor } = useGame();
+  const { player, playerStats, region, currentLocation, dangerLevel } = useGame();
 
   // Early return if no player data
   if (!player || !playerStats) return null;
 
-  // Derive story arc label from floor if not provided
-  const arcLabel = storyArcLabel ?? getStoryArc(floor).label;
+  // Get region info for display
+  const arcLabel = storyArcLabel ?? region?.arc ?? 'Exploring';
+  const locationName = currentLocation?.name ?? 'Unknown Location';
+  const regionName = region?.name ?? 'Unknown Region';
 
   return (
     <div className="flex flex-col gap-4 h-full text-[11px] rounded-lg p-3 overflow-y-auto">
-      <FloorPanel
-        floor={floor}
+      <LocationPanel
+        locationName={locationName}
+        dangerLevel={dangerLevel}
+        regionName={regionName}
         storyArcLabel={arcLabel}
       />
 

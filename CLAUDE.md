@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**SHINOBI WAY: THE INFINITE TOWER** is a Naruto-themed roguelike dungeon crawler built with React + TypeScript + Vite. Players climb a procedurally-generated tower with branching room exploration, manage a 9-stat character system, engage in turn-based combat with elemental interactions, and collect procedurally-generated loot.
+**SHINOBI WAY: THE INFINITE TOWER** is a Naruto-themed roguelike dungeon crawler built with React + TypeScript + Vite. Players explore regions using a Region → Location → Room hierarchy, manage a 9-stat character system, engage in turn-based combat with elemental interactions, and collect procedurally-generated loot.
 
 ## Quick Start Commands
 
@@ -131,31 +131,40 @@ enum GameState {
 }
 ```
 
-### Branching Floor System
+### Region-Based Exploration System
 
-The game uses a branching room exploration system (`BranchingFloorSystem.ts`):
+The game uses a **Region → Location → Room** hierarchy (`RegionSystem.ts`):
 
-- **Structure:** 1→2→4 branching (entrance → 2 paths → 4 final rooms → exit)
-- **Room Activities:** Each room can have multiple activities in order:
+- **Region:** A themed area (e.g., Land of Waves) containing multiple locations
+- **Location:** A specific area within a region with a danger level (1-7)
+- **Room:** Individual rooms within a location using branching exploration
+
+**Key Concepts:**
+- `dangerLevel` (1-7) replaces floors for difficulty scaling
+- `region.baseDifficulty` provides region-wide difficulty modifier
+- `dangerToFloor(dangerLevel, baseDifficulty)` converts to effective scaling value
+
+**Room Activities:** Each room can have multiple activities in order:
 
   ```typescript
   ACTIVITY_ORDER = ['combat', 'eliteChallenge', 'merchant', 'event', 'scrollDiscovery', 'rest', 'training', 'treasure']
   ```
 
-- **Key Functions:**
-  - `generateBranchingFloor()` - Creates floor layout
-  - `moveToRoom()` - Player navigation
-  - `getCurrentActivity()` - Gets next incomplete activity
-  - `completeActivity()` - Marks activity done
-  - `isFloorComplete()` - Checks if exit accessible
+**Key Functions in `RegionSystem.ts`:**
+  - `generateRegion()` - Creates a region with locations
+  - `enterLocation()` - Player enters a location
+  - `getCurrentLocation()` - Gets current location
+  - `dangerToFloor()` - Converts danger level to scaling value
+  - `calculateLocationXP/Ryo()` - Reward calculations
 
 ### Key State Flow in App.tsx
 
-1. **Room Selection:** Player clicks room → `handleBranchingRoomEnter(room)`
-2. **Activity Processing:** Based on activity type, triggers combat/event/etc.
-3. **Combat Flow:** `COMBAT` → victory → `LOOT` → `returnToMap()`
-4. **After Combat:** `returnToMap()` checks for remaining activities and re-enters room if needed
-5. **Floor Complete:** When all rooms cleared, exit becomes accessible
+1. **Region Map:** Player selects location → `handleEnterLocation(location)`
+2. **Location Explorer:** Player navigates rooms using BranchingExplorationMap
+3. **Room Selection:** Player clicks room → `handleLocationRoomEnter(room)`
+4. **Activity Processing:** Based on activity type, triggers combat/event/etc.
+5. **Combat Flow:** `COMBAT` → victory → rewards → `returnToMap()`
+6. **Location Complete:** When room 10 cleared, intel mission available
 
 ## Key Type Definitions
 
@@ -260,12 +269,16 @@ Skill Input → CombatCalculation (pure math) → CombatActionResult → CombatW
 ### Enemy Scaling Formula
 
 ```typescript
-floorMult = 1 + (floor × 0.08)     // +8% per floor
-diffMult = 0.50 + (difficulty / 200) // 50%-100% based on difficulty
+// Danger level (1-7) converts to effective floor for scaling
+effectiveFloor = 10 + (dangerLevel × 2) + floor(baseDifficulty / 20)
+
+// Scaling formula
+floorMult = 1 + (effectiveFloor × 0.08)  // +8% per effective level
+diffMult = 0.50 + (difficulty / 200)      // 50%-100% based on difficulty
 totalScaling = floorMult × diffMult
 ```
 
-**Example:** Floor 10, Difficulty 40 (default) → `1.8 × 0.70 = 1.26×` base stats
+**Example:** Danger 4, baseDifficulty 40 → effectiveFloor 20 → `2.6 × 0.70 = 1.82×` base stats
 
 ### Enemy Archetypes
 
@@ -277,13 +290,11 @@ totalScaling = floorMult × diffMult
 | CASTER | Spirit 22, Chakra 18 | Elemental damage |
 | GENJUTSU | Calmness 22, Intelligence 18 | Mental attacks |
 
-### Exit Room Probability
+### Location Room Structure
 
-```typescript
-minRooms = min(3 + floor, 18)  // Required rooms before exit can spawn
-baseChance = 20%               // After minRooms cleared
-perRoomBonus = 10%             // Additional chance per extra room
-```
+Each location contains 10 rooms in a diamond pattern:
+- Rooms 1-9: Regular exploration with activities
+- Room 10: Intel Mission (elite fight for path choice reward)
 
 ### Equipment Passive Triggers
 
@@ -296,15 +307,16 @@ perRoomBonus = 10%             // Additional chance per extra room
 | `on_kill` | Player defeats enemy |
 | `below_half_hp` | Player HP drops below 50% |
 
-### Story Arcs by Floor
+### Story Arcs by Region
 
-| Floor | Arc Name | Biome |
-|-------|----------|-------|
-| 1-10 | Academy Graduation | Village Hidden in Leaves |
-| 11-25 | Land of Waves | Mist Covered Bridge |
-| 26-50 | Chunin Exams | Forest of Death |
-| 51-75 | Sasuke Retrieval | Valley of the End |
-| 76+ | Great Ninja War | Divine Tree Roots |
+| Region | Danger | Arc Name | Biome |
+|--------|--------|----------|-------|
+| 1 | 1-7 | Land of Waves | Mist Covered Bridge |
+| 2 | 1-7 | Chunin Exams | Forest of Death |
+| 3 | 1-7 | Sasuke Retrieval | Valley of the End |
+| 4 | 1-7 | Great Ninja War | Divine Tree Roots |
+
+Each region has its own `baseDifficulty` that scales with progression.
 
 ## Common Development Tasks
 
@@ -365,7 +377,7 @@ Tests cover: StatSystem, CombatCalculation, LootSystem, BranchingFloorSystem, Ap
 1. Start game → select clan → verify stats
 2. Enter combat room → win → verify remaining activities trigger
 3. Check element effectiveness in combat
-4. Verify loot scaling with floor depth
+4. Verify loot scaling with danger level
 
 ## Git Workflow
 

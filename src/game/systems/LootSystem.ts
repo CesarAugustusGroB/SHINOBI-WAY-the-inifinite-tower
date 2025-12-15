@@ -82,7 +82,7 @@ import {
 import { SKILLS } from '../constants';
 import { COMPONENT_DEFINITIONS, COMPONENT_DROP_WEIGHTS, getTotalDropWeight } from '../constants/components';
 import { findRecipe, SYNTHESIS_RECIPES } from '../constants/synthesis';
-import { BALANCE, CRAFTING_COSTS } from '../config';
+import { DIFFICULTY, CRAFTING_COSTS } from '../config';
 
 /** Generates a random 7-character ID for item tracking */
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -245,7 +245,7 @@ export const generateBrokenComponent = (currentFloor: number, _difficulty: numbe
   const def = COMPONENT_DEFINITIONS[componentId];
 
   // Broken items have reduced stats (40-60% of normal)
-  const floorScaling = 1 + (currentFloor * BALANCE.FLOOR_SCALING);
+  const floorScaling = 1 + (currentFloor * DIFFICULTY.FLOOR_SCALING);
   const qualityRoll = 0.4 + (Math.random() * 0.2); // 0.4 to 0.6
   const statValue = Math.floor(def.baseValue * floorScaling * qualityRoll);
 
@@ -271,7 +271,7 @@ export const generateComponent = (currentFloor: number, difficulty: number): Ite
   const def = COMPONENT_DEFINITIONS[componentId];
 
   // Scale value based on floor (similar to regular item scaling)
-  const floorScaling = 1 + (currentFloor * BALANCE.FLOOR_SCALING);
+  const floorScaling = 1 + (currentFloor * DIFFICULTY.FLOOR_SCALING);
   const qualityRoll = 0.9 + (Math.random() * 0.3); // 0.9 to 1.2
   const statValue = Math.floor(def.baseValue * floorScaling * qualityRoll);
 
@@ -340,7 +340,7 @@ export const generateRandomArtifact = (currentFloor: number, difficulty: number)
   const defB = COMPONENT_DEFINITIONS[compIdB];
 
   // Generate base stats from both components
-  const floorScaling = 1 + (currentFloor * BALANCE.FLOOR_SCALING);
+  const floorScaling = 1 + (currentFloor * DIFFICULTY.FLOOR_SCALING);
   const statValueA = Math.floor(defA.baseValue * floorScaling);
   const statValueB = Math.floor(defB.baseValue * floorScaling);
 
@@ -642,7 +642,7 @@ export const disassemble = (artifact: Item): Item | null => {
  */
 export const grantHashiramaCell = (currentFloor: number): Item => {
   const def = COMPONENT_DEFINITIONS[ComponentId.HASHIRAMA_CELL];
-  const floorScaling = 1 + (currentFloor * BALANCE.FLOOR_SCALING);
+  const floorScaling = 1 + (currentFloor * DIFFICULTY.FLOOR_SCALING);
 
   return {
     id: generateId(),

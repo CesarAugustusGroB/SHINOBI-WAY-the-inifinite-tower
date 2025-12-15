@@ -99,3 +99,67 @@ export function logSyncWarning(message: string, data?: any): void {
 export function logFloorChange(oldFloor: number, newFloor: number): void {
   explorationLog('flow', `=== FLOOR CHANGE: ${oldFloor} → ${newFloor} ===`);
 }
+
+// ============================================================================
+// REGION NAVIGATION (Land of Waves / Region System)
+// ============================================================================
+
+export function logRegionEnter(regionName: string, totalLocations: number): void {
+  explorationLog('flow', `=== ENTERING REGION: ${regionName} (${totalLocations} locations) ===`);
+}
+
+export function logRegionExit(regionName: string, locationsCompleted: number): void {
+  explorationLog('flow', `=== EXITING REGION: ${regionName} (${locationsCompleted} completed) ===`);
+}
+
+// ============================================================================
+// LOCATION NAVIGATION
+// ============================================================================
+
+export function logLocationSelect(locationId: string, locationName: string): void {
+  explorationLog('room', `[SELECT] Location: ${locationName} (${locationId})`);
+}
+
+export function logLocationEnter(locationId: string, locationName: string, dangerLevel: number): void {
+  explorationLog('room', `>>> ENTERING LOCATION: ${locationName} (Danger ${dangerLevel})`, { locationId });
+}
+
+export function logLocationComplete(locationId: string, locationName: string): void {
+  explorationLog('room', `✓ LOCATION COMPLETE: ${locationName}`, { locationId });
+}
+
+export function logLocationLeave(locationId: string, locationName: string, reason: string): void {
+  explorationLog('room', `<<< LEAVING LOCATION: ${locationName} - ${reason}`, { locationId });
+}
+
+// ============================================================================
+// INTEL MISSION
+// ============================================================================
+
+export function logIntelMissionStart(locationName: string, enemyName: string): void {
+  explorationLog('activity', `[INTEL] Starting mission in ${locationName} vs ${enemyName}`);
+}
+
+export function logIntelMissionVictory(locationName: string): void {
+  explorationLog('activity', `[INTEL] ✓ Victory in ${locationName} - Path choice earned!`);
+}
+
+export function logIntelMissionSkip(locationName: string): void {
+  explorationLog('activity', `[INTEL] ✗ Skipped in ${locationName} - Random path assigned`);
+}
+
+// ============================================================================
+// PATH NAVIGATION
+// ============================================================================
+
+export function logPathChoice(pathId: string, targetLocation: string, pathType: string): void {
+  explorationLog('flow', `[PATH] Chose ${pathType} path → ${targetLocation}`, { pathId });
+}
+
+export function logPathRandom(pathId: string, targetLocation: string): void {
+  explorationLog('flow', `[PATH] Random assignment → ${targetLocation}`, { pathId });
+}
+
+export function logPathReveal(pathIds: string[], locationName: string): void {
+  explorationLog('info', `[PATH] Revealed ${pathIds.length} path(s) from ${locationName}`, pathIds);
+}

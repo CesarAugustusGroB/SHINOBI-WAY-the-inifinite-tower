@@ -4,13 +4,15 @@ import { Coins, RefreshCw, ShoppingBag, Gem } from 'lucide-react';
 import Tooltip from '../components/Tooltip';
 import { formatStatName } from '../game/utils/tooltipFormatters';
 import { MERCHANT } from '../game/config';
+import { calculateMerchantRerollCost } from '../game/systems/RegionSystem';
 
 interface MerchantProps {
   merchantItems: Item[];
   discountPercent: number;
   player: Player | null;
   playerStats: any;
-  floor: number;
+  dangerLevel: number;
+  baseDifficulty: number;
   onBuyItem: (item: Item) => void;
   onLeave: () => void;
   onReroll: () => void;
@@ -26,7 +28,8 @@ const Merchant: React.FC<MerchantProps> = ({
   discountPercent,
   player,
   playerStats,
-  floor,
+  dangerLevel,
+  baseDifficulty,
   onBuyItem,
   onLeave,
   onReroll,
@@ -36,8 +39,11 @@ const Merchant: React.FC<MerchantProps> = ({
   getDamageTypeColor,
   isProcessing = false
 }) => {
+  const rerollCost = calculateMerchantRerollCost(dangerLevel, baseDifficulty, MERCHANT.REROLL_BASE_COST, MERCHANT.REROLL_FLOOR_SCALING);
   const getPrice = (item: Item) => {
-    return Math.floor(item.value * (1 - discountPercent / 100));
+    // Apply price multiplier (80% more expensive) then discount
+    const basePrice = item.value * MERCHANT.ITEM_PRICE_MULTIPLIER;
+    return Math.floor(basePrice * (1 - discountPercent / 100));
   };
 
   const canAfford = (item: Item) => {
@@ -73,11 +79,11 @@ const Merchant: React.FC<MerchantProps> = ({
             <button
               type="button"
               onClick={onReroll}
-              disabled={isProcessing || player.ryo < MERCHANT.REROLL_BASE_COST + (floor * MERCHANT.REROLL_FLOOR_SCALING)}
+              disabled={isProcessing || player.ryo < rerollCost}
               className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCw size={12} />
-              Reroll ({MERCHANT.REROLL_BASE_COST + (floor * MERCHANT.REROLL_FLOOR_SCALING)} Ryō)
+              Reroll ({rerollCost} Ryō)
             </button>
           </Tooltip>
 

@@ -4,7 +4,8 @@ import {
   ApproachType, BranchingRoom, PrimaryStat, TrainingActivity, TrainingIntensity,
   EquipmentSlot, MAX_BAG_SLOTS, ScrollDiscoveryActivity,
   GameEvent, EventChoice, EventOutcome,
-  TreasureQuality, DEFAULT_MERCHANT_SLOTS, MAX_MERCHANT_SLOTS
+  TreasureQuality, DEFAULT_MERCHANT_SLOTS, MAX_MERCHANT_SLOTS,
+  Region, Location, LocationPath
 } from './game/types';
 import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS } from './game/constants';
 import {
@@ -36,12 +37,30 @@ import {
 } from './game/systems/ApproachSystem';
 import { TERRAIN_DEFINITIONS } from './game/constants/terrain';
 import {
-  generateBranchingFloor,
   moveToRoom,
   getCurrentActivity,
   completeActivity,
   getCurrentRoom
 } from './game/systems/BranchingFloorSystem';
+import {
+  generateRegion,
+  enterLocation,
+  getCurrentLocation,
+  completeIntelMission,
+  skipIntelMission,
+  hasEarnedPathChoice,
+  choosePath,
+  getRandomPath,
+  getIntelMissionEnemy,
+  isRegionComplete,
+  locationToBranchingFloor,
+  syncFloorToRegion,
+  dangerToFloor,
+  calculateLocationXP,
+  calculateLocationRyo,
+  calculateMerchantRerollCost,
+} from './game/systems/RegionSystem';
+import { LAND_OF_WAVES_CONFIG } from './game/constants/regions';
 import { resolveEventChoice } from './game/systems/EventSystem';
 import { useCombat } from './hooks/useCombat';
 import { useCombatExplorationState } from './hooks/useCombatExplorationState';
@@ -63,6 +82,8 @@ import LeftSidebarPanel from './components/LeftSidebarPanel';
 import RightSidebarPanel from './components/RightSidebarPanel';
 import ApproachSelector from './components/ApproachSelector';
 import BranchingExplorationMap from './components/BranchingExplorationMap';
+import RegionMap from './components/RegionMap';
+import PathChoiceModal from './components/PathChoiceModal';
 import PlayerHUD from './components/PlayerHUD';
 import RewardModal from './components/RewardModal';
 import EventResultModal from './components/EventResultModal';
@@ -71,7 +92,11 @@ import {
   logRoomEnter, logRoomExit, logRoomSelect,
   logActivityStart, logActivityComplete,
   logModalOpen, logModalClose,
-  logStateChange, logExplorationCheckpoint, logFloorChange
+  logStateChange, logExplorationCheckpoint,
+  // Region debug functions
+  logLocationSelect, logLocationEnter, logLocationLeave,
+  logIntelMissionStart, logIntelMissionVictory, logIntelMissionSkip,
+  logPathChoice, logPathRandom
 } from './game/utils/explorationDebug';
 
 // Import the parchment background styles
@@ -80,7 +105,6 @@ import './App.css';
 const App: React.FC = () => {
   // --- Core State ---
   const [gameState, setGameState] = useState<GameState>(GameState.MENU);
-  const [floor, setFloor] = useState(1);
   const [logs, setLogs] = useState<any[]>([]);
   const [player, setPlayer] = useState<Player | null>(null);
   const [droppedItems, setDroppedItems] = useState<Item[]>([]);
@@ -110,6 +134,14 @@ const App: React.FC = () => {
     levelUp?: { oldLevel: number; newLevel: number; statGains: Record<string, number> };
   } | null>(null);
   const logIdCounter = useRef<number>(0);
+
+  // --- Region Exploration State ---
+  const [region, setRegion] = useState<Region | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  const [showPathChoice, setShowPathChoice] = useState(false);
+  const [intelMissionEnemy, setIntelMissionEnemy] = useState<Enemy | null>(null);
+  const [isIntelMissionCombat, setIsIntelMissionCombat] = useState(false);
+  const [locationFloor, setLocationFloor] = useState<import('./game/types').BranchingFloor | null>(null);
 
   // --- Shared Combat/Exploration State ---
   // This hook owns state needed by both useCombat and useExploration
@@ -141,25 +173,49 @@ const App: React.FC = () => {
     return getPlayerFullStats(player);
   }, [player]);
 
+  // Compute current location and danger level from region state
+  const currentLocation = useMemo(() => {
+    if (!region) return null;
+    return getCurrentLocation(region) ?? null;
+  }, [region]);
+
+  const currentDangerLevel = useMemo(() => {
+    return currentLocation?.dangerLevel ?? 1;
+  }, [currentLocation]);
+
+  const currentBaseDifficulty = useMemo(() => {
+    return region?.baseDifficulty ?? difficulty;
+  }, [region, difficulty]);
+
   // Create game context value for child components
   const gameContextValue = useMemo((): GameContextValue => ({
     player,
     playerStats,
-    floor,
+    region,
+    currentLocation,
+    dangerLevel: currentDangerLevel,
     difficulty,
     logs,
     addLog,
-  }), [player, playerStats, floor, difficulty, logs, addLog]);
+  }), [player, playerStats, region, currentLocation, currentDangerLevel, difficulty, logs, addLog]);
 
   // Victory handler for combat hook
   const handleCombatVictory = useCallback((defeatedEnemy: Enemy, combatStateAtVictory: CombatState | null) => {
     logFlowCheckpoint('handleCombatVictory START', {
       enemy: defeatedEnemy.name,
       tier: defeatedEnemy.tier,
-      floor
+      dangerLevel: currentDangerLevel
     });
 
     addLog("Enemy Defeated!", 'gain');
+
+    // Check if this was an intel mission combat - delegate to handleIntelMissionVictory
+    if (isIntelMissionCombat) {
+      setIsIntelMissionCombat(false);
+      // Intel mission victory is handled separately
+      handleIntelMissionVictory();
+      return;
+    }
 
     // Determine if this was an elite challenge (check pendingArtifact)
     const wasEliteChallenge = pendingArtifact !== null;
@@ -194,6 +250,39 @@ const App: React.FC = () => {
       });
     }
 
+    // Complete the appropriate activity in location mode (using locationFloor)
+    if (locationFloor && region) {
+      setLocationFloor(prevFloor => {
+        if (!prevFloor) return prevFloor;
+        const combatRoom = getCurrentRoom(prevFloor);
+        if (!combatRoom) return prevFloor;
+
+        // Mark the correct activity as completed
+        const activityType = wasEliteChallenge ? 'eliteChallenge' : 'combat';
+        let updatedFloor = completeActivity(prevFloor, combatRoom.id, activityType);
+        if (updatedFloor.currentRoomId !== combatRoom.id) {
+          updatedFloor = {
+            ...updatedFloor,
+            currentRoomId: combatRoom.id,
+            rooms: updatedFloor.rooms.map(room => ({
+              ...room,
+              isCurrent: room.id === combatRoom.id,
+            })),
+          };
+        }
+
+        const updatedRoom = updatedFloor.rooms.find(r => r.id === combatRoom.id);
+        if (updatedRoom?.isCleared && updatedRoom.isExit) {
+          addLog('Location cleared! Intel mission awaits...', 'gain');
+        }
+
+        // Sync to region
+        setRegion(syncFloorToRegion(region, updatedFloor));
+
+        return updatedFloor;
+      });
+    }
+
     // Apply XP multiplier from approach
     const xpMultiplier = combatStateAtVictory?.xpMultiplier || 1.0;
 
@@ -202,10 +291,10 @@ const App: React.FC = () => {
     const isGuardian = defeatedEnemy?.tier === 'Guardian';
     const enemyTier = defeatedEnemy?.tier || 'Chunin';
 
-    const baseExp = 25 + (floor * 5);
+    const baseExp = calculateLocationXP(currentDangerLevel, currentBaseDifficulty);
     const tierBonus = isGuardian ? 300 : enemyTier === 'Jonin' ? 20 : enemyTier === 'Kage Level' ? 200 : isAmbush ? 100 : 0;
     const expGain = Math.floor((baseExp + tierBonus) * xpMultiplier);
-    const ryoGain = (floor * 15) + Math.floor(Math.random() * 25);
+    const ryoGain = calculateLocationRyo(currentDangerLevel, currentBaseDifficulty);
 
     let levelUpInfo: { oldLevel: number; newLevel: number; statGains: Record<string, number> } | undefined;
 
@@ -241,12 +330,17 @@ const App: React.FC = () => {
       levelUp: levelUpInfo
     });
 
-    // Set game state to branching explore so the modal shows on the map
-    logFlowCheckpoint('Transitioning to BRANCHING_EXPLORE with reward modal');
+    // Set game state to appropriate explore view so the modal shows on the map
+    logFlowCheckpoint('Transitioning to explore with reward modal');
     setTimeout(() => {
-      setGameState(GameState.EXPLORE);
+      // Return to correct explore state based on mode
+      if (region && region.currentLocationId) {
+        setGameState(GameState.LOCATION_EXPLORE);
+      } else {
+        setGameState(GameState.EXPLORE);
+      }
     }, 100);
-  }, [branchingFloor, floor, addLog, pendingArtifact]);
+  }, [branchingFloor, region, currentDangerLevel, currentBaseDifficulty, addLog, pendingArtifact, isIntelMissionCombat]);
 
   // Combat hook - manages enemy, turns, and combat logic
   const {
@@ -364,7 +458,6 @@ const App: React.FC = () => {
     };
 
     setPlayer(newPlayer);
-    setFloor(1);
     setLogs([]);
     setEnemy(null);
     setDroppedItems([]);
@@ -374,13 +467,15 @@ const App: React.FC = () => {
     setShowApproachSelector(false);
     setCombatState(null);
     setApproachResult(null);
-    addLog(`Lineage chosen: ${clan}. The Tower awaits.`, 'info');
+    addLog(`Lineage chosen: ${clan}. Your journey begins in the Land of Waves...`, 'info');
 
-    // Initialize branching floor exploration
-    const newBranchingFloor = generateBranchingFloor(1, difficulty, newPlayer);
-    setBranchingFloor(newBranchingFloor);
+    // Initialize region exploration (Land of Waves)
+    const wavesRegion = generateRegion(LAND_OF_WAVES_CONFIG, difficulty, newPlayer);
+    setRegion(wavesRegion);
+    setBranchingFloor(null);
+    setLocationFloor(null);
     setSelectedBranchingRoom(null);
-    setGameState(GameState.EXPLORE);
+    setGameState(GameState.REGION_MAP);
   };
 
   // Cancel approach selection
@@ -390,9 +485,10 @@ const App: React.FC = () => {
     setSelectedBranchingRoom(null);
   };
 
-  // Handle approach selection for BRANCHING exploration combat
+  // Handle approach selection for BRANCHING exploration combat (also works for region mode)
   const handleBranchingApproachSelect = (approach: ApproachType) => {
-    if (!player || !playerStats || !selectedBranchingRoom || !branchingFloor) return;
+    // Allow either branchingFloor OR region mode
+    if (!player || !playerStats || !selectedBranchingRoom || (!branchingFloor && !region)) return;
     logModalClose('ApproachSelector', `selected: ${approach}`);
 
     // Check for elite challenge first, then regular combat
@@ -651,18 +747,39 @@ const App: React.FC = () => {
     // Check if combat should trigger
     if (result.triggerCombat && result.outcome?.effects.triggerCombat) {
       const combatConfig = result.outcome.effects.triggerCombat;
+      const effectiveFloor = combatConfig.floor || dangerToFloor(currentDangerLevel, currentBaseDifficulty);
       const combatEnemy = generateEnemy(
-        combatConfig.floor || floor,
+        effectiveFloor,
         combatConfig.archetype as 'NORMAL' | 'ELITE' | 'BOSS' || 'NORMAL',
         combatConfig.difficulty || difficulty
       );
       if (combatConfig.name) {
         combatEnemy.name = combatConfig.name;
       }
+
+      // Mark event as complete before transitioning to combat
+      // (The event choice was made - combat is just a consequence)
+      if (locationFloor && region) {
+        const currentRoom = getCurrentRoom(locationFloor);
+        if (currentRoom) {
+          logActivityComplete(currentRoom.id, 'event');
+          const updatedFloor = completeActivity(locationFloor, currentRoom.id, 'event');
+          setLocationFloor(updatedFloor);
+          setRegion(syncFloorToRegion(region, updatedFloor));
+        }
+      } else if (branchingFloor) {
+        const currentRoom = getCurrentRoom(branchingFloor);
+        if (currentRoom) {
+          logActivityComplete(currentRoom.id, 'event');
+          const updatedFloor = completeActivity(branchingFloor, currentRoom.id, 'event');
+          setBranchingFloor(updatedFloor);
+        }
+      }
+
       setEnemy(combatEnemy);
       setTurnState('PLAYER');
+      setActiveEvent(null);
       setGameState(GameState.COMBAT);
-      // Don't complete event yet - will complete after combat
       return;
     }
 
@@ -677,7 +794,12 @@ const App: React.FC = () => {
 
     // Return to map (modal will show as overlay)
     setActiveEvent(null);
-    setGameState(GameState.EXPLORE);
+    // Return to correct explore state based on mode
+    if (locationFloor && region && region.currentLocationId) {
+      setGameState(GameState.LOCATION_EXPLORE);
+    } else {
+      setGameState(GameState.EXPLORE);
+    }
   };
 
   // Handle closing the event outcome modal
@@ -692,49 +814,328 @@ const App: React.FC = () => {
         setBranchingFloor(updatedFloor);
       }
     }
+
+    // Location mode: complete event activity using locationFloor
+    if (locationFloor && region) {
+      const currentRoom = getCurrentRoom(locationFloor);
+      if (currentRoom) {
+        logActivityComplete(currentRoom.id, 'event');
+        const updatedFloor = completeActivity(locationFloor, currentRoom.id, 'event');
+        setLocationFloor(updatedFloor);
+        setRegion(syncFloorToRegion(region, updatedFloor));
+      }
+    }
+
     setEventOutcome(null);
   };
 
-  const nextFloor = () => {
-    const nextFloorNum = floor + 1;
-    logFloorChange(floor, nextFloorNum);
-    setFloor(nextFloorNum);
-    setPlayer(p => {
-      if (!p) return null;
-      const stats = getPlayerFullStats(p);
-
-      // Apply natural regeneration
-      const updatedPlayer = {
-        ...p,
-        currentChakra: Math.min(stats.derived.maxChakra, p.currentChakra + stats.derived.chakraRegen),
-        currentHp: Math.min(stats.derived.maxHp, p.currentHp + stats.derived.hpRegen)
-      };
-
-      // Reset combat state
-      setShowApproachSelector(false);
-      setCombatState(null);
-      setApproachResult(null);
-
-      // Generate new branching floor
-      const newBranchingFloor = generateBranchingFloor(nextFloorNum, difficulty, updatedPlayer);
-      setBranchingFloor(newBranchingFloor);
-      setSelectedBranchingRoom(null);
-
-      return updatedPlayer;
-    });
-
-    setGameState(GameState.EXPLORE);
-  };
-
-  // Return to exploration map after loot/events (without advancing floor)
+  // Return to exploration map after loot/events
   const returnToMap = () => {
     logRoomExit(selectedBranchingRoom?.id || 'unknown', 'returnToMap');
     logStateChange(gameState.toString(), 'EXPLORE', 'returnToMap');
     setDroppedItems([]);
     setDroppedSkill(null);
     setEnemy(null);
-    setSelectedBranchingRoom(null);
-    setGameState(GameState.EXPLORE);
+
+    // If in location mode (region with locationFloor), check for activity chaining
+    if (region && locationFloor && region.currentLocationId) {
+      const currentRoom = getCurrentRoom(locationFloor);
+      if (currentRoom) {
+        const nextActivity = getCurrentActivity(currentRoom);
+        if (nextActivity) {
+          // Auto-trigger next activity in room
+          setSelectedBranchingRoom(null);
+          setTimeout(() => handleLocationRoomEnter(currentRoom), 100);
+          return;
+        }
+      }
+      setSelectedBranchingRoom(null);
+      setGameState(GameState.LOCATION_EXPLORE);
+    } else {
+      setSelectedBranchingRoom(null);
+      setGameState(GameState.EXPLORE);
+    }
+  };
+
+  // ============================================================================
+  // REGION EXPLORATION HANDLERS
+  // ============================================================================
+
+  // Handle selecting a location on the region map
+  const handleLocationSelect = (location: Location) => {
+    logLocationSelect(location.id, location.name);
+    setSelectedLocation(location);
+  };
+
+  // Handle entering a location from the region map
+  const handleEnterLocation = (location: Location) => {
+    if (!region) return;
+    logLocationEnter(location.id, location.name, location.dangerLevel);
+    const updatedRegion = enterLocation(region, location.id);
+    setRegion(updatedRegion);
+    setSelectedLocation(location);
+
+    // Create a BranchingFloor from the location for use with BranchingExplorationMap
+    const locationFloorData = locationToBranchingFloor(updatedRegion);
+    setLocationFloor(locationFloorData);
+
+    addLog(`Entering ${location.name}...`, 'info');
+    setGameState(GameState.LOCATION_EXPLORE);
+  };
+
+  // Handle selecting a room within a location (for BranchingExplorationMap)
+  const handleLocationRoomSelect = (room: BranchingRoom) => {
+    logRoomSelect(room.id, room.name);
+    setSelectedBranchingRoom(room);
+  };
+
+  // Handle entering a room within a location (for BranchingExplorationMap)
+  const handleLocationRoomEnter = (room: BranchingRoom) => {
+    if (!locationFloor || !region || !player || !playerStats) return;
+
+    // Move to the room using BranchingFloorSystem
+    const updatedFloor = moveToRoom(locationFloor, room.id, player);
+    setLocationFloor(updatedFloor);
+
+    // Sync changes back to region
+    const updatedRegion = syncFloorToRegion(region, updatedFloor);
+    setRegion(updatedRegion);
+
+    // Get the current activity for the room
+    const currentRoom = updatedFloor.rooms.find(r => r.id === room.id);
+    if (!currentRoom) return;
+
+    // Check if this is Room 10 (intel mission room)
+    if (currentRoom.isExit && currentRoom.depth === 10) {
+      const location = getCurrentLocation(updatedRegion);
+      if (location?.intelMission && !location.intelMission.completed && !location.intelMission.skipped) {
+        handleIntelMission();
+        return;
+      }
+    }
+
+    const activity = getCurrentActivity(currentRoom);
+    logRoomEnter(room.id, room.name, activity);
+
+    if (!activity) {
+      // Room is already cleared or has no activities
+      logExplorationCheckpoint('Room already cleared', { roomId: room.id });
+      addLog(`You enter ${currentRoom.name}. Nothing remains here.`, 'info');
+      return;
+    }
+
+    // Handle the current activity (same as handleBranchingRoomEnter)
+    switch (activity) {
+      case 'combat':
+        if (currentRoom.activities.combat) {
+          logActivityStart(currentRoom.id, 'combat', { enemy: currentRoom.activities.combat.enemy.name });
+          logModalOpen('ApproachSelector', { roomId: currentRoom.id, enemy: currentRoom.activities.combat.enemy.name });
+          setSelectedBranchingRoom(currentRoom);
+          setShowApproachSelector(true);
+          addLog(`Enemy spotted: ${currentRoom.activities.combat.enemy.name}. Choose your approach!`, 'info');
+        }
+        break;
+
+      case 'merchant':
+        if (currentRoom.activities.merchant) {
+          logActivityStart(currentRoom.id, 'merchant', { itemCount: currentRoom.activities.merchant.items.length });
+          logStateChange('LOCATION_EXPLORE', 'MERCHANT', 'merchant activity');
+          setMerchantItems(currentRoom.activities.merchant.items);
+          setMerchantDiscount(currentRoom.activities.merchant.discountPercent || 0);
+          setSelectedBranchingRoom(currentRoom);
+          setGameState(GameState.MERCHANT);
+          addLog(`A merchant greets you. ${currentRoom.activities.merchant.items.length} items available.`, 'info');
+        }
+        break;
+
+      case 'event':
+        if (currentRoom.activities.event) {
+          logActivityStart(currentRoom.id, 'event', { eventId: currentRoom.activities.event.definition.id });
+          logStateChange('LOCATION_EXPLORE', 'EVENT', 'event activity');
+          setActiveEvent(currentRoom.activities.event.definition);
+          setGameState(GameState.EVENT);
+        }
+        break;
+
+      case 'rest':
+        if (currentRoom.activities.rest) {
+          logActivityStart(currentRoom.id, 'rest', { healPercent: currentRoom.activities.rest.healPercent });
+          const restData = currentRoom.activities.rest;
+          const hpHeal = Math.floor(playerStats.derived.maxHp * (restData.healPercent / 100));
+          const chakraHeal = Math.floor(playerStats.derived.maxChakra * (restData.chakraRestorePercent / 100));
+
+          setPlayer(p => p ? {
+            ...p,
+            currentHp: Math.min(playerStats.derived.maxHp, p.currentHp + hpHeal),
+            currentChakra: Math.min(playerStats.derived.maxChakra, p.currentChakra + chakraHeal)
+          } : null);
+
+          addLog(`You rest and recover. +${hpHeal} HP, +${chakraHeal} Chakra.`, 'gain');
+
+          const floorAfterRest = completeActivity(updatedFloor, room.id, 'rest');
+          setLocationFloor(floorAfterRest);
+          setRegion(syncFloorToRegion(updatedRegion, floorAfterRest));
+          logActivityComplete(currentRoom.id, 'rest');
+        }
+        break;
+
+      case 'training':
+        if (currentRoom.activities.training && !currentRoom.activities.training.completed) {
+          logActivityStart(currentRoom.id, 'training', { options: currentRoom.activities.training.options.map(o => o.stat) });
+          logStateChange('LOCATION_EXPLORE', 'TRAINING', 'training activity');
+          setTrainingData(currentRoom.activities.training);
+          setSelectedBranchingRoom(currentRoom);
+          setGameState(GameState.TRAINING);
+          addLog('You arrive at a training area. Choose your training regimen.', 'info');
+        }
+        break;
+
+      case 'scrollDiscovery':
+        if (currentRoom.activities.scrollDiscovery && !currentRoom.activities.scrollDiscovery.completed) {
+          logActivityStart(currentRoom.id, 'scrollDiscovery', { scrollCount: currentRoom.activities.scrollDiscovery.availableScrolls.length });
+          logStateChange('LOCATION_EXPLORE', 'SCROLL_DISCOVERY', 'scroll discovery activity');
+          setScrollDiscoveryData(currentRoom.activities.scrollDiscovery);
+          setSelectedBranchingRoom(currentRoom);
+          setGameState(GameState.SCROLL_DISCOVERY);
+          addLog('You discovered ancient jutsu scrolls!', 'gain');
+        }
+        break;
+
+      case 'eliteChallenge':
+        if (currentRoom.activities.eliteChallenge && !currentRoom.activities.eliteChallenge.completed) {
+          const challenge = currentRoom.activities.eliteChallenge;
+          logActivityStart(currentRoom.id, 'eliteChallenge', { enemy: challenge.enemy.name, artifact: challenge.artifact.name });
+          logStateChange('LOCATION_EXPLORE', 'ELITE_CHALLENGE', 'elite challenge activity');
+          setEliteChallengeData({
+            enemy: challenge.enemy,
+            artifact: challenge.artifact,
+            room: currentRoom,
+          });
+          setGameState(GameState.ELITE_CHALLENGE);
+          addLog(`An artifact guardian bars your path...`, 'danger');
+        }
+        break;
+
+      case 'treasure':
+        if (currentRoom.activities.treasure) {
+          const treasure = currentRoom.activities.treasure;
+          logActivityStart(currentRoom.id, 'treasure', { itemCount: treasure.items.length, ryo: treasure.ryo });
+          logStateChange('LOCATION_EXPLORE', 'LOOT', 'treasure activity');
+          setDroppedItems(treasure.items);
+          setDroppedSkill(null);
+          if (treasure.ryo > 0) {
+            setPlayer(p => p ? { ...p, ryo: p.ryo + treasure.ryo } : null);
+            addLog(`Found treasure! +${treasure.ryo} Ryō.`, 'loot');
+          }
+          const floorAfterTreasure = completeActivity(updatedFloor, room.id, 'treasure');
+          setLocationFloor(floorAfterTreasure);
+          setRegion(syncFloorToRegion(updatedRegion, floorAfterTreasure));
+          logActivityComplete(currentRoom.id, 'treasure');
+          setGameState(GameState.LOOT);
+        }
+        break;
+    }
+  };
+
+
+  // Handle starting the intel mission (Room 10)
+  const handleIntelMission = () => {
+    if (!region) return;
+    const location = getCurrentLocation(region);
+    const enemy = getIntelMissionEnemy(region);
+    if (enemy) {
+      logIntelMissionStart(location?.name || 'Unknown', enemy.name);
+      setIntelMissionEnemy(enemy);
+      setEnemy(enemy);
+      setGameState(GameState.INTEL_MISSION);
+    }
+  };
+
+  // Handle completing the intel mission (victory)
+  const handleIntelMissionVictory = () => {
+    if (!region || !player || !locationFloor) return;
+    const location = getCurrentLocation(region);
+    logIntelMissionVictory(location?.name || 'Unknown');
+    let updatedRegion = completeIntelMission(region);
+
+    // Also mark Room 10 (intel room) as cleared using locationFloor
+    const room10 = locationFloor.rooms.find(r => r.isExit);
+    if (room10) {
+      logActivityComplete(room10.id, 'combat');
+      const updatedFloor = completeActivity(locationFloor, room10.id, 'combat');
+      setLocationFloor(updatedFloor);
+      updatedRegion = syncFloorToRegion(updatedRegion, updatedFloor);
+    }
+
+    setRegion(updatedRegion);
+    setIntelMissionEnemy(null);
+    setEnemy(null);
+    addLog('Intel acquired! You may now choose your path.', 'gain');
+
+    // Check if this was the boss (region complete)
+    if (isRegionComplete(updatedRegion)) {
+      addLog('The region boss has been defeated! A new path opens...', 'gain');
+      // TODO: Transition to next region or back to floor system
+      setGameState(GameState.REGION_MAP);
+    } else {
+      setShowPathChoice(true);
+      setGameState(GameState.PATH_CHOICE);
+    }
+  };
+
+  // Handle skipping the intel mission
+  const handleIntelMissionSkip = () => {
+    if (!region) return;
+    const location = getCurrentLocation(region);
+    if (!location?.intelMission?.skipAllowed) return;
+
+    logIntelMissionSkip(location.name);
+    const updatedRegion = skipIntelMission(region);
+    setRegion(updatedRegion);
+    addLog('You avoided the fight but lost your path choice...', 'danger');
+
+    // Auto-select random path
+    const randomPath = getRandomPath(updatedRegion);
+    if (randomPath) {
+      const targetLoc = updatedRegion.locations.find(l => l.id === randomPath.targetLocationId);
+      logPathRandom(randomPath.id, targetLoc?.name || 'Unknown');
+      const finalRegion = choosePath(updatedRegion, randomPath.id);
+      setRegion(finalRegion);
+      setGameState(GameState.REGION_MAP);
+    }
+  };
+
+  // Handle path choice
+  const handlePathChoice = (path: LocationPath) => {
+    if (!region) return;
+    const targetLoc = region.locations.find(l => l.id === path.targetLocationId);
+    logPathChoice(path.id, targetLoc?.name || 'Unknown', path.pathType);
+    const updatedRegion = choosePath(region, path.id);
+    setRegion(updatedRegion);
+    setShowPathChoice(false);
+    addLog(`Traveling to the next location...`, 'info');
+    setGameState(GameState.REGION_MAP);
+  };
+
+  // Handle leaving a location (back to region map)
+  const handleLeaveLocation = () => {
+    if (!region) return;
+    const location = getCurrentLocation(region);
+
+    if (location?.isCompleted || location?.intelMission?.completed || location?.intelMission?.skipped) {
+      // If location complete, show path choice or go to region map
+      const reason = hasEarnedPathChoice(region) ? 'path choice' : 'completed';
+      logLocationLeave(location.id, location.name, reason);
+      if (hasEarnedPathChoice(region)) {
+        setShowPathChoice(true);
+        setGameState(GameState.PATH_CHOICE);
+      } else {
+        setGameState(GameState.REGION_MAP);
+      }
+    } else {
+      // Can't leave incomplete location
+      addLog('Complete the location before leaving.', 'danger');
+    }
   };
 
   // Close reward modal - check for pending artifact from elite challenge
@@ -897,22 +1298,23 @@ const App: React.FC = () => {
 
     let result;
     let actionName = '';
+    const effectiveFloor = dangerToFloor(currentDangerLevel, currentBaseDifficulty);
 
     if (bothBroken && compA.isComponent && compB.isComponent) {
       // Upgrade two BROKEN components into a COMMON component
-      result = upgradeComponent(compA, compB, floor);
+      result = upgradeComponent(compA, compB, effectiveFloor);
       actionName = 'Upgraded';
     } else if (bothRareArtifacts) {
       // Upgrade two RARE artifacts into an EPIC artifact
-      result = upgradeArtifact(compA, compB, floor);
+      result = upgradeArtifact(compA, compB, effectiveFloor);
       actionName = 'Forged';
     } else if (bothCommon && compA.isComponent && compB.isComponent) {
       // Synthesize two COMMON components into a RARE artifact
-      result = synthesize(compA, compB, floor);
+      result = synthesize(compA, compB, effectiveFloor);
       actionName = 'Synthesized';
     } else {
       // Try synthesize as fallback for any other combination
-      result = synthesize(compA, compB, floor);
+      result = synthesize(compA, compB, effectiveFloor);
       actionName = 'Synthesized';
     }
 
@@ -945,7 +1347,8 @@ const App: React.FC = () => {
   const handleUpgradeComponent = (compA: Item, compB: Item) => {
     if (!player) return;
 
-    const result = upgradeComponent(compA, compB, floor);
+    const effectiveFloor = dangerToFloor(currentDangerLevel, currentBaseDifficulty);
+    const result = upgradeComponent(compA, compB, effectiveFloor);
     if (!result.success || !result.item) {
       addLog(result.reason || 'These components cannot be upgraded.', 'danger');
       return;
@@ -975,7 +1378,8 @@ const App: React.FC = () => {
   const handleUpgradeArtifact = (artifactA: Item, artifactB: Item) => {
     if (!player) return;
 
-    const result = upgradeArtifact(artifactA, artifactB, floor);
+    const effectiveFloor = dangerToFloor(currentDangerLevel, currentBaseDifficulty);
+    const result = upgradeArtifact(artifactA, artifactB, effectiveFloor);
     if (!result.success || !result.item) {
       addLog(result.reason || 'These artifacts cannot be upgraded.', 'danger');
       return;
@@ -1221,17 +1625,32 @@ const App: React.FC = () => {
       const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'merchant');
       setBranchingFloor(updatedFloor);
     }
+
+    // Location mode: complete merchant activity using locationFloor
+    if (locationFloor && region && selectedBranchingRoom) {
+      logActivityComplete(selectedBranchingRoom.id, 'merchant');
+      const updatedFloor = completeActivity(locationFloor, selectedBranchingRoom.id, 'merchant');
+      setLocationFloor(updatedFloor);
+      setRegion(syncFloorToRegion(region, updatedFloor));
+    }
+
     logStateChange('MERCHANT', 'EXPLORE', 'left merchant');
     setMerchantItems([]);
     setMerchantDiscount(0);
     setSelectedBranchingRoom(null);
-    setGameState(GameState.EXPLORE);
+
+    // Return to correct explore state based on mode
+    if (locationFloor && region && region.currentLocationId) {
+      setGameState(GameState.LOCATION_EXPLORE);
+    } else {
+      setGameState(GameState.EXPLORE);
+    }
     addLog('The merchant waves goodbye.', 'info');
   };
 
   const handleMerchantReroll = () => {
     if (!player) return;
-    const cost = MERCHANT.REROLL_BASE_COST + (floor * MERCHANT.REROLL_FLOOR_SCALING);
+    const cost = calculateMerchantRerollCost(currentDangerLevel, currentBaseDifficulty, MERCHANT.REROLL_BASE_COST, MERCHANT.REROLL_FLOOR_SCALING);
     if (player.ryo < cost) {
       addLog(`Not enough Ryō to reroll! Need ${cost}.`, 'danger');
       return;
@@ -1240,8 +1659,9 @@ const App: React.FC = () => {
     setPlayer(p => p ? { ...p, ryo: p.ryo - cost } : null);
     const newItems: Item[] = [];
     const itemCount = player.merchantSlots;
+    const effectiveFloor = dangerToFloor(currentDangerLevel, currentBaseDifficulty);
     for (let i = 0; i < itemCount; i++) {
-      newItems.push(generateLoot(floor, difficulty));
+      newItems.push(generateLoot(effectiveFloor, difficulty));
     }
     setMerchantItems(newItems);
     addLog(`Paid ${cost} Ryō to refresh the merchant's inventory.`, 'info');
@@ -1281,7 +1701,9 @@ const App: React.FC = () => {
   };
 
   const handleTrainingComplete = (stat: PrimaryStat, intensity: TrainingIntensity) => {
-    if (!trainingData || !player || !selectedBranchingRoom || !branchingFloor) return;
+    if (!trainingData || !player || !selectedBranchingRoom) return;
+    // Require either branchingFloor or region
+    if (!branchingFloor && !region) return;
 
     const option = trainingData.options.find(o => o.stat === stat);
     if (!option) return;
@@ -1311,11 +1733,28 @@ const App: React.FC = () => {
     // Mark training as complete and return to map
     logActivityComplete(selectedBranchingRoom.id, 'training');
     logStateChange('TRAINING', 'EXPLORE', 'training complete');
-    const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'training');
-    setBranchingFloor(updatedFloor);
+
+    if (branchingFloor) {
+      const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'training');
+      setBranchingFloor(updatedFloor);
+    }
+
+    // Location mode: complete training activity using locationFloor
+    if (locationFloor && region) {
+      const updatedFloor = completeActivity(locationFloor, selectedBranchingRoom.id, 'training');
+      setLocationFloor(updatedFloor);
+      setRegion(syncFloorToRegion(region, updatedFloor));
+    }
+
     setTrainingData(null);
     setSelectedBranchingRoom(null);
-    setGameState(GameState.EXPLORE);
+
+    // Return to correct explore state based on mode
+    if (locationFloor && region && region.currentLocationId) {
+      setGameState(GameState.LOCATION_EXPLORE);
+    } else {
+      setGameState(GameState.EXPLORE);
+    }
   };
 
   const handleTrainingSkip = () => {
@@ -1325,16 +1764,33 @@ const App: React.FC = () => {
       const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'training');
       setBranchingFloor(updatedFloor);
     }
+
+    // Location mode: complete training activity using locationFloor
+    if (locationFloor && region && selectedBranchingRoom) {
+      logActivityComplete(selectedBranchingRoom.id, 'training');
+      const updatedFloor = completeActivity(locationFloor, selectedBranchingRoom.id, 'training');
+      setLocationFloor(updatedFloor);
+      setRegion(syncFloorToRegion(region, updatedFloor));
+    }
+
     logStateChange('TRAINING', 'EXPLORE', 'training skipped');
     setTrainingData(null);
     setSelectedBranchingRoom(null);
-    setGameState(GameState.EXPLORE);
+
+    // Return to correct explore state based on mode
+    if (locationFloor && region && region.currentLocationId) {
+      setGameState(GameState.LOCATION_EXPLORE);
+    } else {
+      setGameState(GameState.EXPLORE);
+    }
     addLog('You decide to skip training for now.', 'info');
   };
 
   // Scroll Discovery handlers
   const handleLearnScroll = (skill: Skill, slotIndex?: number) => {
-    if (!scrollDiscoveryData || !player || !selectedBranchingRoom || !branchingFloor || !playerStats) return;
+    if (!scrollDiscoveryData || !player || !selectedBranchingRoom || !playerStats) return;
+    // Require either branchingFloor or region
+    if (!branchingFloor && !region) return;
 
     const chakraCost = scrollDiscoveryData.cost?.chakra || 0;
 
@@ -1395,11 +1851,28 @@ const App: React.FC = () => {
     // Mark scroll discovery as complete
     logActivityComplete(selectedBranchingRoom.id, 'scrollDiscovery');
     logStateChange('SCROLL_DISCOVERY', 'EXPLORE', 'scroll learned');
-    const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'scrollDiscovery');
-    setBranchingFloor(updatedFloor);
+
+    if (branchingFloor) {
+      const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'scrollDiscovery');
+      setBranchingFloor(updatedFloor);
+    }
+
+    // Location mode: complete scroll discovery activity using locationFloor
+    if (locationFloor && region) {
+      const updatedFloor = completeActivity(locationFloor, selectedBranchingRoom.id, 'scrollDiscovery');
+      setLocationFloor(updatedFloor);
+      setRegion(syncFloorToRegion(region, updatedFloor));
+    }
+
     setScrollDiscoveryData(null);
     setSelectedBranchingRoom(null);
-    setGameState(GameState.EXPLORE);
+
+    // Return to correct explore state based on mode
+    if (locationFloor && region && region.currentLocationId) {
+      setGameState(GameState.LOCATION_EXPLORE);
+    } else {
+      setGameState(GameState.EXPLORE);
+    }
   };
 
   const handleScrollDiscoverySkip = () => {
@@ -1408,10 +1881,25 @@ const App: React.FC = () => {
       const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'scrollDiscovery');
       setBranchingFloor(updatedFloor);
     }
+
+    // Location mode: complete scroll discovery activity using locationFloor
+    if (locationFloor && region && selectedBranchingRoom) {
+      logActivityComplete(selectedBranchingRoom.id, 'scrollDiscovery');
+      const updatedFloor = completeActivity(locationFloor, selectedBranchingRoom.id, 'scrollDiscovery');
+      setLocationFloor(updatedFloor);
+      setRegion(syncFloorToRegion(region, updatedFloor));
+    }
+
     logStateChange('SCROLL_DISCOVERY', 'EXPLORE', 'scroll skipped');
     setScrollDiscoveryData(null);
     setSelectedBranchingRoom(null);
-    setGameState(GameState.EXPLORE);
+
+    // Return to correct explore state based on mode
+    if (locationFloor && region && region.currentLocationId) {
+      setGameState(GameState.LOCATION_EXPLORE);
+    } else {
+      setGameState(GameState.EXPLORE);
+    }
     addLog('You leave the scrolls behind.', 'info');
   };
 
@@ -1429,7 +1917,9 @@ const App: React.FC = () => {
   };
 
   const handleEliteEscape = () => {
-    if (!eliteChallengeData || !player || !playerStats || !branchingFloor) return;
+    if (!eliteChallengeData || !player || !playerStats) return;
+    // Require either branchingFloor or locationFloor
+    if (!branchingFloor && !locationFloor) return;
 
     const result = attemptEliteEscape(player, playerStats, eliteChallengeData.enemy);
     logExplorationCheckpoint('Elite Escape attempt', { success: result.success, roll: result.roll, chance: result.chance });
@@ -1437,17 +1927,48 @@ const App: React.FC = () => {
     if (result.success) {
       // Mark activity as completed (skipped)
       logActivityComplete(eliteChallengeData.room.id, 'eliteChallenge');
-      const updatedFloor = completeActivity(branchingFloor, eliteChallengeData.room.id, 'eliteChallenge');
-      setBranchingFloor(updatedFloor);
+
+      if (branchingFloor) {
+        const updatedFloor = completeActivity(branchingFloor, eliteChallengeData.room.id, 'eliteChallenge');
+        setBranchingFloor(updatedFloor);
+
+        // Continue to next activity in the room
+        const currentRoom = getCurrentRoom(updatedFloor);
+        if (currentRoom) {
+          addLog(result.message, 'info');
+          setEliteChallengeData(null);
+          setGameState(GameState.EXPLORE);
+          // Small delay then check for more activities
+          setTimeout(() => handleBranchingRoomEnter(currentRoom), 100);
+          return;
+        }
+      }
+
+      // Location mode: complete elite challenge activity using locationFloor
+      if (locationFloor && region) {
+        const updatedFloor = completeActivity(locationFloor, eliteChallengeData.room.id, 'eliteChallenge');
+        setLocationFloor(updatedFloor);
+        setRegion(syncFloorToRegion(region, updatedFloor));
+
+        // Continue to next activity in the room
+        const currentRoom = getCurrentRoom(updatedFloor);
+        if (currentRoom) {
+          addLog(result.message, 'info');
+          setEliteChallengeData(null);
+          setGameState(GameState.LOCATION_EXPLORE);
+          // Small delay then check for more activities
+          setTimeout(() => handleLocationRoomEnter(currentRoom), 100);
+          return;
+        }
+      }
+
       addLog(result.message, 'info');
       setEliteChallengeData(null);
-      setGameState(GameState.EXPLORE);
-
-      // Continue to next activity in the room
-      const currentRoom = getCurrentRoom(updatedFloor);
-      if (currentRoom) {
-        // Small delay then check for more activities
-        setTimeout(() => handleBranchingRoomEnter(currentRoom), 100);
+      // Return to correct explore state based on mode
+      if (locationFloor && region && region.currentLocationId) {
+        setGameState(GameState.LOCATION_EXPLORE);
+      } else {
+        setGameState(GameState.EXPLORE);
       }
     } else {
       // Failed escape - must fight
@@ -1458,7 +1979,12 @@ const App: React.FC = () => {
       setSelectedBranchingRoom(eliteChallengeData.room);
       setShowApproachSelector(true);
       setEliteChallengeData(null);
-      setGameState(GameState.EXPLORE);
+      // Return to correct explore state based on mode
+      if (locationFloor && region && region.currentLocationId) {
+        setGameState(GameState.LOCATION_EXPLORE);
+      } else {
+        setGameState(GameState.EXPLORE);
+      }
     }
   };
 
@@ -1504,7 +2030,9 @@ const App: React.FC = () => {
   if (gameState === GameState.GAME_OVER) {
     return (
       <GameOver
-        floor={floor}
+        locationName={currentLocation?.name ?? 'Unknown Location'}
+        dangerLevel={currentDangerLevel}
+        regionName={region?.name ?? 'Unknown Region'}
         playerLevel={player?.level}
         onRetry={() => {
           setGameState(GameState.MENU);
@@ -1531,41 +2059,6 @@ const App: React.FC = () => {
       {/* Center Panel */}
       <div className="flex-1 flex flex-col relative bg-zinc-950">
         <div className="flex-1 p-6 flex flex-col items-center justify-center relative overflow-y-auto parchment-panel">
-          {gameState === GameState.EXPLORE && player && playerStats && branchingFloor && (
-            <div className="w-full h-full flex flex-col">
-              <BranchingExplorationMap
-                branchingFloor={branchingFloor}
-                player={player}
-                playerStats={playerStats}
-                onRoomSelect={handleBranchingRoomSelect}
-                onRoomEnter={handleBranchingRoomEnter}
-              />
-              <PlayerHUD
-                player={player}
-                playerStats={playerStats}
-                floor={floor}
-                biome={branchingFloor.biome}
-              />
-              {/* Combat Victory Reward Modal */}
-              {combatReward && (
-                <RewardModal
-                  expGain={combatReward.expGain}
-                  ryoGain={combatReward.ryoGain}
-                  levelUp={combatReward.levelUp}
-                  onClose={handleRewardClose}
-                />
-              )}
-
-              {/* Event Outcome Modal */}
-              {eventOutcome && (
-                <EventResultModal
-                  outcome={eventOutcome}
-                  onClose={handleEventOutcomeClose}
-                />
-              )}
-            </div>
-          )}
-
           {gameState === GameState.COMBAT && player && enemy && playerStats && enemyStats && (
             <Combat
               ref={combatRef}
@@ -1626,7 +2119,8 @@ const App: React.FC = () => {
               discountPercent={merchantDiscount}
               player={player}
               playerStats={playerStats}
-              floor={floor}
+              dangerLevel={currentDangerLevel}
+              baseDifficulty={currentBaseDifficulty}
               onBuyItem={buyItem}
               onLeave={leaveMerchant}
               onReroll={handleMerchantReroll}
@@ -1655,6 +2149,100 @@ const App: React.FC = () => {
               playerStats={playerStats}
               onLearnScroll={handleLearnScroll}
               onSkip={handleScrollDiscoverySkip}
+            />
+          )}
+
+          {/* Region Map - Shows all locations in the region */}
+          {gameState === GameState.REGION_MAP && region && player && playerStats && (
+            <div className="w-full h-full flex flex-col">
+              <RegionMap
+                region={region}
+                player={player}
+                playerStats={playerStats}
+                onLocationSelect={handleLocationSelect}
+                onEnterLocation={handleEnterLocation}
+              />
+              <PlayerHUD
+                player={player}
+                playerStats={playerStats}
+                biome={region.biome || 'Misty Shores'}
+              />
+            </div>
+          )}
+
+          {/* Location Explorer - Uses BranchingExplorationMap for location rooms */}
+          {gameState === GameState.LOCATION_EXPLORE && region && locationFloor && player && playerStats && (() => {
+            const currentLocation = getCurrentLocation(region);
+            if (!currentLocation) return null;
+            return (
+              <div className="w-full h-full flex flex-col">
+                <BranchingExplorationMap
+                  branchingFloor={locationFloor}
+                  player={player}
+                  playerStats={playerStats}
+                  onRoomSelect={handleLocationRoomSelect}
+                  onRoomEnter={handleLocationRoomEnter}
+                />
+                <PlayerHUD
+                  player={player}
+                  playerStats={playerStats}
+                  biome={currentLocation.name}
+                />
+                {/* Combat Victory Reward Modal */}
+                {combatReward && (
+                  <RewardModal
+                    expGain={combatReward.expGain}
+                    ryoGain={combatReward.ryoGain}
+                    levelUp={combatReward.levelUp}
+                    onClose={handleRewardClose}
+                  />
+                )}
+
+                {/* Event Outcome Modal */}
+                {eventOutcome && (
+                  <EventResultModal
+                    outcome={eventOutcome}
+                    onClose={handleEventOutcomeClose}
+                  />
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Intel Mission - Elite fight at Room 10 for path choice */}
+          {gameState === GameState.INTEL_MISSION && region && intelMissionEnemy && player && playerStats && (() => {
+            const currentLocation = getCurrentLocation(region);
+            if (!currentLocation?.intelMission) return null;
+            return (
+              <EliteChallenge
+                enemy={intelMissionEnemy}
+                artifact={null}
+                player={player}
+                playerStats={playerStats}
+                onFight={() => {
+                  // Start combat with intel mission enemy
+                  setEnemy(intelMissionEnemy);
+                  setTurnState('PLAYER');
+                  setIsIntelMissionCombat(true); // Flag to call handleIntelMissionVictory on victory
+                  setGameState(GameState.COMBAT);
+                }}
+                onEscape={currentLocation.intelMission.skipAllowed ? handleIntelMissionSkip : undefined}
+                customTitle="Intel Mission"
+                customDescription={currentLocation.intelMission.bossInfo || 'Defeat this enemy to learn the paths ahead.'}
+              />
+            );
+          })()}
+
+          {/* Path Choice Modal - Select next location after intel mission */}
+          {gameState === GameState.PATH_CHOICE && region && showPathChoice && (
+            <PathChoiceModal
+              region={region}
+              hasIntel={hasEarnedPathChoice(region)}
+              onChoosePath={handlePathChoice}
+              onClose={() => {
+                setShowPathChoice(false);
+                setGameState(GameState.REGION_MAP);
+              }}
             />
           )}
         </div>

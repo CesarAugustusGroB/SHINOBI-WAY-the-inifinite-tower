@@ -1,5 +1,5 @@
 import React, { createContext, useContext, ReactNode } from 'react';
-import { Player, LogEntry } from '../game/types';
+import { Player, LogEntry, Region, Location } from '../game/types';
 
 // Type for character stats (matches getPlayerFullStats return type)
 export interface PlayerStats {
@@ -18,8 +18,10 @@ export interface GameContextValue {
   player: Player | null;
   playerStats: PlayerStats | null;
 
-  // Game progression
-  floor: number;
+  // Region-based exploration state (replaces floor)
+  region: Region | null;
+  currentLocation: Location | null;
+  dangerLevel: number;  // 1-7 scale from current location
   difficulty: number;
 
   // Logging
