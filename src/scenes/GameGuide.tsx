@@ -433,7 +433,7 @@ const GameGuide: React.FC<GameGuideProps> = ({ onBack }) => {
                 </div>
               </section>
 
-              {/* Room States & Intel Mission */}
+              {/* Room States & Location Boss */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <section className="bg-white/50 p-4 rounded border border-zinc-300">
                   <h3 className="font-black uppercase tracking-widest mb-3 text-sm">Room States</h3>
@@ -450,9 +450,9 @@ const GameGuide: React.FC<GameGuideProps> = ({ onBack }) => {
 
                 <section className="bg-yellow-50/80 p-4 rounded border border-yellow-200">
                   <h3 className="font-black uppercase tracking-widest mb-2 text-sm text-yellow-900 flex items-center gap-2">
-                    <MapPin size={14} /> {HELP_TEXT.EXPLORATION.INTEL_MISSION.title}
+                    <MapPin size={14} /> {HELP_TEXT.EXPLORATION.LOCATION_BOSS.title}
                   </h3>
-                  <p className="text-xs text-yellow-800">{HELP_TEXT.EXPLORATION.INTEL_MISSION.desc}</p>
+                  <p className="text-xs text-yellow-800">{HELP_TEXT.EXPLORATION.LOCATION_BOSS.desc}</p>
                 </section>
               </div>
 

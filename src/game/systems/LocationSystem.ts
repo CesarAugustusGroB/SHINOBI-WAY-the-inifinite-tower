@@ -633,38 +633,61 @@ export function ensureGrandchildrenExist(
 // ============================================================================
 
 /**
- * Generate a complete branching floor with initial 1→2→4 structure
- * Exit room will be generated dynamically as player explores
+ * Configuration for generating a branching floor.
+ * Used by RegionSystem when creating floors from Location configs.
  */
-export function generateBranchingFloor(
-  floor: number,
-  difficulty: number,
-  player: Player
-): BranchingFloor {
-  const arc = getStoryArc(floor);
+export interface FloorGenerationConfig {
+  floor: number;
+  arc: string;
+  biome: string;
+  dangerLevel: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  wealthLevel: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  roomGenerationMode: 'static' | 'dynamic';
+  targetRoomCount: number;
+  difficulty: number;
+  initialIntel?: number;  // Defaults to 0
+  player?: Player;
+}
+
+/**
+ * Generate a branching floor from a configuration object.
+ * Used by RegionSystem when converting Locations to BranchingFloors.
+ */
+export function generateBranchingFloorFromConfig(config: FloorGenerationConfig): BranchingFloor {
+  const {
+    floor,
+    arc,
+    biome,
+    dangerLevel,
+    wealthLevel,
+    roomGenerationMode,
+    targetRoomCount,
+    difficulty,
+    initialIntel = 0,
+    player,
+  } = config;
+
   const rooms: BranchingRoom[] = [];
   const isFirstFloor = floor === 1;
 
   // Tier 0: Start room (Gateway) - ONLY on floor 1
   let startRoom: BranchingRoom | null = null;
   if (isFirstFloor) {
-    startRoom = createRoom(0, 'CENTER', null, floor, difficulty, arc.name, BranchingRoomType.START, 0, player);
+    startRoom = createRoom(0, 'CENTER', null, floor, difficulty, arc, BranchingRoomType.START, 0, player);
     startRoom.hasGeneratedChildren = true;
     rooms.push(startRoom);
   }
 
-  // Tier 1: Two rooms branching from start - depth 1 (or depth 0 if no start room)
+  // Tier 1: Two rooms branching from start
   const tier1Depth = isFirstFloor ? 1 : 0;
-  const tier1Left = createRoom(1, 'LEFT', startRoom?.id ?? null, floor, difficulty, arc.name, undefined, tier1Depth, player);
-  const tier1Right = createRoom(1, 'RIGHT', startRoom?.id ?? null, floor, difficulty, arc.name, undefined, tier1Depth, player);
+  const tier1Left = createRoom(1, 'LEFT', startRoom?.id ?? null, floor, difficulty, arc, undefined, tier1Depth, player);
+  const tier1Right = createRoom(1, 'RIGHT', startRoom?.id ?? null, floor, difficulty, arc, undefined, tier1Depth, player);
 
-  // Mark tier 1 rooms as accessible
   tier1Left.isAccessible = true;
   tier1Right.isAccessible = true;
   tier1Left.hasGeneratedChildren = true;
   tier1Right.hasGeneratedChildren = true;
 
-  // On floors 2+, tier 1 rooms are the starting point (no parent, player chooses one)
   if (!isFirstFloor) {
     tier1Left.isCurrent = false;
     tier1Right.isCurrent = false;
@@ -672,38 +695,34 @@ export function generateBranchingFloor(
 
   rooms.push(tier1Left, tier1Right);
 
-  // Connect tier 0 to tier 1 (only if start room exists)
   if (startRoom) {
     startRoom.childIds = [tier1Left.id, tier1Right.id];
   }
 
-  // Tier 2: Four rooms (2 from each tier 1 room)
+  // Tier 2: Four rooms
   const tier2Depth = isFirstFloor ? 2 : 1;
   const tier2Rooms: BranchingRoom[] = [];
 
-  // Left branch children
-  const tier2LeftOuter = createRoom(2, 'LEFT_OUTER', tier1Left.id, floor, difficulty, arc.name, undefined, tier2Depth, player);
-  const tier2LeftInner = createRoom(2, 'LEFT_INNER', tier1Left.id, floor, difficulty, arc.name, undefined, tier2Depth, player);
+  const tier2LeftOuter = createRoom(2, 'LEFT_OUTER', tier1Left.id, floor, difficulty, arc, undefined, tier2Depth, player);
+  const tier2LeftInner = createRoom(2, 'LEFT_INNER', tier1Left.id, floor, difficulty, arc, undefined, tier2Depth, player);
   tier2Rooms.push(tier2LeftOuter, tier2LeftInner);
   tier1Left.childIds = [tier2LeftOuter.id, tier2LeftInner.id];
 
-  // Right branch children
-  const tier2RightInner = createRoom(2, 'RIGHT_INNER', tier1Right.id, floor, difficulty, arc.name, undefined, tier2Depth, player);
-  const tier2RightOuter = createRoom(2, 'RIGHT_OUTER', tier1Right.id, floor, difficulty, arc.name, undefined, tier2Depth, player);
+  const tier2RightInner = createRoom(2, 'RIGHT_INNER', tier1Right.id, floor, difficulty, arc, undefined, tier2Depth, player);
+  const tier2RightOuter = createRoom(2, 'RIGHT_OUTER', tier1Right.id, floor, difficulty, arc, undefined, tier2Depth, player);
   tier2Rooms.push(tier2RightInner, tier2RightOuter);
   tier1Right.childIds = [tier2RightInner.id, tier2RightOuter.id];
 
   rooms.push(...tier2Rooms);
 
-  // Determine starting room and cleared count
   const currentRoomId = isFirstFloor ? startRoom!.id : tier1Left.id;
   const clearedRooms = isFirstFloor ? 1 : 0;
 
   let generatedFloor: BranchingFloor = {
     id: `floor-${floor}-${Date.now()}`,
     floor,
-    arc: arc.name,
-    biome: arc.biome,
+    arc,
+    biome,
     rooms,
     currentRoomId,
     exitRoomId: null,
@@ -711,16 +730,46 @@ export function generateBranchingFloor(
     clearedRooms,
     roomsVisited: isFirstFloor ? 1 : 0,
     difficulty,
+    currentIntel: initialIntel,
+    intelGainedThisLocation: 0,
+    wealthLevel,
+    roomGenerationMode,
+    targetRoomCount,
+    minRoomsBeforeExit: getMinRoomsBeforeExit(floor),
+    dangerLevel,
   };
 
-  // On Floor 2+, player starts at tier1, so we need to pre-generate tier3 rooms
-  // (normally ensureGrandchildrenExist is called when moving to a room, but
-  // since player starts here, we need to do it during generation)
   if (!isFirstFloor) {
     generatedFloor = ensureGrandchildrenExist(generatedFloor, currentRoomId, player);
   }
 
   return generatedFloor;
+}
+
+/**
+ * Generate a complete branching floor with initial 1→2→4 structure.
+ * Convenience wrapper around generateBranchingFloorFromConfig.
+ */
+export function generateBranchingFloor(
+  floor: number,
+  difficulty: number,
+  player: Player
+): BranchingFloor {
+  const arc = getStoryArc(floor);
+  const dangerLevel = floorToDangerLevel(floor) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+  return generateBranchingFloorFromConfig({
+    floor,
+    arc: arc.name,
+    biome: arc.biome,
+    dangerLevel,
+    wealthLevel: 4, // Default medium wealth
+    roomGenerationMode: 'dynamic',
+    targetRoomCount: 10,
+    difficulty,
+    initialIntel: floor === 1 ? 50 : 0, // First floor starts at 50%
+    player,
+  });
 }
 
 // ============================================================================
@@ -946,4 +995,107 @@ export function getCombatSetup(room: BranchingRoom): {
     modifiers: combat?.modifiers ?? [CombatModifierType.NONE],
     terrain: room.terrain,
   };
+}
+
+// ============================================================================
+// INTEL SYSTEM
+// ============================================================================
+
+/**
+ * Intel gain constants - how much intel is gained from each source
+ */
+export const INTEL_GAIN = {
+  COMBAT: 5,           // Small gain from combat encounters
+  EVENT: 15,           // Moderate gain from story events
+  INFO_GATHERING: 25,  // Large gain from info gathering rooms
+  TRAINING: 10,        // Small gain from training (overhearing others)
+};
+
+/**
+ * Add intel to the current floor.
+ * Intel is capped at 100%.
+ */
+export function addIntel(floor: BranchingFloor, amount: number): BranchingFloor {
+  const newIntel = Math.min(100, floor.currentIntel + amount);
+  return {
+    ...floor,
+    currentIntel: newIntel,
+    intelGainedThisLocation: floor.intelGainedThisLocation + amount,
+  };
+}
+
+/**
+ * Evaluate intel percentage to determine card draw and reveal.
+ * - 0-24%: 1 card, 0 revealed (mystery)
+ * - 25-49%: 2 cards, 1 revealed
+ * - 50-74%: 3 cards, 2 revealed
+ * - 75-100%: 3 cards, all revealed
+ */
+export function evaluateIntel(intel: number): { cardCount: number; revealedCount: number } {
+  if (intel < 25) {
+    return { cardCount: 1, revealedCount: 0 };
+  } else if (intel < 50) {
+    return { cardCount: 2, revealedCount: 1 };
+  } else if (intel < 75) {
+    return { cardCount: 3, revealedCount: 2 };
+  } else {
+    return { cardCount: 3, revealedCount: 3 };
+  }
+}
+
+// ============================================================================
+// WEALTH SYSTEM
+// ============================================================================
+
+/**
+ * Get wealth multiplier for ryo calculations.
+ * Wealth level 1-7 maps to 0.5x-1.5x multiplier.
+ * Formula: 0.33 + (wealthLevel * 0.167)
+ */
+export function getWealthMultiplier(wealthLevel: number): number {
+  return 0.33 + (wealthLevel * 0.167);
+}
+
+/**
+ * Apply wealth multiplier to base ryo amount.
+ */
+export function applyWealthToRyo(baseRyo: number, wealthLevel: number): number {
+  return Math.floor(baseRyo * getWealthMultiplier(wealthLevel));
+}
+
+// ============================================================================
+// REWARD CALCULATIONS
+// ============================================================================
+
+/**
+ * Convert danger level to effective floor for scaling calculations.
+ * This bridges the danger-based system with floor-based reward formulas.
+ *
+ * Formula: 10 + (dangerLevel * 2) + floor(baseDifficulty / 20)
+ * - Danger 1, baseDifficulty 20 → Floor 13
+ * - Danger 7, baseDifficulty 40 → Floor 26
+ */
+export function dangerToFloor(dangerLevel: number, baseDifficulty: number): number {
+  return 10 + (dangerLevel * 2) + Math.floor(baseDifficulty / 20);
+}
+
+/**
+ * Calculate XP gain for completing a room/location.
+ * Uses the floor's danger level and difficulty for scaling.
+ * Formula: 25 + (effectiveFloor * 5)
+ */
+export function calculateLocationXP(floor: BranchingFloor): number {
+  const effectiveFloor = dangerToFloor(floor.dangerLevel, floor.difficulty);
+  return 25 + (effectiveFloor * 5);
+}
+
+/**
+ * Calculate Ryo gain for completing a room/location.
+ * Applies wealth multiplier to base ryo.
+ * Formula: ((effectiveFloor * 10) + random(0-16)) * wealthMultiplier
+ */
+export function calculateLocationRyo(floor: BranchingFloor): number {
+  const effectiveFloor = dangerToFloor(floor.dangerLevel, floor.difficulty);
+  const baseRyo = (effectiveFloor * 10) + Math.floor(Math.random() * 17);
+  return applyWealthToRyo(baseRyo, floor.wealthLevel);
 }

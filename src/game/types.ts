@@ -18,9 +18,7 @@ export enum GameState {
   GUIDE,
   // Region exploration system states
   REGION_MAP,       // Region overview showing all locations
-  LOCATION_EXPLORE, // Inside a location (10-room diamond exploration)
-  INTEL_MISSION,    // Elite fight for path choice at Room 10
-  PATH_CHOICE       // Choosing next location after intel mission
+  LOCATION_EXPLORE  // Inside a location (10-room diamond exploration)
 }
 
 export enum ElementType {
@@ -1147,6 +1145,19 @@ export interface BranchingFloor {
   // For dynamic exit generation
   roomsVisited: number;       // Track total rooms visited for exit probability
   difficulty: number;         // Store difficulty for generating new rooms
+
+  // Intel system (0-100%)
+  currentIntel: number;
+  intelGainedThisLocation: number;
+
+  // Wealth system (1-7 scale)
+  wealthLevel: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+  // Dynamic generation control
+  roomGenerationMode: 'static' | 'dynamic';
+  targetRoomCount: number;
+  minRoomsBeforeExit: number;
+  dangerLevel: 1 | 2 | 3 | 4 | 5 | 6 | 7;
 }
 
 // Room type configuration for generation
@@ -1231,43 +1242,10 @@ export interface UnlockCondition {
 }
 
 // ============================================================================
-// INTEL MISSION SYSTEM
-// ============================================================================
-// Room 10 of each location contains an intel mission (elite fight)
-// Winning grants path choice; skipping means random destination
-
-export interface IntelReward {
-  revealedPaths: PathRevealInfo[];
-  secretHint?: string;           // Hint about secret paths
-  loopHint?: string;             // Hint about loop paths
-  bossInfo?: string;             // Info about the region boss
-}
-
-export interface PathRevealInfo {
-  pathId: string;
-  destinationName: string;
-  destinationIcon: LocationIcon;
-  dangerLevel: number;
-  hint: string;
-}
-
-export interface IntelMission {
-  elite?: Enemy;                 // Elite enemy for intel mission
-  boss?: Enemy;                  // Boss enemy (for boss locations)
-  flavorText: string;            // Narrative description
-  skipAllowed: boolean;          // Boss locations cannot be skipped
-  completed: boolean;
-  skipped: boolean;
-  intelReward: IntelReward | null;
-  lootReward?: Item[];           // Additional loot for completing
-  bossInfo?: string;             // Info about the enemy or boss
-}
-
-// ============================================================================
 // LOCATION
 // ============================================================================
 // Each location contains 10 rooms in a diamond pattern (1→2→4→2→1)
-// Player visits 5 rooms per location before reaching Room 10 (intel mission)
+// Player visits 5 rooms per location before reaching Room 10 (elite/boss fight)
 
 export interface LocationFlags {
   isEntry: boolean;              // Starting location for region
@@ -1323,9 +1301,6 @@ export interface Location {
   atmosphereEvents: string[];    // Random ambient events
   tiedStoryEvents?: string[];    // Story events tied to this location
 
-  // Intel mission (Room 10)
-  intelMission: IntelMission | null;
-
   // Navigation
   forwardPaths: string[];        // Path IDs for forward progression
   loopPaths?: string[];          // Path IDs for backtracking
@@ -1343,6 +1318,10 @@ export interface Location {
 
   // Wealth system (auto-generated from LocationType)
   wealthLevel: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+  // Room generation config (optional, for LocationSystem integration)
+  roomGenerationMode?: 'static' | 'dynamic';
+  targetRoomCount?: number;
 }
 
 // ============================================================================
@@ -1378,10 +1357,6 @@ export interface Region {
   locationsCompleted: number;
   totalLocations: number;
   visitedLocationIds: string[];
-
-  // Intel tracking
-  hasIntel: boolean;             // Does player have path choice?
-  revealedPathIds: string[];     // Paths revealed by intel
   discoveredSecretIds: string[]; // Secret locations discovered
 
   // State
@@ -1419,7 +1394,6 @@ export interface LocationConfig {
   secretPaths?: PathConfig[];
   flags: LocationFlags;
   unlockCondition?: UnlockCondition;
-  intelMissionConfig: IntelMissionConfig;
 }
 
 export interface PathConfig {
@@ -1428,17 +1402,6 @@ export interface PathConfig {
   pathType: PathType;
   description: string;
   dangerHint?: string;
-}
-
-export interface IntelMissionConfig {
-  eliteId?: string;              // Elite enemy template ID
-  bossId?: string;               // Boss enemy template ID
-  flavorText: string;
-  skipAllowed: boolean;
-  revealedPathIds: string[];     // Paths revealed on completion
-  secretHint?: string;
-  loopHint?: string;
-  bossInfo?: string;             // Info about the region boss
 }
 
 export interface RegionConfig {
@@ -1461,11 +1424,11 @@ export interface RegionConfig {
 // Replaces node-map with 3-card selection from a weighted deck
 
 /**
- * Global intel pool - accumulates from intel missions
+ * Global intel pool - accumulates from exploration activities
  * Higher intel reveals more info on location cards
  */
 export interface IntelPool {
-  totalIntel: number;      // Accumulated from intel missions
+  totalIntel: number;      // Accumulated from exploration
   maxIntel: number;        // Cap (default: 10)
 }
 

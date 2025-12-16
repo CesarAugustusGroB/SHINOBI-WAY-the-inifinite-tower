@@ -49,15 +49,12 @@ import {
   enterLocation,
   enterLocationFromCard,
   getCurrentLocation,
-  completeIntelMission,
-  skipIntelMission,
-  hasEarnedPathChoice,
   choosePath,
   getRandomPath,
-  getIntelMissionEnemy,
   isRegionComplete,
   locationToBranchingFloor,
-  syncFloorToRegion,
+  markLocationComplete,
+  exitLocation,
   dangerToFloor,
   calculateLocationXP,
   calculateLocationRyo,
@@ -68,7 +65,6 @@ import {
   createInitialIntelPool,
   addIntel,
   updateDeckAfterCompletion,
-  prepareLocationForRevisit,
   // Wealth and intel system functions
   INTEL_GAIN,
   evaluateIntel,
@@ -159,9 +155,6 @@ const App: React.FC = () => {
   // --- Region Exploration State ---
   const [region, setRegion] = useState<Region | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
-  // showPathChoice removed - cards now replace path selection modal
-  const [intelMissionEnemy, setIntelMissionEnemy] = useState<Enemy | null>(null);
-  const [isIntelMissionCombat, setIsIntelMissionCombat] = useState(false);
   const [locationFloor, setLocationFloor] = useState<import('./game/types').BranchingFloor | null>(null);
 
   // --- Card-Based Location Selection State ---
@@ -241,14 +234,6 @@ const App: React.FC = () => {
 
     addLog("Enemy Defeated!", 'gain');
 
-    // Check if this was an intel mission combat - delegate to handleIntelMissionVictory
-    if (isIntelMissionCombat) {
-      setIsIntelMissionCombat(false);
-      // Intel mission victory is handled separately
-      handleIntelMissionVictory();
-      return;
-    }
-
     // Determine if this was an elite challenge (check pendingArtifact)
     const wasEliteChallenge = pendingArtifact !== null;
 
@@ -306,10 +291,9 @@ const App: React.FC = () => {
         const updatedRoom = updatedFloor.rooms.find(r => r.id === combatRoom.id);
         if (updatedRoom?.isCleared && updatedRoom.isExit) {
           addLog('Location cleared! Intel mission awaits...', 'gain');
+          // Mark location as complete in region
+          setRegion(markLocationComplete(region));
         }
-
-        // Sync to region
-        setRegion(syncFloorToRegion(region, updatedFloor));
 
         return updatedFloor;
       });
@@ -333,7 +317,7 @@ const App: React.FC = () => {
     const ryoGain = applyWealthToRyo(baseRyo, locationWealthLevel);
 
     // Add intel from combat victory (+5%)
-    if (region && !isIntelMissionCombat) {
+    if (region) {
       const intelGain = INTEL_GAIN.COMBAT_VICTORY;
       setCurrentIntel(prev => Math.min(100, prev + intelGain));
       logIntelGain('Combat', intelGain, Math.min(100, currentIntel + intelGain));
@@ -383,7 +367,7 @@ const App: React.FC = () => {
         setGameState(GameState.EXPLORE);
       }
     }, 100);
-  }, [branchingFloor, region, currentDangerLevel, currentBaseDifficulty, addLog, pendingArtifact, isIntelMissionCombat]);
+  }, [branchingFloor, region, currentDangerLevel, currentBaseDifficulty, addLog, pendingArtifact]);
 
   // Combat hook - manages enemy, turns, and combat logic
   const {
@@ -852,7 +836,6 @@ const App: React.FC = () => {
           logActivityComplete(currentRoom.id, 'event');
           const updatedFloor = completeActivity(locationFloor, currentRoom.id, 'event');
           setLocationFloor(updatedFloor);
-          setRegion(syncFloorToRegion(region, updatedFloor));
         }
       } else if (branchingFloor) {
         const currentRoom = getCurrentRoom(branchingFloor);
@@ -909,7 +892,6 @@ const App: React.FC = () => {
         logActivityComplete(currentRoom.id, 'event');
         const updatedFloor = completeActivity(locationFloor, currentRoom.id, 'event');
         setLocationFloor(updatedFloor);
-        setRegion(syncFloorToRegion(region, updatedFloor));
 
         // Add intel from event completion (average ~15%)
         const eventIntelGain = INTEL_GAIN.EVENT_DEFAULT;
@@ -941,6 +923,16 @@ const App: React.FC = () => {
           return;
         }
       }
+
+      // Check if location is completed (exit room cleared)
+      const location = getCurrentLocation(region);
+      if (location?.isCompleted) {
+        // Location complete - trigger return to region map
+        setSelectedBranchingRoom(null);
+        setTimeout(() => handleLeaveLocation(), 100);
+        return;
+      }
+
       setSelectedBranchingRoom(null);
       setGameState(GameState.LOCATION_EXPLORE);
     } else {
@@ -975,26 +967,11 @@ const App: React.FC = () => {
     setCurrentIntel(0);
     logIntelReset(selectedCard.location.name);
 
-    let locationToEnter = selectedCard.location;
-
-    // If revisiting, strip one-time content
-    if (selectedCard.isRevisit) {
-      locationToEnter = prepareLocationForRevisit(locationToEnter);
-      // Update the location in region with revisit version
-      const updatedLocations = region.locations.map(loc =>
-        loc.id === locationToEnter.id ? locationToEnter : loc
-      );
-      const regionWithRevisit = { ...region, locations: updatedLocations };
-      setRegion(regionWithRevisit);
-    }
+    const locationToEnter = selectedCard.location;
 
     logLocationEnter(locationToEnter.id, locationToEnter.name, locationToEnter.dangerLevel);
-    const updatedRegion = enterLocationFromCard(
-      selectedCard.isRevisit ? { ...region, locations: region.locations.map(loc =>
-        loc.id === locationToEnter.id ? locationToEnter : loc
-      )} : region,
-      locationToEnter.id
-    );
+    // Rooms are generated dynamically by locationToBranchingFloor, so no need to prepare for revisit
+    const updatedRegion = enterLocationFromCard(region, locationToEnter.id);
     setRegion(updatedRegion);
     setSelectedLocation(locationToEnter);
 
@@ -1020,22 +997,9 @@ const App: React.FC = () => {
     const updatedFloor = moveToRoom(locationFloor, room.id, player);
     setLocationFloor(updatedFloor);
 
-    // Sync changes back to region
-    const updatedRegion = syncFloorToRegion(region, updatedFloor);
-    setRegion(updatedRegion);
-
     // Get the current activity for the room
     const currentRoom = updatedFloor.rooms.find(r => r.id === room.id);
     if (!currentRoom) return;
-
-    // Check if this is Room 10 (intel mission room)
-    if (currentRoom.isExit && currentRoom.depth === 10) {
-      const location = getCurrentLocation(updatedRegion);
-      if (location?.intelMission && !location.intelMission.completed && !location.intelMission.skipped) {
-        handleIntelMission();
-        return;
-      }
-    }
 
     const activity = getCurrentActivity(currentRoom);
     logRoomEnter(room.id, room.name, activity);
@@ -1101,7 +1065,6 @@ const App: React.FC = () => {
 
           const floorAfterRest = completeActivity(updatedFloor, room.id, 'rest');
           setLocationFloor(floorAfterRest);
-          setRegion(syncFloorToRegion(updatedRegion, floorAfterRest));
           logActivityComplete(currentRoom.id, 'rest');
         }
         break;
@@ -1159,7 +1122,6 @@ const App: React.FC = () => {
           }
           const floorAfterTreasure = completeActivity(updatedFloor, room.id, 'treasure');
           setLocationFloor(floorAfterTreasure);
-          setRegion(syncFloorToRegion(updatedRegion, floorAfterTreasure));
           logActivityComplete(currentRoom.id, 'treasure');
           setGameState(GameState.LOOT);
         }
@@ -1176,112 +1138,12 @@ const App: React.FC = () => {
           // Mark activity complete
           const floorAfterInfo = completeActivity(updatedFloor, room.id, 'infoGathering');
           setLocationFloor(floorAfterInfo);
-          setRegion(syncFloorToRegion(updatedRegion, floorAfterInfo));
           logActivityComplete(currentRoom.id, 'infoGathering');
         }
         break;
     }
   };
 
-
-  // Handle starting the intel mission (Room 10)
-  const handleIntelMission = () => {
-    if (!region) return;
-    const location = getCurrentLocation(region);
-    const enemy = getIntelMissionEnemy(region);
-    if (enemy) {
-      logIntelMissionStart(location?.name || 'Unknown', enemy.name);
-      setIntelMissionEnemy(enemy);
-      setEnemy(enemy);
-      setGameState(GameState.INTEL_MISSION);
-    }
-  };
-
-  // Handle completing the intel mission (victory)
-  const handleIntelMissionVictory = () => {
-    if (!region || !player || !locationFloor || !locationDeck) return;
-    const location = getCurrentLocation(region);
-    logIntelMissionVictory(location?.name || 'Unknown');
-    let updatedRegion = completeIntelMission(region);
-
-    // Also mark Room 10 (intel room) as cleared using locationFloor
-    const room10 = locationFloor.rooms.find(r => r.isExit);
-    if (room10) {
-      logActivityComplete(room10.id, 'combat');
-      const updatedFloor = completeActivity(locationFloor, room10.id, 'combat');
-      setLocationFloor(updatedFloor);
-      updatedRegion = syncFloorToRegion(updatedRegion, updatedFloor);
-    }
-
-    setRegion(updatedRegion);
-    setIntelMissionEnemy(null);
-    setEnemy(null);
-
-    // Add intel to pool and update deck
-    const updatedIntelPool = addIntel(intelPool, 1);
-    setIntelPool(updatedIntelPool);
-
-    // Update deck with completed location
-    if (location) {
-      const updatedDeck = updateDeckAfterCompletion(locationDeck, location.id);
-      setLocationDeck(updatedDeck);
-
-      // Use currentIntel to determine card count and reveal status
-      const { cardCount, revealedCount } = evaluateIntel(currentIntel);
-
-      // Draw cards and apply intel-based reveal levels
-      const rawCards = drawLocationCards(updatedRegion, updatedDeck, updatedIntelPool, cardCount);
-      const newCards = rawCards.map((card, index) => ({
-        ...card,
-        intelLevel: index < revealedCount ? IntelRevealLevel.FULL : IntelRevealLevel.NONE,
-      }));
-      setDrawnCards(newCards);
-      setSelectedCardIndex(null);
-
-      addLog(`Intel gathered: ${currentIntel}% - ${cardCount} path${cardCount > 1 ? 's' : ''} revealed, ${revealedCount} with full intel.`, 'info');
-    }
-
-    addLog('Intel acquired! Choose your next destination.', 'gain');
-
-    // Check if this was the boss (region complete)
-    if (isRegionComplete(updatedRegion)) {
-      addLog('The region boss has been defeated! A new path opens...', 'gain');
-      // TODO: Transition to next region or back to floor system
-    }
-
-    // Go directly to region map with new cards (no path choice needed - cards are the choice)
-    setGameState(GameState.REGION_MAP);
-  };
-
-  // Handle skipping the intel mission
-  const handleIntelMissionSkip = () => {
-    if (!region || !locationDeck) return;
-    const location = getCurrentLocation(region);
-    if (!location?.intelMission?.skipAllowed) return;
-
-    logIntelMissionSkip(location.name);
-    const updatedRegion = skipIntelMission(region);
-    setRegion(updatedRegion);
-    addLog('You avoided the fight. Less intel, but you can still choose from available destinations.', 'danger');
-
-    // Update deck with completed location (no intel added)
-    const updatedDeck = updateDeckAfterCompletion(locationDeck, location.id);
-    setLocationDeck(updatedDeck);
-
-    // Use currentIntel to determine card count and reveal status (skipping gets current intel)
-    const { cardCount, revealedCount } = evaluateIntel(currentIntel);
-
-    // Draw cards and apply intel-based reveal levels
-    const rawCards = drawLocationCards(updatedRegion, updatedDeck, intelPool, cardCount);
-    const newCards = rawCards.map((card, index) => ({
-      ...card,
-      intelLevel: index < revealedCount ? IntelRevealLevel.FULL : IntelRevealLevel.NONE,
-    }));
-    setDrawnCards(newCards);
-    setSelectedCardIndex(null);
-
-    setGameState(GameState.REGION_MAP);
-  };
 
   // Handle path choice (legacy - kept for compatibility but cards are now the primary choice)
   const handlePathChoice = (path: LocationPath) => {
@@ -1312,10 +1174,9 @@ const App: React.FC = () => {
     if (!region || !locationDeck) return;
     const location = getCurrentLocation(region);
 
-    if (location?.isCompleted || location?.intelMission?.completed || location?.intelMission?.skipped) {
+    if (location?.isCompleted) {
       // Location complete - draw new cards and return to region map
-      const earnedIntel = hasEarnedPathChoice(region);
-      logLocationLeave(location.id, location.name, earnedIntel ? 'with intel' : 'completed');
+      logLocationLeave(location.id, location.name, 'completed');
 
       // Use currentIntel to determine card count and reveal status
       const { cardCount, revealedCount } = evaluateIntel(currentIntel);
@@ -1329,11 +1190,7 @@ const App: React.FC = () => {
       setDrawnCards(newCards);
       setSelectedCardIndex(null);
 
-      addLog(earnedIntel
-        ? 'Intel acquired! Choose your next destination.'
-        : 'Location cleared. Choose your next destination.',
-        earnedIntel ? 'gain' : 'info'
-      );
+      addLog('Location cleared. Choose your next destination.', 'info');
       setGameState(GameState.REGION_MAP);
     } else {
       // Can't leave incomplete location
@@ -1834,7 +1691,6 @@ const App: React.FC = () => {
       logActivityComplete(selectedBranchingRoom.id, 'merchant');
       const updatedFloor = completeActivity(locationFloor, selectedBranchingRoom.id, 'merchant');
       setLocationFloor(updatedFloor);
-      setRegion(syncFloorToRegion(region, updatedFloor));
     }
 
     logStateChange('MERCHANT', 'EXPLORE', 'left merchant');
@@ -1946,7 +1802,6 @@ const App: React.FC = () => {
     if (locationFloor && region) {
       const updatedFloor = completeActivity(locationFloor, selectedBranchingRoom.id, 'training');
       setLocationFloor(updatedFloor);
-      setRegion(syncFloorToRegion(region, updatedFloor));
     }
 
     setTrainingData(null);
@@ -1973,7 +1828,6 @@ const App: React.FC = () => {
       logActivityComplete(selectedBranchingRoom.id, 'training');
       const updatedFloor = completeActivity(locationFloor, selectedBranchingRoom.id, 'training');
       setLocationFloor(updatedFloor);
-      setRegion(syncFloorToRegion(region, updatedFloor));
     }
 
     logStateChange('TRAINING', 'EXPLORE', 'training skipped');
@@ -2064,7 +1918,6 @@ const App: React.FC = () => {
     if (locationFloor && region) {
       const updatedFloor = completeActivity(locationFloor, selectedBranchingRoom.id, 'scrollDiscovery');
       setLocationFloor(updatedFloor);
-      setRegion(syncFloorToRegion(region, updatedFloor));
     }
 
     setScrollDiscoveryData(null);
@@ -2090,7 +1943,6 @@ const App: React.FC = () => {
       logActivityComplete(selectedBranchingRoom.id, 'scrollDiscovery');
       const updatedFloor = completeActivity(locationFloor, selectedBranchingRoom.id, 'scrollDiscovery');
       setLocationFloor(updatedFloor);
-      setRegion(syncFloorToRegion(region, updatedFloor));
     }
 
     logStateChange('SCROLL_DISCOVERY', 'EXPLORE', 'scroll skipped');
@@ -2144,7 +1996,6 @@ const App: React.FC = () => {
       if (locationFloor && region) {
         const updatedFloor = completeActivity(locationFloor, eliteChallengeData.room.id, 'eliteChallenge');
         setLocationFloor(updatedFloor);
-        setRegion(syncFloorToRegion(region, updatedFloor));
         addLog(result.message, 'info');
         setEliteChallengeData(null);
         setGameState(GameState.LOCATION_EXPLORE);
@@ -2398,30 +2249,6 @@ const App: React.FC = () => {
                   />
                 )}
               </div>
-            );
-          })()}
-
-          {/* Intel Mission - Elite fight at Room 10 for path choice */}
-          {gameState === GameState.INTEL_MISSION && region && intelMissionEnemy && player && playerStats && (() => {
-            const currentLocation = getCurrentLocation(region);
-            if (!currentLocation?.intelMission) return null;
-            return (
-              <EliteChallenge
-                enemy={intelMissionEnemy}
-                artifact={null}
-                player={player}
-                playerStats={playerStats}
-                onFight={() => {
-                  // Start combat with intel mission enemy
-                  setEnemy(intelMissionEnemy);
-                  setTurnState('PLAYER');
-                  setIsIntelMissionCombat(true); // Flag to call handleIntelMissionVictory on victory
-                  setGameState(GameState.COMBAT);
-                }}
-                onEscape={currentLocation.intelMission.skipAllowed ? handleIntelMissionSkip : undefined}
-                customTitle="Intel Mission"
-                customDescription={currentLocation.intelMission.bossInfo || 'Defeat this enemy to learn the paths ahead.'}
-              />
             );
           })()}
 

@@ -59,13 +59,6 @@ const THE_DOCKS: LocationConfig = {
     hasRest: true,
     hasTraining: false,
   },
-  intelMissionConfig: {
-    eliteId: 'dock_enforcer',
-    flavorText: 'A scarred enforcer blocks the road out of town. "No one leaves without paying tribute to Gato."',
-    skipAllowed: true,
-    revealedPathIds: ['docks_to_forest', 'docks_to_beach'],
-    secretHint: 'The enforcer mentions a hidden cove used by smugglers...',
-  },
 };
 
 const MISTY_BEACH: LocationConfig = {
@@ -101,13 +94,6 @@ const MISTY_BEACH: LocationConfig = {
     hasRest: true,
     hasTraining: false,
   },
-  intelMissionConfig: {
-    eliteId: 'beach_guardian',
-    flavorText: 'The mist parts to reveal a shimmering figure. The Sea Spirit guards these shores.',
-    skipAllowed: true,
-    revealedPathIds: ['beach_to_forest'],
-    secretHint: 'Legends speak of a sunken ship visible at low tide...',
-  },
 };
 
 const COASTAL_FOREST: LocationConfig = {
@@ -140,13 +126,6 @@ const COASTAL_FOREST: LocationConfig = {
     hasMerchant: false,
     hasRest: false,
     hasTraining: true,
-  },
-  intelMissionConfig: {
-    eliteId: 'forest_hunter',
-    flavorText: 'A Demon Brothers scout blocks your path. "You won\'t be reporting back to the Leaf."',
-    skipAllowed: true,
-    revealedPathIds: ['forest_to_village', 'forest_to_cave'],
-    loopHint: 'There\'s a faster route back to the docks...',
   },
 };
 
@@ -184,14 +163,6 @@ const SMUGGLERS_CAVE: LocationConfig = {
     hasRest: false,
     hasTraining: false,
   },
-  intelMissionConfig: {
-    eliteId: 'cave_boss',
-    flavorText: 'The Smuggler King sits on a throne of stolen goods. "You\'ve seen too much to leave alive."',
-    skipAllowed: true,
-    revealedPathIds: ['cave_to_camp', 'cave_to_village'],
-    secretHint: 'An underwater passage leads to a hidden cove...',
-    loopHint: 'There\'s a way back to the beach...',
-  },
 };
 
 const FISHING_VILLAGE: LocationConfig = {
@@ -219,12 +190,6 @@ const FISHING_VILLAGE: LocationConfig = {
     hasMerchant: true,
     hasRest: true,
     hasTraining: false,
-  },
-  intelMissionConfig: {
-    eliteId: 'village_defender',
-    flavorText: 'A retired shinobi stands guard. "Prove you\'re not one of Gato\'s men."',
-    skipAllowed: true,
-    revealedPathIds: ['village_to_bridge', 'village_to_camp'],
   },
 };
 
@@ -255,13 +220,6 @@ const RIVERSIDE_CAMP: LocationConfig = {
     hasMerchant: false,
     hasRest: true,
     hasTraining: true,
-  },
-  intelMissionConfig: {
-    eliteId: 'camp_guardian',
-    flavorText: 'A grizzled mercenary eyes you warily. "Only the strong survive on this road."',
-    skipAllowed: true,
-    revealedPathIds: ['camp_to_bridge', 'camp_to_outpost'],
-    loopHint: 'You could retreat through the forest...',
   },
 };
 
@@ -297,13 +255,6 @@ const SUNKEN_SHIP: LocationConfig = {
     hasTraining: false,
   },
   unlockCondition: { type: 'intel', requirement: 'sunken_ship_discovered' },
-  intelMissionConfig: {
-    eliteId: 'ship_captain',
-    flavorText: 'The ghostly captain guards his lost treasure eternally. "None shall take my gold!"',
-    skipAllowed: true,
-    revealedPathIds: ['ship_to_forest'],
-    secretHint: 'The captain whispers of a drowned shrine to dark gods...',
-  },
 };
 
 const BRIDGE_CONSTRUCTION: LocationConfig = {
@@ -334,13 +285,6 @@ const BRIDGE_CONSTRUCTION: LocationConfig = {
     hasMerchant: true,
     hasRest: false,
     hasTraining: true,
-  },
-  intelMissionConfig: {
-    eliteId: 'bridge_guardian',
-    flavorText: 'A massive foreman blocks the way. "This bridge ain\'t for leaf ninja."',
-    skipAllowed: true,
-    revealedPathIds: ['bridge_to_compound', 'bridge_to_manor'],
-    bossInfo: 'Gato awaits in his compound with his army...',
   },
 };
 
@@ -375,13 +319,6 @@ const BANDIT_OUTPOST: LocationConfig = {
     hasRest: false,
     hasTraining: false,
   },
-  intelMissionConfig: {
-    eliteId: 'outpost_commander',
-    flavorText: 'The Bandit Captain draws his blade. "Gato pays well for ninja heads."',
-    skipAllowed: true,
-    revealedPathIds: ['outpost_to_compound', 'outpost_to_manor'],
-    loopHint: 'You could retreat to the riverside camp...',
-  },
 };
 
 const ABANDONED_MANOR: LocationConfig = {
@@ -407,12 +344,6 @@ const ABANDONED_MANOR: LocationConfig = {
     hasMerchant: false,
     hasRest: true,
     hasTraining: false,
-  },
-  intelMissionConfig: {
-    eliteId: 'manor_spirit',
-    flavorText: 'A Vengeful Ghost rises from the shadows. "You dare disturb my eternal rest?"',
-    skipAllowed: true,
-    revealedPathIds: ['manor_to_compound'],
   },
 };
 
@@ -447,13 +378,6 @@ const HIDDEN_COVE: LocationConfig = {
     hasTraining: false,
   },
   unlockCondition: { type: 'intel', requirement: 'hidden_cove_discovered' },
-  intelMissionConfig: {
-    eliteId: 'cove_priestess',
-    flavorText: 'A Sea Priestess bars your way. "These waters are sacred. Turn back or drown."',
-    skipAllowed: true,
-    revealedPathIds: ['cove_to_outpost'],
-    secretHint: 'An underwater passage leads to an ancient shrine...',
-  },
 };
 
 const DROWNED_SHRINE: LocationConfig = {
@@ -485,13 +409,6 @@ const DROWNED_SHRINE: LocationConfig = {
     hasTraining: true,
   },
   unlockCondition: { type: 'intel', requirement: 'drowned_shrine_discovered' },
-  intelMissionConfig: {
-    eliteId: 'shrine_demon',
-    flavorText: 'A Drowned Demon rises from the depths. "Mortals... your souls will fuel my return!"',
-    skipAllowed: true,
-    revealedPathIds: ['shrine_to_compound'],
-    bossInfo: 'This path leads directly behind Gato\'s defenses...',
-  },
 };
 
 const GATOS_COMPOUND: LocationConfig = {
@@ -519,12 +436,6 @@ const GATOS_COMPOUND: LocationConfig = {
     hasMerchant: false,
     hasRest: false,
     hasTraining: false,
-  },
-  intelMissionConfig: {
-    bossId: 'gato',
-    flavorText: 'Gato sits on his throne of stolen wealth, surrounded by guards. "So, the leaf village sent children to stop me? How... disappointing."',
-    skipAllowed: false, // MUST fight the boss
-    revealedPathIds: [],
   },
 };
 

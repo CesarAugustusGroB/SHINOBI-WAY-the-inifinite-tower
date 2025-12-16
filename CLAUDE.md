@@ -8,6 +8,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - When adding new systems, components, or features that replace existing functionality, remove the legacy code that is no longer being used. Do not leave dead code in the codebase.
 - When working on PLAN.md, only edit PLAN.md for planning purposes. Do not modify any other files until the user explicitly says "implement".
 - Keep logging functionality in a separate file, isolated from main classes/systems.
+- When asked for UI mockups, use ASCII-art box style with emoji icons like this:
+
+```text
+┌───────────────────────────────────────┐
+│ [1]  Misty Harbor          [REVISIT] │
+│      Settlement                      │
+├───────────────────────────────────────┤
+│              🏘️                      │
+├───────────────────────────────────────┤
+│ ⚠️ DANGER   ████████░░░░  4/7        │
+│ 💰 WEALTH   ██████░░░░░░  3/7        │
+├───────────────────────────────────────┤
+│ 📋  ⚔️ 🛒 💤 🎯 📜                    │
+└───────────────────────────────────────┘
+```
 
 ## Project Overview
 
@@ -70,12 +85,12 @@ src/
 │   │       └── wavesArcEvents.ts
 │   ├── systems/                   # Pure function game engines
 │   │   ├── StatSystem.ts          # Stat calculations, damage formulas
-│   │   ├── CombatSystem.ts        # Turn-based combat orchestration
 │   │   ├── CombatCalculationSystem.ts # Pure combat math (damage, mitigation)
 │   │   ├── CombatWorkflowSystem.ts    # Combat state management (turns, phases)
 │   │   ├── EnemyAISystem.ts       # Enemy skill selection AI
 │   │   ├── LootSystem.ts          # Item/skill generation
-│   │   ├── BranchingFloorSystem.ts # 1→2→4 branching room system
+│   │   ├── LocationSystem.ts      # Room generation, branching exploration (1→2→4 pattern)
+│   │   ├── RegionSystem.ts        # Region→Location hierarchy, card-based selection
 │   │   ├── EliteChallengeSystem.ts # Elite challenge escape mechanics
 │   │   ├── EnemySystem.ts         # Enemy generation, story arcs
 │   │   ├── ApproachSystem.ts      # Combat approach mechanics
@@ -123,7 +138,7 @@ Located in `src/game/types.ts`:
 enum GameState {
   MENU,
   CHAR_SELECT,
-  EXPLORE,            // Branching room exploration view
+  EXPLORE,            // Branching room exploration view (legacy)
   ELITE_CHALLENGE,    // Elite challenge choice screen (fight vs escape)
   COMBAT,
   LOOT,
@@ -132,7 +147,9 @@ enum GameState {
   TRAINING,           // Training scene for stat upgrades
   SCROLL_DISCOVERY,   // Finding jutsu scrolls in exploration
   GAME_OVER,
-  GUIDE
+  GUIDE,
+  REGION_MAP,         // Region overview - card-based location selection
+  LOCATION_EXPLORE    // Inside a location (10-room diamond exploration)
 }
 ```
 
@@ -375,7 +392,7 @@ npm test              # Run all tests
 npm run test:watch    # Watch mode for development
 ```
 
-Tests cover: StatSystem, CombatCalculation, LootSystem, BranchingFloorSystem, ApproachSystem, EventSystem, EquipmentPassiveSystem, EnemyAISystem, EnemySystem
+Tests cover: StatSystem, CombatCalculation, LootSystem, LocationSystem, ApproachSystem, EventSystem, EquipmentPassiveSystem, EnemyAISystem, EnemySystem
 
 **Manual testing checklist:**
 
@@ -383,6 +400,18 @@ Tests cover: StatSystem, CombatCalculation, LootSystem, BranchingFloorSystem, Ap
 2. Enter combat room → win → verify remaining activities trigger
 3. Check element effectiveness in combat
 4. Verify loot scaling with danger level
+
+## Available Skills
+
+The project has specialized skills in `.claude/skills/` for common tasks:
+
+| Skill | Use When |
+|-------|----------|
+| `jutsu-creator` | Adding new jutsu/abilities to the game |
+| `combat-system-creator` | Modifying combat mechanics (CombatCalculationSystem + CombatWorkflowSystem) |
+| `combat-ui-pattern-a` | Implementing Split-Panel Combat UI components |
+| `exploration-creator` | Adding regions, locations, rooms, or intel missions |
+| `skill-creator` | Creating new Claude Code skills |
 
 ## Git Workflow
 

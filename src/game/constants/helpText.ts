@@ -278,9 +278,9 @@ export const HELP_TEXT = {
       { state: "Cleared", desc: "All activities in room have been completed" },
       { state: "Exit", desc: "Final room leading to next area or floor" }
     ],
-    INTEL_MISSION: {
-      title: "Intel Mission",
-      desc: "Elite fight at room 10 of each location. Defeating the guardian grants a path choice reward and unlocks new routes."
+    LOCATION_BOSS: {
+      title: "Location Boss",
+      desc: "Elite fight at room 10 of each location. Defeating the guardian completes the location and returns you to the region map."
     },
     ARCHETYPES: [
       {
