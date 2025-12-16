@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { Player, BranchingFloor, BranchingRoom, GameState } from '../game/types';
-import { CombatState } from '../game/systems/CombatSystem';
+import { CombatState } from '../game/systems/CombatWorkflowSystem';
 import { ApproachResult } from '../game/systems/ApproachSystem';
 import { getPlayerFullStats } from '../game/systems/StatSystem';
 import {

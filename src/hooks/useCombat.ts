@@ -18,7 +18,7 @@ import {
   createCombatState,
   applyApproachEffects,
   processUpkeep,
-} from '../game/systems/CombatSystem';
+} from '../game/systems/CombatWorkflowSystem';
 import { ApproachResult, getCombatModifiers } from '../game/systems/ApproachSystem';
 import { CombatRef } from '../scenes/Combat';
 import { TIMING } from '../game/config';

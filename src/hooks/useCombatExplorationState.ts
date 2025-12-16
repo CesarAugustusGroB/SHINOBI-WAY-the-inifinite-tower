@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { BranchingFloor, BranchingRoom } from '../game/types';
-import { CombatState } from '../game/systems/CombatSystem';
+import { CombatState } from '../game/systems/CombatWorkflowSystem';
 import { ApproachResult } from '../game/systems/ApproachSystem';
 
 /**

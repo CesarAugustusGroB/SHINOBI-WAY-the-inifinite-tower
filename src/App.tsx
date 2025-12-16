@@ -30,7 +30,7 @@ import {
   CombatState,
   createCombatState,
   applyApproachEffects
-} from './game/systems/CombatSystem';
+} from './game/systems/CombatWorkflowSystem';
 import {
   executeApproach,
   applyApproachCosts,
@@ -2021,17 +2021,10 @@ const App: React.FC = () => {
       if (branchingFloor) {
         const updatedFloor = completeActivity(branchingFloor, eliteChallengeData.room.id, 'eliteChallenge');
         setBranchingFloor(updatedFloor);
-
-        // Continue to next activity in the room
-        const currentRoom = getCurrentRoom(updatedFloor);
-        if (currentRoom) {
-          addLog(result.message, 'info');
-          setEliteChallengeData(null);
-          setGameState(GameState.EXPLORE);
-          // Small delay then check for more activities
-          setTimeout(() => handleBranchingRoomEnter(currentRoom), 100);
-          return;
-        }
+        addLog(result.message, 'info');
+        setEliteChallengeData(null);
+        setGameState(GameState.EXPLORE);
+        return;
       }
 
       // Location mode: complete elite challenge activity using locationFloor
@@ -2039,17 +2032,10 @@ const App: React.FC = () => {
         const updatedFloor = completeActivity(locationFloor, eliteChallengeData.room.id, 'eliteChallenge');
         setLocationFloor(updatedFloor);
         setRegion(syncFloorToRegion(region, updatedFloor));
-
-        // Continue to next activity in the room
-        const currentRoom = getCurrentRoom(updatedFloor);
-        if (currentRoom) {
-          addLog(result.message, 'info');
-          setEliteChallengeData(null);
-          setGameState(GameState.LOCATION_EXPLORE);
-          // Small delay then check for more activities
-          setTimeout(() => handleLocationRoomEnter(currentRoom), 100);
-          return;
-        }
+        addLog(result.message, 'info');
+        setEliteChallengeData(null);
+        setGameState(GameState.LOCATION_EXPLORE);
+        return;
       }
 
       addLog(result.message, 'info');
