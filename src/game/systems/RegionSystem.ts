@@ -54,6 +54,9 @@ import {
   CardDisplayInfo,
   TierWeights,
   DangerTier,
+  // Wealth and activity types
+  LocationActivities,
+  ActivityStatus,
 } from '../types';
 import { generateEnemy } from './EnemySystem';
 import {
@@ -73,6 +76,12 @@ import {
   TreasureQuality,
 } from '../types';
 import { DIFFICULTY } from '../config';
+import {
+  logIntelEvaluate,
+  logCardDrawStart,
+  logCardDraw,
+  logCardDrawComplete,
+} from '../utils/explorationDebug';
 
 // ============================================================================
 // ID GENERATION
@@ -143,6 +152,128 @@ export function calculateMerchantRerollCost(
 ): number {
   const effectiveFloor = dangerToFloor(dangerLevel, baseDifficulty);
   return baseRerollCost + (effectiveFloor * scalingPerLevel);
+}
+
+// ============================================================================
+// WEALTH SYSTEM
+// ============================================================================
+
+/**
+ * Get wealth multiplier for ryo rewards.
+ * Level 1 = 0.5x, Level 4 = 1.0x, Level 7 = 1.5x
+ * Formula: 0.33 + (wealthLevel * 0.167)
+ */
+export function getWealthMultiplier(wealthLevel: number): number {
+  return 0.33 + (wealthLevel * 0.167);
+}
+
+/**
+ * Get default wealth level based on LocationType.
+ * Returns a value in the range for that type with some randomness.
+ */
+export function getDefaultWealthForLocationType(locationType: LocationType): 1 | 2 | 3 | 4 | 5 | 6 | 7 {
+  const ranges: Record<LocationType, [number, number]> = {
+    [LocationType.SETTLEMENT]: [5, 6],  // Trade hub, prosperous
+    [LocationType.WILDERNESS]: [2, 3],  // Sparse resources
+    [LocationType.STRONGHOLD]: [3, 4],  // Military, moderate
+    [LocationType.LANDMARK]: [4, 5],    // Historical value
+    [LocationType.SECRET]: [5, 6],      // Hidden treasures
+    [LocationType.BOSS]: [6, 7],        // Hoarded wealth
+  };
+
+  const [min, max] = ranges[locationType] || [3, 4];
+  const wealth = min + Math.floor(Math.random() * (max - min + 1));
+  return Math.max(1, Math.min(7, wealth)) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
+}
+
+/**
+ * Apply wealth multiplier to a ryo amount.
+ */
+export function applyWealthToRyo(baseRyo: number, wealthLevel: number): number {
+  return Math.floor(baseRyo * getWealthMultiplier(wealthLevel));
+}
+
+/**
+ * Get merchant discount based on wealth level.
+ * Higher wealth = bigger discounts (0% to 30%)
+ * Formula: (wealthLevel - 1) * 0.05
+ */
+export function getMerchantDiscount(wealthLevel: number): number {
+  return (wealthLevel - 1) * 0.05;
+}
+
+// ============================================================================
+// INTEL SYSTEM
+// ============================================================================
+
+/**
+ * Intel gain constants
+ */
+export const INTEL_GAIN = {
+  COMBAT_VICTORY: 5,      // +5% per combat
+  INFO_GATHERING: 25,     // +25% for info gathering activity
+  EVENT_DEFAULT: 15,      // ~15% average for events (can vary)
+} as const;
+
+/**
+ * Evaluate intel level to determine card count and reveal count.
+ * 0-25%:  1 card, 0 revealed (hidden)
+ * 25-50%: 2 cards, 1 revealed
+ * 50-75%: 3 cards, 2 revealed
+ * 75-100%: 3 cards, 3 revealed (all)
+ */
+export function evaluateIntel(intel: number): { cardCount: number; revealedCount: number } {
+  let result: { cardCount: number; revealedCount: number };
+  if (intel < 25) {
+    result = { cardCount: 1, revealedCount: 0 };
+  } else if (intel < 50) {
+    result = { cardCount: 2, revealedCount: 1 };
+  } else if (intel < 75) {
+    result = { cardCount: 3, revealedCount: 2 };
+  } else {
+    result = { cardCount: 3, revealedCount: 3 };
+  }
+  logIntelEvaluate(intel, result.cardCount, result.revealedCount);
+  return result;
+}
+
+/**
+ * Get activities present in a location based on its rooms.
+ * Returns activity status for each activity type.
+ */
+export function getLocationActivities(location: Location): LocationActivities {
+  const activities: LocationActivities = {
+    combat: false,
+    merchant: false,
+    rest: false,
+    training: false,
+    event: false,
+    scrollDiscovery: false,
+    treasure: false,
+    eliteChallenge: false,
+    infoGathering: false,
+  };
+
+  // Check all rooms for activities
+  for (const room of location.rooms) {
+    if (!room.activities) continue;
+
+    if (room.activities.combat) activities.combat = 'normal';
+    if (room.activities.merchant) activities.merchant = 'normal';
+    if (room.activities.rest) activities.rest = 'normal';
+    if (room.activities.training) activities.training = 'normal';
+    if (room.activities.event) activities.event = 'normal';
+    if (room.activities.scrollDiscovery) activities.scrollDiscovery = 'normal';
+    if (room.activities.treasure) activities.treasure = 'normal';
+    if (room.activities.eliteChallenge) activities.eliteChallenge = 'normal';
+    if (room.activities.infoGathering) activities.infoGathering = 'normal';
+  }
+
+  // Check location flags for special activities
+  if (location.flags.isBoss) activities.eliteChallenge = 'normal';
+  if (location.intelMission?.elite) activities.eliteChallenge = 'normal';
+
+  return activities;
 }
 
 // ============================================================================
@@ -378,6 +509,22 @@ function generateLocationActivities(
     };
   }
 
+  // Info Gathering (+25% intel)
+  if (config.hasInfoGathering) {
+    const flavorTexts = [
+      'You gather information from locals.',
+      'Ancient inscriptions reveal secrets.',
+      'A passing traveler shares rumors.',
+      'You overhear valuable intelligence.',
+      'Careful observation reveals hidden details.',
+    ];
+    activities.infoGathering = {
+      intelGain: INTEL_GAIN.INFO_GATHERING,
+      flavorText: flavorTexts[Math.floor(Math.random() * flavorTexts.length)],
+      completed: false,
+    };
+  }
+
   return activities;
 }
 
@@ -562,6 +709,9 @@ function createLocation(
     isCurrent: false,
 
     unlockCondition: config.unlockCondition,
+
+    // Wealth system - auto-generated from LocationType
+    wealthLevel: getDefaultWealthForLocationType(config.type),
   };
 }
 
@@ -582,7 +732,7 @@ function createRegionPaths(regionConfig: RegionConfig): LocationPath[] {
         id: pathConfig.id,
         targetLocationId: pathConfig.targetId,
         pathType: pathConfig.pathType,
-        isRevealed: pathConfig.pathType !== PathType.SECRET,
+        isRevealed: true, // All paths revealed at start
         isUsed: false,
         description: pathConfig.description,
         dangerHint: pathConfig.dangerHint,
@@ -596,7 +746,7 @@ function createRegionPaths(regionConfig: RegionConfig): LocationPath[] {
           id: pathConfig.id,
           targetLocationId: pathConfig.targetId,
           pathType: PathType.LOOP,
-          isRevealed: false, // Loops revealed by intel
+          isRevealed: true, // All paths revealed at start
           isUsed: false,
           description: pathConfig.description,
           dangerHint: pathConfig.dangerHint,
@@ -611,7 +761,7 @@ function createRegionPaths(regionConfig: RegionConfig): LocationPath[] {
           id: pathConfig.id,
           targetLocationId: pathConfig.targetId,
           pathType: PathType.SECRET,
-          isRevealed: false,
+          isRevealed: true, // All paths revealed at start
           isUsed: false,
           description: pathConfig.description,
           dangerHint: pathConfig.dangerHint,
@@ -1335,6 +1485,10 @@ export function getCardDisplayInfo(card: LocationCard): CardDisplayInfo {
         specialFeature: null,
         showMystery: true,
         revisitBadge: false,
+        wealthLevel: null,
+        activities: null,
+        isBoss: false,
+        isSecret: false,
       };
 
     case IntelRevealLevel.PARTIAL:
@@ -1346,6 +1500,10 @@ export function getCardDisplayInfo(card: LocationCard): CardDisplayInfo {
         specialFeature: null,
         showMystery: false,
         revisitBadge: isRevisit,
+        wealthLevel: location.wealthLevel,
+        activities: getLocationActivities(location),
+        isBoss: location.type === LocationType.BOSS,
+        isSecret: location.type === LocationType.SECRET,
       };
 
     case IntelRevealLevel.FULL:
@@ -1357,6 +1515,10 @@ export function getCardDisplayInfo(card: LocationCard): CardDisplayInfo {
         specialFeature: determineSpecialFeature(location),
         showMystery: false,
         revisitBadge: isRevisit,
+        wealthLevel: location.wealthLevel,
+        activities: getLocationActivities(location),
+        isBoss: location.type === LocationType.BOSS,
+        isSecret: location.type === LocationType.SECRET,
       };
 
     default:
@@ -1368,6 +1530,10 @@ export function getCardDisplayInfo(card: LocationCard): CardDisplayInfo {
         specialFeature: null,
         showMystery: true,
         revisitBadge: false,
+        wealthLevel: null,
+        activities: null,
+        isBoss: false,
+        isSecret: false,
       };
   }
 }
@@ -1386,8 +1552,10 @@ export function drawLocationCards(
   region: Region,
   deck: LocationDeck,
   intelPool: IntelPool,
-  count: number = 3
+  count: number = 3,
+  revealedCount?: number // NEW: Override reveal count from currentIntel system
 ): LocationCard[] {
+  logCardDrawStart(region.id, count, revealedCount);
   // Calculate progress percentage
   const progressPercent = region.totalLocations > 0
     ? (region.locationsCompleted / region.totalLocations) * 100
@@ -1428,7 +1596,17 @@ export function drawLocationCards(
 
     const selected = weightedRandomSelect(weightedLocations);
     const location = region.locations.find(l => l.id === selected.locationId)!;
-    const intelLevel = calculateIntelLevel(intelPool, location);
+
+    // NEW: Use revealedCount to determine intel level if provided
+    // First N cards are FULL, rest are NONE
+    let intelLevel: IntelRevealLevel;
+    if (revealedCount !== undefined) {
+      intelLevel = i < revealedCount ? IntelRevealLevel.FULL : IntelRevealLevel.NONE;
+    } else {
+      intelLevel = calculateIntelLevel(intelPool, location);
+    }
+
+    logCardDraw(i, location.name, intelLevel, i < (revealedCount ?? 0));
 
     drawnCards.push({
       locationId: selected.locationId,
@@ -1446,7 +1624,14 @@ export function drawLocationCards(
     const randomIndex = Math.floor(Math.random() * weightedLocations.length);
     const selected = weightedLocations[randomIndex];
     const location = region.locations.find(l => l.id === selected.locationId)!;
-    const intelLevel = calculateIntelLevel(intelPool, location);
+
+    // NEW: Use revealedCount for fallback cards too
+    let intelLevel: IntelRevealLevel;
+    if (revealedCount !== undefined) {
+      intelLevel = drawnCards.length < revealedCount ? IntelRevealLevel.FULL : IntelRevealLevel.NONE;
+    } else {
+      intelLevel = calculateIntelLevel(intelPool, location);
+    }
 
     drawnCards.push({
       locationId: selected.locationId,
@@ -1455,6 +1640,11 @@ export function drawLocationCards(
       isRevisit: selected.isCompleted,
     });
   }
+
+  logCardDrawComplete(drawnCards.map(c => ({
+    name: c.location.name,
+    intelLevel: c.intelLevel
+  })));
 
   return drawnCards;
 }

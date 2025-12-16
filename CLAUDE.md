@@ -5,6 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Coding Guidelines
 
 - Do not create tests unless explicitly asked to do so
+- When adding new systems, components, or features that replace existing functionality, remove the legacy code that is no longer being used. Do not leave dead code in the codebase.
+- When working on PLAN.md, only edit PLAN.md for planning purposes. Do not modify any other files until the user explicitly says "implement".
+- Keep logging functionality in a separate file, isolated from main classes/systems.
 
 ## Project Overview
 

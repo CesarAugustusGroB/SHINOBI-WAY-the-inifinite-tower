@@ -4,10 +4,12 @@ import {
   Player,
   CharacterStats,
   LocationCard,
-  IntelPool,
   LocationType,
+  LocationActivities,
+  ActivityStatus,
 } from '../../game/types';
 import { getCardDisplayInfo } from '../../game/systems/RegionSystem';
+import LocationIcon from '../shared/LocationIcon';
 
 // ============================================================================
 // DANGER LEVEL BAR COMPONENT
@@ -55,6 +57,118 @@ const DangerLevelBar: React.FC<DangerLevelBarProps> = ({ level, showLabel = true
         }`}>
           {level}
         </span>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
+// WEALTH LEVEL BAR COMPONENT
+// ============================================================================
+
+interface WealthLevelBarProps {
+  level: number | null;
+  showLabel?: boolean;
+}
+
+const WealthLevelBar: React.FC<WealthLevelBarProps> = ({ level, showLabel = true }) => {
+  const segments = [1, 2, 3, 4, 5, 6, 7];
+
+  const getSegmentColor = (segmentLevel: number, currentLevel: number | null) => {
+    if (currentLevel === null) return 'bg-zinc-800';
+    if (segmentLevel > currentLevel) return 'bg-zinc-800';
+
+    // Gold/yellow color scheme for wealth
+    if (segmentLevel <= 2) return 'bg-amber-800';
+    if (segmentLevel <= 4) return 'bg-amber-600';
+    if (segmentLevel <= 5) return 'bg-yellow-500';
+    return 'bg-yellow-400';
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      {showLabel && (
+        <span className="text-xs text-zinc-400 uppercase tracking-wider w-14">
+          {level !== null ? 'Wealth' : '???'}
+        </span>
+      )}
+      <div className="flex gap-0.5 flex-1">
+        {segments.map((seg) => (
+          <div
+            key={seg}
+            className={`h-2 flex-1 rounded-sm transition-colors ${getSegmentColor(seg, level)}`}
+          />
+        ))}
+      </div>
+      {level !== null && (
+        <span className={`text-xs font-mono w-6 text-right ${
+          level <= 2 ? 'text-amber-700' :
+          level <= 4 ? 'text-amber-500' :
+          level <= 5 ? 'text-yellow-400' :
+          'text-yellow-300'
+        }`}>
+          {level}
+        </span>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
+// ACTIVITY ICONS COMPONENT
+// ============================================================================
+
+interface ActivityIconsProps {
+  activities: LocationActivities | null;
+}
+
+const ActivityIcons: React.FC<ActivityIconsProps> = ({ activities }) => {
+  if (!activities) {
+    // Show mystery placeholders
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-zinc-500">📋</span>
+        {[1, 2, 3, 4, 5].map((i) => (
+          <span key={i} className="text-sm opacity-40">?</span>
+        ))}
+      </div>
+    );
+  }
+
+  // Activity icon mapping with colors
+  const activityIcons: { key: keyof LocationActivities; icon: string; specialIcon: string; color: string }[] = [
+    { key: 'combat', icon: '⚔️', specialIcon: '⚔️✨', color: 'text-orange-400' },
+    { key: 'merchant', icon: '🛒', specialIcon: '🛒✨', color: 'text-yellow-400' },
+    { key: 'rest', icon: '💤', specialIcon: '💤✨', color: 'text-green-400' },
+    { key: 'training', icon: '🎯', specialIcon: '🎯✨', color: 'text-cyan-400' },
+    { key: 'event', icon: '🎪', specialIcon: '🎪✨', color: 'text-purple-400' },
+    { key: 'scrollDiscovery', icon: '📜', specialIcon: '📜✨', color: 'text-blue-400' },
+    { key: 'treasure', icon: '💎', specialIcon: '💎✨', color: 'text-amber-400' },
+    { key: 'eliteChallenge', icon: '👹', specialIcon: '👹✨', color: 'text-red-400' },
+    { key: 'infoGathering', icon: '🔍', specialIcon: '🔍✨', color: 'text-teal-400' },
+  ];
+
+  const activeActivities = activityIcons.filter(({ key }) => activities[key] !== false);
+
+  return (
+    <div className="flex items-center gap-1">
+      <span className="text-xs text-zinc-500">📋</span>
+      {activeActivities.length === 0 ? (
+        <span className="text-xs text-zinc-600 italic">No activities</span>
+      ) : (
+        activeActivities.map(({ key, icon, specialIcon, color }) => {
+          const status: ActivityStatus = activities[key];
+          const isSpecial = status === 'special';
+          return (
+            <span
+              key={key}
+              className={`text-sm ${isSpecial ? color : ''} ${isSpecial ? 'animate-pulse' : ''}`}
+              title={`${key}${isSpecial ? ' (Special)' : ''}`}
+            >
+              {isSpecial ? specialIcon : icon}
+            </span>
+          );
+        })
       )}
     </div>
   );
@@ -127,9 +241,11 @@ const LocationCardDisplay: React.FC<LocationCardDisplayProps> = ({
         }
       `}>
         <div className="flex items-center gap-2">
-          <span className="text-2xl filter drop-shadow-md">
-            {displayInfo.showMystery ? '❓' : card.location.icon}
-          </span>
+          <LocationIcon
+            icon={card.location.icon}
+            size="md"
+            showMystery={displayInfo.showMystery}
+          />
           <div className="flex-1 text-left">
             <h3 className={`font-medium ${displayInfo.showMystery ? 'text-zinc-400' : 'text-zinc-100'}`}>
               {displayInfo.name}
@@ -157,7 +273,7 @@ const LocationCardDisplay: React.FC<LocationCardDisplayProps> = ({
           </div>
         ) : (
           <div className="text-center">
-            <span className="text-6xl filter drop-shadow-lg">{card.location.icon}</span>
+            <LocationIcon icon={card.location.icon} size="xl" />
             <p className="text-xs text-zinc-500 mt-2 italic">"{card.location.biome}"</p>
           </div>
         )}
@@ -168,9 +284,17 @@ const LocationCardDisplay: React.FC<LocationCardDisplayProps> = ({
         )}
       </div>
 
-      {/* Danger Level Bar */}
-      <div className="px-4 py-3 bg-zinc-900/50 border-t border-zinc-800/50">
+      {/* Stats Bars Section */}
+      <div className="px-4 py-3 bg-zinc-900/50 border-t border-zinc-800/50 space-y-2">
+        {/* Danger Level Bar */}
         <DangerLevelBar level={displayInfo.dangerLevel} />
+        {/* Wealth Level Bar */}
+        <WealthLevelBar level={displayInfo.wealthLevel} />
+      </div>
+
+      {/* Activity Icons */}
+      <div className="px-4 py-2 bg-zinc-900/30 border-t border-zinc-800/30">
+        <ActivityIcons activities={displayInfo.activities} />
       </div>
 
       {/* Special Feature (only at FULL intel) */}
@@ -179,6 +303,24 @@ const LocationCardDisplay: React.FC<LocationCardDisplayProps> = ({
           <div className="flex items-center gap-2">
             <span className="text-amber-400 text-sm">★</span>
             <span className="text-xs text-amber-300 font-medium">{displayInfo.specialFeature}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Boss/Secret badges */}
+      {(displayInfo.isBoss || displayInfo.isSecret) && (
+        <div className="px-4 py-1 bg-gradient-to-r from-red-900/30 to-purple-900/30 border-t border-red-800/30">
+          <div className="flex items-center gap-2">
+            {displayInfo.isBoss && (
+              <span className="text-xs text-red-400 font-medium flex items-center gap-1">
+                💀 Boss Location
+              </span>
+            )}
+            {displayInfo.isSecret && (
+              <span className="text-xs text-purple-400 font-medium flex items-center gap-1">
+                🔮 Secret
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -192,36 +334,6 @@ const LocationCardDisplay: React.FC<LocationCardDisplayProps> = ({
 };
 
 // ============================================================================
-// INTEL POOL DISPLAY COMPONENT
-// ============================================================================
-
-interface IntelPoolDisplayProps {
-  intelPool: IntelPool;
-}
-
-const IntelPoolDisplay: React.FC<IntelPoolDisplayProps> = ({ intelPool }) => {
-  const fillPercent = (intelPool.totalIntel / intelPool.maxIntel) * 100;
-
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-amber-400">🔮</span>
-      <div className="flex-1">
-        <div className="flex justify-between text-xs mb-1">
-          <span className="text-zinc-400">Intel</span>
-          <span className="font-mono text-zinc-300">{intelPool.totalIntel}/{intelPool.maxIntel}</span>
-        </div>
-        <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-amber-600 to-amber-400 transition-all duration-500"
-            style={{ width: `${fillPercent}%` }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ============================================================================
 // MAIN REGION MAP COMPONENT
 // ============================================================================
 
@@ -229,7 +341,6 @@ interface RegionMapProps {
   region: Region;
   player: Player;
   playerStats: CharacterStats;
-  intelPool: IntelPool;
   drawnCards: LocationCard[];
   selectedIndex: number | null;
   onCardSelect: (index: number) => void;
@@ -239,7 +350,6 @@ interface RegionMapProps {
 const RegionMap: React.FC<RegionMapProps> = ({
   region,
   // player and playerStats kept in interface for future use
-  intelPool,
   drawnCards,
   selectedIndex,
   onCardSelect,
@@ -340,10 +450,6 @@ const RegionMap: React.FC<RegionMapProps> = ({
             </p>
           </div>
 
-          {/* Intel Pool */}
-          <div className="w-32">
-            <IntelPoolDisplay intelPool={intelPool} />
-          </div>
         </div>
       </div>
 

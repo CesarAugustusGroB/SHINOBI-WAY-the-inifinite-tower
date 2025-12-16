@@ -1047,6 +1047,12 @@ export interface TreasureActivity {
   collected: boolean;
 }
 
+export interface InfoGatheringActivity {
+  intelGain: number;        // Intel percentage gained (default 25)
+  flavorText: string;       // Description of how intel is gathered
+  completed: boolean;
+}
+
 export interface ScrollDiscoveryActivity {
   availableScrolls: Skill[];
   cost?: { ryo?: number; chakra?: number };
@@ -1068,6 +1074,7 @@ export interface RoomActivities {
   rest?: RestActivity;
   training?: TrainingActivity;
   treasure?: TreasureActivity;
+  infoGathering?: InfoGatheringActivity;
 }
 
 // Order in which activities are processed
@@ -1079,7 +1086,8 @@ export const ACTIVITY_ORDER: (keyof RoomActivities)[] = [
   'scrollDiscovery', // Jutsu scroll discovery
   'rest',            // Healing
   'training',        // Stat boost
-  'treasure'         // Loot last
+  'treasure',        // Loot last
+  'infoGathering'    // Intel gathering (+25%)
 ];
 
 export interface RoomRevealRequirement {
@@ -1156,6 +1164,7 @@ export interface RoomTypeConfig {
   hasTraining: boolean;
   hasTreasure: boolean;
   hasScrollDiscovery?: boolean; // Rooms where jutsu scrolls can be found
+  hasInfoGathering?: boolean;   // Rooms where intel can be gathered (+25%)
 
   // Appearance weights by tier
   tier0Weight: number;
@@ -1237,7 +1246,7 @@ export interface IntelReward {
 export interface PathRevealInfo {
   pathId: string;
   destinationName: string;
-  destinationIcon: string;
+  destinationIcon: LocationIcon;
   dangerLevel: number;
   hint: string;
 }
@@ -1274,12 +1283,23 @@ export interface LocationTerrainEffect {
   value: number;                 // Modifier value (0.2 = +20%)
 }
 
+/**
+ * Location icon with optional image asset and emoji fallback.
+ * Supports both plain emoji strings (legacy) and asset objects.
+ */
+export interface LocationIconAsset {
+  asset?: string;    // Path to image asset (e.g., '/assets/icons/locations/misty_beach.png')
+  fallback: string;  // Emoji fallback (e.g., '🌫️')
+}
+
+export type LocationIcon = string | LocationIconAsset;
+
 export interface Location {
   id: string;
   name: string;
   description: string;
   type: LocationType;
-  icon: string;
+  icon: LocationIcon;
 
   // Difficulty (1-7 scale)
   dangerLevel: 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -1320,6 +1340,9 @@ export interface Location {
 
   // Unlock requirements (for secret locations)
   unlockCondition?: UnlockCondition;
+
+  // Wealth system (auto-generated from LocationType)
+  wealthLevel: 1 | 2 | 3 | 4 | 5 | 6 | 7;
 }
 
 // ============================================================================
@@ -1382,7 +1405,7 @@ export interface LocationConfig {
   name: string;
   description: string;
   type: LocationType;
-  icon: string;
+  icon: LocationIcon;
   dangerLevel: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   terrain: LocationTerrainType;
   terrainEffects: LocationTerrainEffect[];
@@ -1485,6 +1508,24 @@ export interface LocationCard {
 }
 
 /**
+ * Activity state for location cards
+ * false = not present, 'normal' = present, 'special' = enhanced version
+ */
+export type ActivityStatus = false | 'normal' | 'special';
+
+export interface LocationActivities {
+  combat: ActivityStatus;
+  merchant: ActivityStatus;
+  rest: ActivityStatus;
+  training: ActivityStatus;
+  event: ActivityStatus;
+  scrollDiscovery: ActivityStatus;
+  treasure: ActivityStatus;
+  eliteChallenge: ActivityStatus;
+  infoGathering: ActivityStatus;
+}
+
+/**
  * Display info for a card based on intel level
  */
 export interface CardDisplayInfo {
@@ -1495,6 +1536,12 @@ export interface CardDisplayInfo {
   specialFeature: string | null; // Only at FULL intel
   showMystery: boolean;
   revisitBadge: boolean;
+
+  // NEW - Wealth and activities
+  wealthLevel: number | null;
+  activities: LocationActivities | null;
+  isBoss: boolean;
+  isSecret: boolean;
 }
 
 /**

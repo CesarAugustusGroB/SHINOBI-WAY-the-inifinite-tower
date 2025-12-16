@@ -41,6 +41,7 @@ export const ROOM_TYPE_CONFIGS: Record<BranchingRoomType, RoomTypeConfig> = {
     hasRest: true,
     hasTraining: false,
     hasTreasure: false,
+    hasInfoGathering: true, // Gather intel from locals
     tier0Weight: 0,
     tier1Weight: 25,
     tier2Weight: 15,
@@ -76,6 +77,7 @@ export const ROOM_TYPE_CONFIGS: Record<BranchingRoomType, RoomTypeConfig> = {
     hasTraining: false,
     hasTreasure: false,
     hasScrollDiscovery: true, // Shrines often contain ancient jutsu scrolls
+    hasInfoGathering: true,   // Commune with spirits for intel
     tier0Weight: 0,
     tier1Weight: 15,
     tier2Weight: 20,

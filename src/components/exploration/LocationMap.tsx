@@ -12,14 +12,14 @@ interface LocationMapProps {
   branchingFloor: BranchingFloor;
   player: Player;
   playerStats: CharacterStats;
+  currentIntel: number;
   onRoomSelect: (room: BranchingRoom) => void;
   onRoomEnter: (room: BranchingRoom) => void;
 }
 
 const LocationMap: React.FC<LocationMapProps> = ({
   branchingFloor,
-  player,
-  playerStats,
+  currentIntel,
   onRoomSelect,
   onRoomEnter,
 }) => {
@@ -140,10 +140,21 @@ const LocationMap: React.FC<LocationMapProps> = ({
               {branchingFloor.biome}
             </h2>
           </div>
-          <div className="text-right">
+          <div className="text-right space-y-1">
             <p className="text-xs text-zinc-400">
               Rooms Explored: {branchingFloor.roomsVisited}
             </p>
+            {/* Intel Bar */}
+            <div className="flex items-center gap-2 justify-end">
+              <span className="text-amber-400 text-sm">🔮</span>
+              <div className="w-24 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-600 to-amber-400 transition-all duration-500"
+                  style={{ width: `${currentIntel}%` }}
+                />
+              </div>
+              <span className="text-xs font-mono text-amber-300 w-8">{currentIntel}%</span>
+            </div>
             <p className="text-[10px] text-zinc-500">
               {branchingFloor.exitRoomId
                 ? '🚪 Exit discovered - Find and defeat the Guardian'

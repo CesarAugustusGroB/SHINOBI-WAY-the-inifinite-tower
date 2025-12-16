@@ -7,7 +7,7 @@ import {
   TreasureQuality, DEFAULT_MERCHANT_SLOTS, MAX_MERCHANT_SLOTS,
   Region, Location, LocationPath,
   // Card-based location selection types
-  IntelPool, LocationDeck, LocationCard
+  IntelPool, LocationDeck, LocationCard, IntelRevealLevel
 } from './game/types';
 import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS } from './game/constants';
 import {
@@ -69,6 +69,11 @@ import {
   addIntel,
   updateDeckAfterCompletion,
   prepareLocationForRevisit,
+  // Wealth and intel system functions
+  INTEL_GAIN,
+  evaluateIntel,
+  applyWealthToRyo,
+  getMerchantDiscount,
 } from './game/systems/RegionSystem';
 import { LAND_OF_WAVES_CONFIG } from './game/constants/regions';
 import { resolveEventChoice } from './game/systems/EventSystem';
@@ -111,7 +116,8 @@ import {
   // Region debug functions
   logLocationSelect, logLocationEnter, logLocationLeave,
   logIntelMissionStart, logIntelMissionVictory, logIntelMissionSkip,
-  logPathChoice, logPathRandom
+  logPathChoice, logPathRandom, logInitialCardDraw,
+  logIntelGain, logIntelReset
 } from './game/utils/explorationDebug';
 
 // Import the parchment background styles
@@ -163,6 +169,11 @@ const App: React.FC = () => {
   const [intelPool, setIntelPool] = useState<IntelPool>({ totalIntel: 0, maxIntel: 10 });
   const [drawnCards, setDrawnCards] = useState<LocationCard[]>([]);
   const [selectedCardIndex, setSelectedCardIndex] = useState<number | null>(null);
+
+  // --- Location Intel System State ---
+  // Intel gathered within a location (0-100%), evaluated at location end
+  // Determines card count (1-3) and reveal status for next location choice
+  const [currentIntel, setCurrentIntel] = useState<number>(50); // First location starts at 50%
 
   // --- Shared Combat/Exploration State ---
   // This hook owns state needed by both useCombat and useExploration
@@ -315,7 +326,18 @@ const App: React.FC = () => {
     const baseExp = calculateLocationXP(currentDangerLevel, currentBaseDifficulty);
     const tierBonus = isGuardian ? 300 : enemyTier === 'Jonin' ? 20 : enemyTier === 'Kage Level' ? 200 : isAmbush ? 100 : 0;
     const expGain = Math.floor((baseExp + tierBonus) * xpMultiplier);
-    const ryoGain = calculateLocationRyo(currentDangerLevel, currentBaseDifficulty);
+
+    // Apply wealth multiplier to ryo based on current location's wealth level
+    const baseRyo = calculateLocationRyo(currentDangerLevel, currentBaseDifficulty);
+    const locationWealthLevel = currentLocation?.wealthLevel ?? 4;
+    const ryoGain = applyWealthToRyo(baseRyo, locationWealthLevel);
+
+    // Add intel from combat victory (+5%)
+    if (region && !isIntelMissionCombat) {
+      const intelGain = INTEL_GAIN.COMBAT_VICTORY;
+      setCurrentIntel(prev => Math.min(100, prev + intelGain));
+      logIntelGain('Combat', intelGain, Math.min(100, currentIntel + intelGain));
+    }
 
     let levelUpInfo: { oldLevel: number; newLevel: number; statGains: Record<string, number> } | undefined;
 
@@ -330,7 +352,7 @@ const App: React.FC = () => {
       levelUpInfo = levelUpResult.levelUpInfo;
 
       updatedPlayer.ryo += ryoGain;
-      addLog(`Gained ${ryoGain} Ryō.`, 'loot');
+      addLog(`Gained ${ryoGain} Ryō${locationWealthLevel !== 4 ? ` (${locationWealthLevel > 4 ? 'wealthy' : 'poor'} area)` : ''}.`, 'loot');
 
       // Combat no longer drops items/skills - find loot in treasures, events, and scroll discoveries
       return updatedPlayer;
@@ -501,7 +523,13 @@ const App: React.FC = () => {
     // Initialize card-based location selection
     const initialDeck = initializeLocationDeck(wavesRegion);
     const initialIntelPool = createInitialIntelPool();
-    const initialCards = drawLocationCards(wavesRegion, initialDeck, initialIntelPool, 3);
+
+    // First location starts at 50% intel - use evaluateIntel to determine card count/reveal
+    const INITIAL_INTEL = 50;
+    const { cardCount, revealedCount } = evaluateIntel(INITIAL_INTEL);
+    logInitialCardDraw(INITIAL_INTEL, cardCount, revealedCount);
+
+    const initialCards = drawLocationCards(wavesRegion, initialDeck, initialIntelPool, cardCount, revealedCount);
     setLocationDeck(initialDeck);
     setIntelPool(initialIntelPool);
     setDrawnCards(initialCards);
@@ -652,10 +680,14 @@ const App: React.FC = () => {
           logActivityStart(currentRoom.id, 'merchant', { itemCount: currentRoom.activities.merchant.items.length });
           logStateChange('EXPLORE', 'MERCHANT', 'merchant activity');
           setMerchantItems(currentRoom.activities.merchant.items);
-          setMerchantDiscount(currentRoom.activities.merchant.discountPercent || 0);
+          // Apply wealth-based discount on top of room discount
+          const roomDiscount = currentRoom.activities.merchant.discountPercent || 0;
+          const wealthDiscount = getMerchantDiscount(currentLocation?.wealthLevel ?? 4);
+          const totalDiscount = Math.min(0.5, roomDiscount / 100 + wealthDiscount); // Cap at 50%
+          setMerchantDiscount(totalDiscount * 100);
           setSelectedBranchingRoom(currentRoom);
           setGameState(GameState.MERCHANT);
-          addLog(`A merchant greets you. ${currentRoom.activities.merchant.items.length} items available.`, 'info');
+          addLog(`A merchant greets you. ${currentRoom.activities.merchant.items.length} items available${wealthDiscount > 0 ? ` (${Math.round(wealthDiscount * 100)}% wealth discount!)` : ''}.`, 'info');
         }
         break;
 
@@ -734,14 +766,32 @@ const App: React.FC = () => {
           logStateChange('EXPLORE', 'LOOT', 'treasure activity');
           setDroppedItems(treasure.items);
           setDroppedSkill(null);
-          if (treasure.ryo > 0) {
-            setPlayer(p => p ? { ...p, ryo: p.ryo + treasure.ryo } : null);
-            addLog(`Found treasure! +${treasure.ryo} Ryō.`, 'loot');
+          // Apply wealth multiplier to treasure ryo
+          const branchingTreasureWealth = currentLocation?.wealthLevel ?? 4;
+          const adjustedBranchingTreasureRyo = applyWealthToRyo(treasure.ryo, branchingTreasureWealth);
+          if (adjustedBranchingTreasureRyo > 0) {
+            setPlayer(p => p ? { ...p, ryo: p.ryo + adjustedBranchingTreasureRyo } : null);
+            addLog(`Found treasure! +${adjustedBranchingTreasureRyo} Ryō${branchingTreasureWealth !== 4 ? ` (${branchingTreasureWealth > 4 ? 'wealthy' : 'poor'} area)` : ''}.`, 'loot');
           }
           const updatedFloorAfterTreasure = completeActivity(updatedFloor, room.id, 'treasure');
           setBranchingFloor(updatedFloorAfterTreasure);
           logActivityComplete(currentRoom.id, 'treasure');
           setGameState(GameState.LOOT);
+        }
+        break;
+
+      case 'infoGathering':
+        if (currentRoom.activities.infoGathering) {
+          const infoActivity = currentRoom.activities.infoGathering;
+          logActivityStart(currentRoom.id, 'infoGathering', { intelGain: infoActivity.intelGain });
+          // Add intel gain
+          setCurrentIntel(prev => Math.min(100, prev + infoActivity.intelGain));
+          logIntelGain('InfoGathering', infoActivity.intelGain, Math.min(100, currentIntel + infoActivity.intelGain));
+          addLog(`${infoActivity.flavorText} +${infoActivity.intelGain}% intel.`, 'info');
+          // Mark activity complete
+          const updatedFloorAfterInfo = completeActivity(updatedFloor, room.id, 'infoGathering');
+          setBranchingFloor(updatedFloorAfterInfo);
+          logActivityComplete(currentRoom.id, 'infoGathering');
         }
         break;
     }
@@ -860,6 +910,11 @@ const App: React.FC = () => {
         const updatedFloor = completeActivity(locationFloor, currentRoom.id, 'event');
         setLocationFloor(updatedFloor);
         setRegion(syncFloorToRegion(region, updatedFloor));
+
+        // Add intel from event completion (average ~15%)
+        const eventIntelGain = INTEL_GAIN.EVENT_DEFAULT;
+        setCurrentIntel(prev => Math.min(100, prev + eventIntelGain));
+        logIntelGain('Event', eventIntelGain, Math.min(100, currentIntel + eventIntelGain));
       }
     }
 
@@ -914,6 +969,11 @@ const App: React.FC = () => {
 
     const selectedCard = drawnCards[selectedCardIndex];
     if (!selectedCard) return;
+
+    // Reset intel for new location (starts at 0, not 50%)
+    // First location already started at 50% from initial state
+    setCurrentIntel(0);
+    logIntelReset(selectedCard.location.name);
 
     let locationToEnter = selectedCard.location;
 
@@ -1004,10 +1064,14 @@ const App: React.FC = () => {
           logActivityStart(currentRoom.id, 'merchant', { itemCount: currentRoom.activities.merchant.items.length });
           logStateChange('LOCATION_EXPLORE', 'MERCHANT', 'merchant activity');
           setMerchantItems(currentRoom.activities.merchant.items);
-          setMerchantDiscount(currentRoom.activities.merchant.discountPercent || 0);
+          // Apply wealth-based discount on top of room discount
+          const locationRoomDiscount = currentRoom.activities.merchant.discountPercent || 0;
+          const locationWealthDiscount = getMerchantDiscount(currentLocation?.wealthLevel ?? 4);
+          const locationTotalDiscount = Math.min(0.5, locationRoomDiscount / 100 + locationWealthDiscount); // Cap at 50%
+          setMerchantDiscount(locationTotalDiscount * 100);
           setSelectedBranchingRoom(currentRoom);
           setGameState(GameState.MERCHANT);
-          addLog(`A merchant greets you. ${currentRoom.activities.merchant.items.length} items available.`, 'info');
+          addLog(`A merchant greets you. ${currentRoom.activities.merchant.items.length} items available${locationWealthDiscount > 0 ? ` (${Math.round(locationWealthDiscount * 100)}% wealth discount!)` : ''}.`, 'info');
         }
         break;
 
@@ -1086,15 +1150,34 @@ const App: React.FC = () => {
           logStateChange('LOCATION_EXPLORE', 'LOOT', 'treasure activity');
           setDroppedItems(treasure.items);
           setDroppedSkill(null);
-          if (treasure.ryo > 0) {
-            setPlayer(p => p ? { ...p, ryo: p.ryo + treasure.ryo } : null);
-            addLog(`Found treasure! +${treasure.ryo} Ryō.`, 'loot');
+          // Apply wealth multiplier to treasure ryo
+          const treasureWealth = currentLocation?.wealthLevel ?? 4;
+          const adjustedTreasureRyo = applyWealthToRyo(treasure.ryo, treasureWealth);
+          if (adjustedTreasureRyo > 0) {
+            setPlayer(p => p ? { ...p, ryo: p.ryo + adjustedTreasureRyo } : null);
+            addLog(`Found treasure! +${adjustedTreasureRyo} Ryō${treasureWealth !== 4 ? ` (${treasureWealth > 4 ? 'wealthy' : 'poor'} area)` : ''}.`, 'loot');
           }
           const floorAfterTreasure = completeActivity(updatedFloor, room.id, 'treasure');
           setLocationFloor(floorAfterTreasure);
           setRegion(syncFloorToRegion(updatedRegion, floorAfterTreasure));
           logActivityComplete(currentRoom.id, 'treasure');
           setGameState(GameState.LOOT);
+        }
+        break;
+
+      case 'infoGathering':
+        if (currentRoom.activities.infoGathering) {
+          const infoActivity = currentRoom.activities.infoGathering;
+          logActivityStart(currentRoom.id, 'infoGathering', { intelGain: infoActivity.intelGain });
+          // Add intel gain
+          setCurrentIntel(prev => Math.min(100, prev + infoActivity.intelGain));
+          logIntelGain('InfoGathering', infoActivity.intelGain, Math.min(100, currentIntel + infoActivity.intelGain));
+          addLog(`${infoActivity.flavorText} +${infoActivity.intelGain}% intel.`, 'info');
+          // Mark activity complete
+          const floorAfterInfo = completeActivity(updatedFloor, room.id, 'infoGathering');
+          setLocationFloor(floorAfterInfo);
+          setRegion(syncFloorToRegion(updatedRegion, floorAfterInfo));
+          logActivityComplete(currentRoom.id, 'infoGathering');
         }
         break;
     }
@@ -1143,10 +1226,19 @@ const App: React.FC = () => {
       const updatedDeck = updateDeckAfterCompletion(locationDeck, location.id);
       setLocationDeck(updatedDeck);
 
-      // Draw new cards for returning to region map
-      const newCards = drawLocationCards(updatedRegion, updatedDeck, updatedIntelPool, 3);
+      // Use currentIntel to determine card count and reveal status
+      const { cardCount, revealedCount } = evaluateIntel(currentIntel);
+
+      // Draw cards and apply intel-based reveal levels
+      const rawCards = drawLocationCards(updatedRegion, updatedDeck, updatedIntelPool, cardCount);
+      const newCards = rawCards.map((card, index) => ({
+        ...card,
+        intelLevel: index < revealedCount ? IntelRevealLevel.FULL : IntelRevealLevel.NONE,
+      }));
       setDrawnCards(newCards);
       setSelectedCardIndex(null);
+
+      addLog(`Intel gathered: ${currentIntel}% - ${cardCount} path${cardCount > 1 ? 's' : ''} revealed, ${revealedCount} with full intel.`, 'info');
     }
 
     addLog('Intel acquired! Choose your next destination.', 'gain');
@@ -1176,8 +1268,15 @@ const App: React.FC = () => {
     const updatedDeck = updateDeckAfterCompletion(locationDeck, location.id);
     setLocationDeck(updatedDeck);
 
-    // Draw new cards for region map (with current intel - no bonus)
-    const newCards = drawLocationCards(updatedRegion, updatedDeck, intelPool, 3);
+    // Use currentIntel to determine card count and reveal status (skipping gets current intel)
+    const { cardCount, revealedCount } = evaluateIntel(currentIntel);
+
+    // Draw cards and apply intel-based reveal levels
+    const rawCards = drawLocationCards(updatedRegion, updatedDeck, intelPool, cardCount);
+    const newCards = rawCards.map((card, index) => ({
+      ...card,
+      intelLevel: index < revealedCount ? IntelRevealLevel.FULL : IntelRevealLevel.NONE,
+    }));
     setDrawnCards(newCards);
     setSelectedCardIndex(null);
 
@@ -1192,8 +1291,15 @@ const App: React.FC = () => {
     const updatedRegion = choosePath(region, path.id);
     setRegion(updatedRegion);
 
-    // Draw new cards after path choice
-    const newCards = drawLocationCards(updatedRegion, locationDeck, intelPool, 3);
+    // Use currentIntel to determine card count and reveal status
+    const { cardCount, revealedCount } = evaluateIntel(currentIntel);
+
+    // Draw cards and apply intel-based reveal levels
+    const rawCards = drawLocationCards(updatedRegion, locationDeck, intelPool, cardCount);
+    const newCards = rawCards.map((card, index) => ({
+      ...card,
+      intelLevel: index < revealedCount ? IntelRevealLevel.FULL : IntelRevealLevel.NONE,
+    }));
     setDrawnCards(newCards);
     setSelectedCardIndex(null);
 
@@ -1211,8 +1317,15 @@ const App: React.FC = () => {
       const earnedIntel = hasEarnedPathChoice(region);
       logLocationLeave(location.id, location.name, earnedIntel ? 'with intel' : 'completed');
 
-      // Draw new cards for the region map (cards are the new path choice)
-      const newCards = drawLocationCards(region, locationDeck, intelPool, 3);
+      // Use currentIntel to determine card count and reveal status
+      const { cardCount, revealedCount } = evaluateIntel(currentIntel);
+
+      // Draw cards and apply intel-based reveal levels
+      const rawCards = drawLocationCards(region, locationDeck, intelPool, cardCount);
+      const newCards = rawCards.map((card, index) => ({
+        ...card,
+        intelLevel: index < revealedCount ? IntelRevealLevel.FULL : IntelRevealLevel.NONE,
+      }));
       setDrawnCards(newCards);
       setSelectedCardIndex(null);
 
@@ -2235,7 +2348,6 @@ const App: React.FC = () => {
                 region={region}
                 player={player}
                 playerStats={playerStats}
-                intelPool={intelPool}
                 drawnCards={drawnCards}
                 selectedIndex={selectedCardIndex}
                 onCardSelect={handleCardSelect}
@@ -2259,6 +2371,7 @@ const App: React.FC = () => {
                   branchingFloor={locationFloor}
                   player={player}
                   playerStats={playerStats}
+                  currentIntel={currentIntel}
                   onRoomSelect={handleLocationRoomSelect}
                   onRoomEnter={handleLocationRoomEnter}
                 />

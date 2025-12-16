@@ -5,6 +5,7 @@ import {
   PathType,
 } from '../../game/types';
 import { getAvailablePaths, getRandomPath, getLocationById } from '../../game/systems/RegionSystem';
+import LocationIcon from '../shared/LocationIcon';
 
 interface PathChoiceModalProps {
   region: Region;
@@ -117,7 +118,7 @@ const PathChoiceModal: React.FC<PathChoiceModalProps> = ({
                   >
                     <div className="flex items-start gap-4">
                       {/* Location icon */}
-                      <div className="text-3xl">{targetLocation.icon}</div>
+                      <LocationIcon icon={targetLocation.icon} size="lg" />
 
                       {/* Path info */}
                       <div className="flex-1">

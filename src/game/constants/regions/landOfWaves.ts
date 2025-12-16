@@ -35,7 +35,10 @@ const THE_DOCKS: LocationConfig = {
   name: 'The Docks',
   description: 'A bustling harbor where fishermen and merchants gather. The gateway to Wave Country. Gato\'s enforcers patrol openly.',
   type: LocationType.SETTLEMENT,
-  icon: '⚓',
+  icon: {
+    asset: '/assets/icons/locations/the_docks.png',
+    fallback: '⚓',
+  },
   dangerLevel: 2,
   terrain: LocationTerrainType.WATER_ADJACENT,
   terrainEffects: [{ type: 'water_damage_bonus', value: 0.2 }],
@@ -70,7 +73,10 @@ const MISTY_BEACH: LocationConfig = {
   name: 'Misty Beach',
   description: 'Fog rolls in from the sea, obscuring everything. Wrecked boats dot the shoreline. Perfect for ambushes.',
   type: LocationType.WILDERNESS,
-  icon: '🌫️',
+  icon: {
+    asset: '/assets/icons/locations/misty_beach.png',
+    fallback: '🌫️',
+  },
   dangerLevel: 1,
   terrain: LocationTerrainType.WATER_ADJACENT,
   terrainEffects: [

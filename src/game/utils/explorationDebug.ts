@@ -163,3 +163,47 @@ export function logPathRandom(pathId: string, targetLocation: string): void {
 export function logPathReveal(pathIds: string[], locationName: string): void {
   explorationLog('info', `[PATH] Revealed ${pathIds.length} path(s) from ${locationName}`, pathIds);
 }
+
+// ============================================================================
+// INTEL & CARD SYSTEM
+// ============================================================================
+
+export function logIntelEvaluate(intel: number, cardCount: number, revealedCount: number): void {
+  explorationLog('info', `[INTEL] Evaluated: ${intel}% → ${cardCount} cards, ${revealedCount} revealed`);
+}
+
+export function logCardDrawStart(regionId: string, count: number, revealedCount: number | undefined): void {
+  explorationLog('flow', `[CARD] Draw starting: region=${regionId}, count=${count}, revealed=${revealedCount ?? 'auto'}`);
+}
+
+export function logCardDraw(index: number, locationName: string, intelLevel: number, isRevealed: boolean): void {
+  explorationLog('flow', `[CARD] Draw #${index}: ${locationName} - Intel:${intelLevel} Revealed:${isRevealed}`);
+}
+
+export function logCardDrawComplete(cards: Array<{ name: string; intelLevel: number }>): void {
+  explorationLog('flow', `[CARD] Draw complete:`, cards);
+}
+
+export function logInitialCardDraw(initialIntel: number, cardCount: number, revealedCount: number): void {
+  explorationLog('flow', `=== INITIAL CARD DRAW: Intel ${initialIntel}% → ${cardCount} cards, ${revealedCount} revealed ===`);
+}
+
+export function logCardRender(index: number, locationName: string, intelLevel: number, showMystery: boolean): void {
+  explorationLog('info', `[RENDER] Card #${index}: ${locationName} - Intel:${intelLevel} Mystery:${showMystery}`);
+}
+
+export function logCardsReceived(cardCount: number, cards: Array<{ name: string; intelLevel: number }>): void {
+  explorationLog('info', `[REGION_MAP] Received ${cardCount} cards:`, cards);
+}
+
+// ============================================================================
+// INTEL STATE CHANGES
+// ============================================================================
+
+export function logIntelGain(source: string, amount: number, newTotal: number): void {
+  explorationLog('activity', `[INTEL] +${amount}% from ${source} → ${newTotal}%`);
+}
+
+export function logIntelReset(locationName: string): void {
+  explorationLog('flow', `[INTEL] Reset to 0% (entering ${locationName})`);
+}

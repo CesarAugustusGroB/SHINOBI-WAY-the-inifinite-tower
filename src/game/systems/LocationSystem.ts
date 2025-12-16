@@ -367,6 +367,22 @@ function generateActivities(
     };
   }
 
+  // Info Gathering (+25% intel)
+  if (config.hasInfoGathering) {
+    const flavorTexts = [
+      'You gather information from locals.',
+      'Ancient inscriptions reveal secrets.',
+      'A passing traveler shares rumors.',
+      'You overhear valuable intelligence.',
+      'Careful observation reveals hidden details.',
+    ];
+    activities.infoGathering = {
+      intelGain: 25, // Same as INTEL_GAIN.INFO_GATHERING
+      flavorText: flavorTexts[Math.floor(Math.random() * flavorTexts.length)],
+      completed: false,
+    };
+  }
+
   return activities;
 }
 

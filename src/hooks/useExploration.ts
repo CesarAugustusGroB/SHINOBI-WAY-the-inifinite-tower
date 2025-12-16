@@ -11,7 +11,7 @@ import {
   getCurrentRoom,
 } from '../game/systems/LocationSystem';
 
-export type ActivityType = 'combat' | 'eliteChallenge' | 'merchant' | 'event' | 'rest' | 'training' | 'treasure' | 'scrollDiscovery';
+export type ActivityType = 'combat' | 'eliteChallenge' | 'merchant' | 'event' | 'rest' | 'training' | 'treasure' | 'scrollDiscovery' | 'infoGathering';
 
 export interface ActivityResult {
   type: ActivityType;

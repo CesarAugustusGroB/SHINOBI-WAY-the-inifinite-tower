@@ -1,5 +1,6 @@
 import React from 'react';
 import { Location, LocationType } from '../../game/types';
+import LocationIcon from '../shared/LocationIcon';
 
 interface LocationCardProps {
   location: Location;
@@ -96,7 +97,7 @@ const LocationCard: React.FC<LocationCardProps> = ({
         onClick={onClick}
       >
         <div className="text-center">
-          <span className="text-2xl">{location.icon}</span>
+          <LocationIcon icon={location.icon} size="md" />
           <p className="text-xs text-zinc-300 truncate mt-1">{location.name}</p>
           <span className={`text-[10px] ${getDangerColor(location.dangerLevel)}`}>
             ★{location.dangerLevel}
@@ -121,8 +122,8 @@ const LocationCard: React.FC<LocationCardProps> = ({
     >
       {/* Icon and Name */}
       <div className="flex items-start gap-3">
-        <div className={`text-3xl ${isCompleted ? 'grayscale' : ''}`}>
-          {location.icon}
+        <div className={isCompleted ? 'grayscale' : ''}>
+          <LocationIcon icon={location.icon} size="lg" />
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-medium text-zinc-200 truncate">
