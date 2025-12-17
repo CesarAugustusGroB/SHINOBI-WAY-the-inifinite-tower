@@ -4,7 +4,7 @@ import { Coins, RefreshCw, ShoppingBag, Gem } from 'lucide-react';
 import Tooltip from '../components/shared/Tooltip';
 import { formatStatName } from '../game/utils/tooltipFormatters';
 import { MERCHANT } from '../game/config';
-import { calculateMerchantRerollCost } from '../game/systems/RegionSystem';
+import { calculateMerchantRerollCost } from '../game/systems/ScalingSystem';
 
 interface MerchantProps {
   merchantItems: Item[];

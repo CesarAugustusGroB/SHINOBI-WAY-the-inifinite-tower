@@ -5,7 +5,7 @@ import {
   TrainingActivity, ScrollDiscoveryActivity
 } from '../game/types';
 import { getCurrentActivity, completeActivity } from '../game/systems/LocationSystem';
-import { getMerchantDiscount, applyWealthToRyo } from '../game/systems/RegionSystem';
+import { getMerchantDiscount, applyWealthToRyo } from '../game/systems/ScalingSystem';
 import {
   logRoomEnter, logActivityStart, logActivityComplete,
   logModalOpen, logStateChange, logExplorationCheckpoint,

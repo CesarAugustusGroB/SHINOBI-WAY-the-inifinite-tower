@@ -55,10 +55,8 @@ import {
   locationToBranchingFloor,
   markLocationComplete,
   exitLocation,
-  dangerToFloor,
   calculateLocationXP,
   calculateLocationRyo,
-  calculateMerchantRerollCost,
   // Card-based location selection functions
   initializeLocationDeck,
   drawLocationCards,
@@ -68,9 +66,13 @@ import {
   // Wealth and intel system functions
   INTEL_GAIN,
   evaluateIntel,
+} from './game/systems/RegionSystem';
+import {
+  dangerToFloor,
+  calculateMerchantRerollCost,
   applyWealthToRyo,
   getMerchantDiscount,
-} from './game/systems/RegionSystem';
+} from './game/systems/ScalingSystem';
 import { LAND_OF_WAVES_CONFIG } from './game/constants/regions';
 import { resolveEventChoice } from './game/systems/EventSystem';
 import { useCombat } from './hooks/useCombat';
