@@ -50,7 +50,7 @@ import {
   checkGutsPassive,
 } from './EquipmentPassiveSystem';
 import { chance } from '../utils/rng';
-import type { CombatState, EnemyTurnResult } from './CombatWorkflowSystem';
+import type { CombatState, EnemyTurnResult } from './combat-types';
 
 // ============================================================================
 // INTERNAL TYPES

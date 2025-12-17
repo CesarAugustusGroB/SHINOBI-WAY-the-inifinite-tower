@@ -54,7 +54,7 @@ import {
   processPassivesOnTurnStart,
   checkExecuteThreshold,
 } from './EquipmentPassiveSystem';
-import type { CombatState, CombatResult, UpkeepResult } from './CombatWorkflowSystem';
+import type { CombatState, CombatResult, UpkeepResult } from './combat-types';
 
 // ============================================================================
 // APPROACH EFFECTS
