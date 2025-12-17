@@ -1,188 +1,240 @@
 import { useCallback } from 'react';
-import { Player, BranchingFloor, BranchingRoom, GameState } from '../game/types';
-import { CombatState } from '../game/systems/CombatWorkflowSystem';
-import { ApproachResult } from '../game/systems/ApproachSystem';
-import { getPlayerFullStats } from '../game/systems/StatSystem';
 import {
-  generateBranchingFloor,
-  moveToRoom,
-  getCurrentActivity,
-  completeActivity,
-  getCurrentRoom,
-} from '../game/systems/LocationSystem';
+  GameState, Player, BranchingRoom, CharacterStats,
+  Location, Item, GameEvent, Skill, Enemy, LogEntry,
+  TrainingActivity, ScrollDiscoveryActivity
+} from '../game/types';
+import { getCurrentActivity, getCurrentRoom } from '../game/systems/LocationSystem';
+import { getCurrentLocation } from '../game/systems/RegionSystem';
+import { logRoomExit, logStateChange } from '../game/utils/explorationDebug';
+import { CombatExplorationState } from './useCombatExplorationState';
+import { useActivityHandler, ActivitySceneSetters } from './useActivityHandler';
+import { useLocationCards } from './useLocationCards';
+import { useRoomNavigation } from './useRoomNavigation';
 
-export type ActivityType = 'combat' | 'eliteChallenge' | 'merchant' | 'event' | 'rest' | 'training' | 'treasure' | 'scrollDiscovery' | 'infoGathering';
+// Re-export types for App.tsx compatibility
+export type { ActivitySceneSetters } from './useActivityHandler';
 
-export interface ActivityResult {
-  type: ActivityType;
-  room: BranchingRoom;
-  updatedFloor: BranchingFloor;
-}
-
-export interface UseExplorationProps {
+/**
+ * Dependencies for the useExploration hook
+ */
+export interface UseExplorationDeps {
   player: Player | null;
-  difficulty: number;
-  addLog: (text: string, type?: string, details?: string) => void;
+  playerStats: CharacterStats | null;
   setPlayer: React.Dispatch<React.SetStateAction<Player | null>>;
   setGameState: (state: GameState) => void;
-  onActivity: (result: ActivityResult) => void;
-
-  // Shared state from useCombatExplorationState
-  branchingFloor: BranchingFloor | null;
-  setBranchingFloor: React.Dispatch<React.SetStateAction<BranchingFloor | null>>;
-  selectedBranchingRoom: BranchingRoom | null;
-  setSelectedBranchingRoom: React.Dispatch<React.SetStateAction<BranchingRoom | null>>;
-  showApproachSelector: boolean;
-  setShowApproachSelector: React.Dispatch<React.SetStateAction<boolean>>;
-  setCombatState: React.Dispatch<React.SetStateAction<CombatState | null>>;
-  setApproachResult: React.Dispatch<React.SetStateAction<ApproachResult | null>>;
-}
-
-export interface UseExplorationReturn {
-  // Actions only - state is now managed by useCombatExplorationState
-  selectRoom: (room: BranchingRoom) => void;
-  enterRoom: (room: BranchingRoom) => void;
-  nextFloor: (floor: number) => void;
-  returnToMap: (clearDrops: () => void) => void;
-  completeCurrentActivity: (activityType: ActivityType) => void;
+  gameState: GameState;
+  addLog: (text: string, type?: LogEntry['type']) => void;
+  currentLocation: Location | null;
+  activitySetters: ActivitySceneSetters;
+  setEnemy: (enemy: Enemy | null) => void;
 }
 
 /**
- * Custom hook for managing exploration navigation and actions.
- * Extracts floor exploration logic from App.tsx
- *
- * Note: State is now received via props from useCombatExplorationState
- * to break the circular dependency with useCombat.
+ * Return type for useExploration hook
  */
-export function useExploration({
-  player,
-  difficulty,
-  addLog,
-  setPlayer,
-  setGameState,
-  onActivity,
-  // Shared state from useCombatExplorationState
-  branchingFloor,
-  setBranchingFloor,
-  selectedBranchingRoom,
-  setSelectedBranchingRoom,
-  setShowApproachSelector,
-  setCombatState,
-  setApproachResult,
-}: UseExplorationProps): UseExplorationReturn {
+export interface UseExplorationReturn {
+  // Card selection handlers
+  handleCardSelect: (index: number) => void;
+  handleEnterSelectedLocation: () => void;
+  // Room handlers
+  handleLocationRoomSelect: (room: BranchingRoom) => void;
+  handleLocationRoomEnter: (room: BranchingRoom) => void;
+  handleBranchingRoomSelect: (room: BranchingRoom) => void;
+  handleBranchingRoomEnter: (room: BranchingRoom) => void;
+  // Navigation handlers
+  handlePathChoice: (path: import('../game/types').LocationPath) => void;
+  handleLeaveLocation: () => void;
+  returnToMap: () => void;
+}
+
+/**
+ * Hook that manages exploration navigation and activity handling.
+ * Composes smaller specialized hooks for cleaner separation of concerns.
+ *
+ * Architecture:
+ * - useActivityHandler: Room activity execution (combat, merchant, etc.)
+ * - useLocationCards: Card selection and location navigation
+ * - useRoomNavigation: Room-level select/enter handlers
+ * - useExploration: Composition layer + returnToMap
+ */
+export function useExploration(
+  explorationState: CombatExplorationState,
+  deps: UseExplorationDeps
+): UseExplorationReturn {
+  const {
+    // Legacy branching exploration
+    branchingFloor,
+    setBranchingFloor,
+    selectedBranchingRoom,
+    setSelectedBranchingRoom,
+    setShowApproachSelector,
+    // Region exploration
+    region,
+    setRegion,
+    setSelectedLocation,
+    locationFloor,
+    setLocationFloor,
+    // Card-based location selection
+    locationDeck,
+    intelPool,
+    drawnCards,
+    setDrawnCards,
+    selectedCardIndex,
+    setSelectedCardIndex,
+    // Location intel
+    currentIntel,
+    setCurrentIntel,
+  } = explorationState;
+
+  const {
+    player,
+    playerStats,
+    setPlayer,
+    setGameState,
+    gameState,
+    addLog,
+    currentLocation,
+    activitySetters,
+    setEnemy,
+  } = deps;
+
+  const { setDroppedItems, setDroppedSkill } = activitySetters;
+
+  // ============================================================================
+  // COMPOSE SPECIALIZED HOOKS
+  // ============================================================================
+
+  // Activity handler - executes room activities
+  const { executeRoomActivity } = useActivityHandler({
+    player,
+    playerStats,
+    setPlayer,
+    setGameState,
+    addLog,
+    currentLocation,
+    activitySetters,
+    setSelectedBranchingRoom,
+    setShowApproachSelector,
+    setCurrentIntel,
+    currentIntel,
+  });
+
+  // Location cards - card selection and location navigation
+  const {
+    handleCardSelect,
+    handleEnterSelectedLocation,
+    handlePathChoice,
+    handleLeaveLocation,
+  } = useLocationCards(
+    {
+      region,
+      locationDeck,
+      intelPool,
+      drawnCards,
+      selectedCardIndex,
+      currentIntel,
+      setRegion,
+      setSelectedLocation,
+      setLocationFloor,
+      setDrawnCards,
+      setSelectedCardIndex,
+      setCurrentIntel,
+    },
+    { addLog, setGameState }
+  );
+
+  // Room navigation - room select/enter handlers
+  const {
+    handleLocationRoomSelect,
+    handleLocationRoomEnter,
+    handleBranchingRoomSelect,
+    handleBranchingRoomEnter,
+  } = useRoomNavigation(
+    {
+      branchingFloor,
+      locationFloor,
+      region,
+      setBranchingFloor,
+      setLocationFloor,
+      setSelectedBranchingRoom,
+    },
+    { player, playerStats, executeRoomActivity }
+  );
+
+  // ============================================================================
+  // RETURN TO MAP (requires cross-hook coordination)
+  // ============================================================================
+
+  // Forward refs for circular dependency in returnToMap
+  const handleLocationRoomEnterRef = useCallback((room: BranchingRoom) => {
+    handleLocationRoomEnter(room);
+  }, [handleLocationRoomEnter]);
+
+  const handleLeaveLocationRef = useCallback(() => {
+    handleLeaveLocation();
+  }, [handleLeaveLocation]);
 
   /**
-   * Select a room (for preview/info)
+   * Return to map after completing an activity (combat, loot, etc.)
+   * Handles activity chaining and location completion checks.
    */
-  const selectRoom = useCallback((room: BranchingRoom) => {
-    setSelectedBranchingRoom(room);
-  }, [setSelectedBranchingRoom]);
+  const returnToMap = useCallback(() => {
+    logRoomExit(selectedBranchingRoom?.id || 'unknown', 'returnToMap');
+    logStateChange(gameState.toString(), 'EXPLORE', 'returnToMap');
+    setDroppedItems([]);
+    setDroppedSkill(null);
+    setEnemy(null);
 
-  /**
-   * Enter a room and trigger its activity
-   */
-  const enterRoom = useCallback((room: BranchingRoom) => {
-    if (!branchingFloor || !player) return;
-
-    // Move to the room
-    const updatedFloor = moveToRoom(branchingFloor, room.id);
-    setBranchingFloor(updatedFloor);
-
-    // Get the current activity for the room
-    const currentRoom = updatedFloor.rooms.find(r => r.id === room.id);
-    if (!currentRoom) return;
-
-    const activity = getCurrentActivity(currentRoom);
-
-    if (!activity) {
-      addLog(`You enter ${currentRoom.name}. Nothing remains here.`, 'info');
-      return;
-    }
-
-    // Notify parent of activity to handle
-    onActivity({
-      type: activity,
-      room: currentRoom,
-      updatedFloor,
-    });
-  }, [branchingFloor, player, addLog, onActivity, setBranchingFloor]);
-
-  /**
-   * Advance to the next floor
-   */
-  const nextFloor = useCallback((currentFloor: number) => {
-    const nextFloorNum = currentFloor + 1;
-
-    setPlayer(p => {
-      if (!p) return null;
-      const stats = getPlayerFullStats(p);
-
-      // Apply natural regeneration
-      const updatedPlayer = {
-        ...p,
-        currentChakra: Math.min(stats.derived.maxChakra, p.currentChakra + stats.derived.chakraRegen),
-        currentHp: Math.min(stats.derived.maxHp, p.currentHp + stats.derived.hpRegen)
-      };
-
-      // Reset combat state
-      setShowApproachSelector(false);
-      setCombatState(null);
-      setApproachResult(null);
-
-      // Generate new branching floor
-      const newBranchingFloor = generateBranchingFloor(nextFloorNum, difficulty, updatedPlayer);
-      setBranchingFloor(newBranchingFloor);
-      setSelectedBranchingRoom(null);
-
-      return updatedPlayer;
-    });
-
-    setGameState(GameState.EXPLORE);
-  }, [difficulty, setPlayer, setGameState, setCombatState, setApproachResult, setShowApproachSelector, setBranchingFloor, setSelectedBranchingRoom]);
-
-  /**
-   * Return to exploration map (after loot/events)
-   */
-  const returnToMap = useCallback((clearDrops: () => void) => {
-    clearDrops();
-
-    // Check if we came from a branching room with remaining activities
-    if (selectedBranchingRoom && branchingFloor) {
-      const currentRoom = branchingFloor.rooms.find(r => r.id === selectedBranchingRoom.id);
+    // If in location mode, check for activity chaining
+    if (region && locationFloor && region.currentLocationId) {
+      const currentRoom = getCurrentRoom(locationFloor);
       if (currentRoom) {
         const nextActivity = getCurrentActivity(currentRoom);
         if (nextActivity) {
-          // Re-enter the room to trigger the next activity
-          enterRoom(currentRoom);
+          // Auto-trigger next activity in room
+          setSelectedBranchingRoom(null);
+          setTimeout(() => handleLocationRoomEnterRef(currentRoom), 100);
           return;
         }
       }
+
+      // Check if location is completed
+      const location = getCurrentLocation(region);
+      if (location?.isCompleted) {
+        setSelectedBranchingRoom(null);
+        setTimeout(() => handleLeaveLocationRef(), 100);
+        return;
+      }
+
+      setSelectedBranchingRoom(null);
+      setGameState(GameState.LOCATION_EXPLORE);
+    } else {
+      setSelectedBranchingRoom(null);
+      setGameState(GameState.EXPLORE);
     }
+  }, [
+    selectedBranchingRoom, gameState, region, locationFloor,
+    setDroppedItems, setDroppedSkill, setEnemy, setSelectedBranchingRoom, setGameState,
+    handleLocationRoomEnterRef, handleLeaveLocationRef
+  ]);
 
-    // No remaining activities, clear selection and return to map
-    setSelectedBranchingRoom(null);
-    setGameState(GameState.EXPLORE);
-  }, [selectedBranchingRoom, branchingFloor, enterRoom, setGameState, setSelectedBranchingRoom]);
-
-  /**
-   * Mark an activity as completed in the current room
-   */
-  const completeCurrentActivity = useCallback((activityType: ActivityType) => {
-    if (!branchingFloor) return;
-
-    const currentRoom = getCurrentRoom(branchingFloor);
-    if (!currentRoom) return;
-
-    const updatedFloor = completeActivity(branchingFloor, currentRoom.id, activityType);
-    setBranchingFloor(updatedFloor);
-  }, [branchingFloor, setBranchingFloor]);
+  // ============================================================================
+  // PUBLIC API
+  // ============================================================================
 
   return {
-    // Actions only - state is now managed by useCombatExplorationState
-    selectRoom,
-    enterRoom,
-    nextFloor,
+    // Card selection
+    handleCardSelect,
+    handleEnterSelectedLocation,
+    // Room navigation
+    handleLocationRoomSelect,
+    handleLocationRoomEnter,
+    handleBranchingRoomSelect,
+    handleBranchingRoomEnter,
+    // Location navigation
+    handlePathChoice,
+    handleLeaveLocation,
     returnToMap,
-    completeCurrentActivity,
   };
 }

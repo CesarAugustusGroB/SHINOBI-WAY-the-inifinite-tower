@@ -44,6 +44,7 @@ import {
   ElementType,
   CharacterStats,
 } from '../types';
+import { generateId as rngGenerateId, chance, randomFloat } from '../utils/rng';
 
 // ============================================================================
 // TYPES
@@ -69,7 +70,7 @@ export interface MitigationResult {
 // ============================================================================
 
 /** Generates a random 7-character ID for buff tracking */
-export const generateId = () => Math.random().toString(36).substring(2, 9);
+export const generateId = () => rngGenerateId();
 
 /**
  * Decrements buff durations and removes expired buffs.
@@ -225,7 +226,7 @@ export function applyTerrainHazard(
   const hazard = terrain.effects.hazard;
 
   // Hazard has a chance to trigger (default 30%)
-  if (Math.random() > (hazard.chance || 0.3)) {
+  if (!chance(hazard.chance || 0.3)) {
     return { newHp: target.currentHp, log: null };
   }
 
@@ -284,8 +285,8 @@ export function determineTurnOrder(
   const enemyInit = enemyStats.derived.initiative;
 
   // Higher initiative goes first, with small random factor
-  const playerRoll = playerInit + (Math.random() * 10);
-  const enemyRoll = enemyInit + (Math.random() * 10);
+  const playerRoll = playerInit + randomFloat(0, 10);
+  const enemyRoll = enemyInit + randomFloat(0, 10);
 
   return playerRoll >= enemyRoll ? 'player' : 'enemy';
 }

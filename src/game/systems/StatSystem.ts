@@ -76,6 +76,7 @@ import {
 } from '../types';
 import { ELEMENTAL_CYCLE } from '../constants';
 import { BALANCE } from '../config';
+import { percentChance, chance } from '../utils/rng';
 
 // ============================================================================
 // PASSIVE SKILL BONUS AGGREGATOR
@@ -266,7 +267,7 @@ export function calculateDerivedStats(
   // HP regen scales with both max HP AND willpower (double scaling)
   // Chakra regen is purely intelligence-based
   // ─────────────────────────────────────────────────────────────────────────
-  const hpRegen = Math.floor(maxHp * F.HP_REGEN_PERCENT * (effective.willpower / 20));
+  const hpRegen = Math.floor(maxHp * F.HP_REGEN_PERCENT * (effective.willpower / BALANCE.HP_REGEN_WILLPOWER_DIVISOR));
   const chakraRegen = Math.floor(effective.intelligence * F.CHAKRA_REGEN_PER_INT);
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -303,8 +304,8 @@ export function calculateDerivedStats(
   // HIT RATES - Base accuracy before defender's evasion is applied
   // In combat, defender's speed reduces these values
   // ─────────────────────────────────────────────────────────────────────────
-  const meleeHitRate = F.BASE_HIT_CHANCE + (effective.speed * 0.3);
-  const rangedHitRate = F.BASE_HIT_CHANCE + (effective.accuracy * 0.3);
+  const meleeHitRate = F.BASE_HIT_CHANCE + (effective.speed * BALANCE.HIT_RATE_SCALING);
+  const rangedHitRate = F.BASE_HIT_CHANCE + (effective.accuracy * BALANCE.HIT_RATE_SCALING);
 
   // ─────────────────────────────────────────────────────────────────────────
   // EVASION - Chance to completely avoid attacks (separate from miss)
@@ -569,22 +570,21 @@ export function calculateDamage(
     
     if (skill.attackMethod === AttackMethod.MELEE) {
       // Melee: Attacker SPEED vs Defender SPEED
-      hitChance = attackerDerived.meleeHitRate - (defenderPrimary.speed * 0.5);
+      hitChance = attackerDerived.meleeHitRate - (defenderPrimary.speed * BALANCE.EVASION_SCALING);
     } else {
       // Ranged: Attacker ACCURACY vs Defender SPEED
-      hitChance = attackerDerived.rangedHitRate - (defenderPrimary.speed * 0.5);
+      hitChance = attackerDerived.rangedHitRate - (defenderPrimary.speed * BALANCE.EVASION_SCALING);
     }
 
     hitChance = Math.max(30, Math.min(98, hitChance)); // Clamp 30-98%
 
-    if (Math.random() * 100 > hitChance) {
+    if (!percentChance(hitChance)) {
       result.isMiss = true;
       return result;
     }
 
     // Evasion check (separate from miss)
-    const evasionRoll = Math.random();
-    if (evasionRoll < defenderDerived.evasion) {
+    if (chance(defenderDerived.evasion)) {
       result.isEvaded = true;
       return result;
     }
@@ -622,7 +622,7 @@ export function calculateDamage(
   // Cap effective crit chance at 95% (always some uncertainty)
   effectiveCritChance = Math.min(95, effectiveCritChance);
 
-  if (Math.random() * 100 < effectiveCritChance) {
+  if (percentChance(effectiveCritChance)) {
     result.isCrit = true;
     const critMult = skill.attackMethod === AttackMethod.RANGED 
       ? attackerDerived.critDamageRanged 
@@ -666,7 +666,7 @@ export function calculateDamage(
   if (skill.damageProperty === DamageProperty.NORMAL) {
     // Normal: Both flat and % apply
     // Order: Flat first, then %
-    result.flatReduction = Math.min(flatDef, damageAfterDefense * 0.6); // Flat can't reduce more than 60%
+    result.flatReduction = Math.min(flatDef, damageAfterDefense * BALANCE.FLAT_DEFENSE_MAX_REDUCTION);
     damageAfterDefense -= result.flatReduction;
     result.percentReduction = Math.floor(damageAfterDefense * percentDef);
     damageAfterDefense -= result.percentReduction;
@@ -677,7 +677,7 @@ export function calculateDamage(
     damageAfterDefense -= result.percentReduction;
   } else if (skill.damageProperty === DamageProperty.ARMOR_BREAK) {
     // Armor Break: Ignores %, only FLAT applies
-    result.flatReduction = Math.min(flatDef, damageAfterDefense * 0.6);
+    result.flatReduction = Math.min(flatDef, damageAfterDefense * BALANCE.FLAT_DEFENSE_MAX_REDUCTION);
     damageAfterDefense -= result.flatReduction;
     result.percentReduction = 0;
   }
@@ -723,8 +723,7 @@ export function checkGuts(
 
   if (potentialHp <= 0) {
     // Death territory - check for Guts
-    const roll = Math.random();
-    if (roll < gutsChance) {
+    if (chance(gutsChance)) {
       return { survived: true, newHp: 1 };
     }
     return { survived: false, newHp: 0 };
@@ -755,7 +754,7 @@ export function resistStatus(
   statusResistance: number
 ): boolean {
   const effectiveChance = statusChance * (1 - statusResistance);
-  return Math.random() < effectiveChance;
+  return chance(effectiveChance);
 }
 
 // ============================================================================
@@ -857,11 +856,11 @@ export function calculateDotDamage(
   let damage = dotValue;
 
   if (property === DamageProperty.NORMAL) {
-    const flatRed = Math.min(flatDef * 0.5, damage * 0.4); // DoTs get reduced flat reduction
+    const flatRed = Math.min(flatDef * BALANCE.DOT_FLAT_DEFENSE_MULT, damage * BALANCE.DOT_FLAT_CAP);
     damage -= flatRed;
-    damage -= Math.floor(damage * percentDef * 0.5); // And reduced % reduction
+    damage -= Math.floor(damage * percentDef * BALANCE.DOT_PERCENT_DEFENSE_MULT);
   } else if (property === DamageProperty.PIERCING) {
-    damage -= Math.floor(damage * percentDef * 0.5);
+    damage -= Math.floor(damage * percentDef * BALANCE.DOT_PERCENT_DEFENSE_MULT);
   }
 
   return Math.max(1, Math.floor(damage));

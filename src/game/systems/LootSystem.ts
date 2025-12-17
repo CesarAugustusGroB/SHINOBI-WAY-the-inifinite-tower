@@ -80,12 +80,13 @@ import {
   PassiveEffect
 } from '../types';
 import { SKILLS } from '../constants';
-import { COMPONENT_DEFINITIONS, COMPONENT_DROP_WEIGHTS, getTotalDropWeight } from '../constants/components';
+import { COMPONENT_DEFINITIONS, COMPONENT_DROP_WEIGHTS } from '../constants/components';
 import { findRecipe, SYNTHESIS_RECIPES } from '../constants/synthesis';
-import { DIFFICULTY, CRAFTING_COSTS } from '../config';
+import { DIFFICULTY, CRAFTING_COSTS, BALANCE, LOOT_BALANCE } from '../config';
+import { generateId as rngGenerateId, pick, weightedPick, random, chance } from '../utils/rng';
 
 /** Generates a random 7-character ID for item tracking */
-const generateId = () => Math.random().toString(36).substring(2, 9);
+const generateId = () => rngGenerateId();
 
 /**
  * Cap stats to maximum of 2, keeping the highest values
@@ -114,7 +115,7 @@ export const generateSkillLoot = (enemyTier: string, currentFloor: number): Skil
 
   const candidates = Object.values(SKILLS).filter(s => possibleTiers.includes(s.tier));
   if (candidates.length === 0) return SKILLS.SHURIKEN;
-  return candidates[Math.floor(Math.random() * candidates.length)];
+  return pick(candidates) ?? SKILLS.SHURIKEN;
 };
 
 /**
@@ -139,7 +140,7 @@ export const generateSkillForFloor = (floor: number): Skill => {
 
   const candidates = Object.values(SKILLS).filter(s => possibleTiers.includes(s.tier));
   if (candidates.length === 0) return SKILLS.SHURIKEN;
-  return candidates[Math.floor(Math.random() * candidates.length)];
+  return pick(candidates) ?? SKILLS.SHURIKEN;
 };
 
 /**
@@ -212,7 +213,7 @@ export const equipItem = (player: Player, item: Item, targetSlot?: EquipmentSlot
 };
 
 export const sellItem = (player: Player, item: Item): Player => {
-  const val = Math.floor(item.value * 0.6);
+  const val = Math.floor(item.value * BALANCE.SELL_PRICE_RATIO);
   return { ...player, ryo: player.ryo + val };
 };
 
@@ -225,15 +226,8 @@ export const sellItem = (player: Player, item: Item): Player => {
  * Excludes Hashirama Cell (weight 0) from normal drops
  */
 function weightedRandomComponent(): ComponentId {
-  const totalWeight = getTotalDropWeight();
-  let roll = Math.random() * totalWeight;
-
-  for (const [id, weight] of Object.entries(COMPONENT_DROP_WEIGHTS) as [ComponentId, number][]) {
-    roll -= weight;
-    if (roll <= 0) return id;
-  }
-
-  return ComponentId.NINJA_STEEL; // Fallback
+  const entries = Object.entries(COMPONENT_DROP_WEIGHTS) as [ComponentId, number][];
+  return weightedPick(entries, ([, weight]) => weight)?.[0] ?? ComponentId.NINJA_STEEL;
 }
 
 /**
@@ -246,7 +240,7 @@ export const generateBrokenComponent = (currentFloor: number, _difficulty: numbe
 
   // Broken items have reduced stats (40-60% of normal)
   const floorScaling = 1 + (currentFloor * DIFFICULTY.FLOOR_SCALING);
-  const qualityRoll = 0.4 + (Math.random() * 0.2); // 0.4 to 0.6
+  const qualityRoll = LOOT_BALANCE.COMMON_QUALITY_BASE + (random() * LOOT_BALANCE.COMMON_QUALITY_RANGE);
   const statValue = Math.floor(def.baseValue * floorScaling * qualityRoll);
 
   return {
@@ -272,7 +266,7 @@ export const generateComponent = (currentFloor: number, difficulty: number): Ite
 
   // Scale value based on floor (similar to regular item scaling)
   const floorScaling = 1 + (currentFloor * DIFFICULTY.FLOOR_SCALING);
-  const qualityRoll = 0.9 + (Math.random() * 0.3); // 0.9 to 1.2
+  const qualityRoll = LOOT_BALANCE.RARE_QUALITY_BASE + (random() * LOOT_BALANCE.RARE_QUALITY_RANGE);
   const statValue = Math.floor(def.baseValue * floorScaling * qualityRoll);
 
   return {
@@ -305,14 +299,14 @@ export const generateComponentByQuality = (
       // Rare quality: same as Common but with boosted stats
       const item = generateComponent(currentFloor, difficulty);
       item.rarity = Rarity.RARE;
-      // Boost stat values by 25%
+      // Boost stat values
       for (const key of Object.keys(item.stats) as (keyof ItemStatBonus)[]) {
         const val = item.stats[key];
         if (val !== undefined) {
-          item.stats[key] = Math.floor(val * 1.25);
+          item.stats[key] = Math.floor(val * LOOT_BALANCE.ENHANCED_STAT_MULT);
         }
       }
-      item.value = Math.floor(item.value * 1.5);
+      item.value = Math.floor(item.value * LOOT_BALANCE.ENHANCED_VALUE_MULT);
       item.name = `Quality ${item.name}`;
       return item;
     }
@@ -334,7 +328,7 @@ export const generateLoot = (currentFloor: number, difficulty: number): Item => 
  * Picks a random recipe and creates the artifact with floor-scaled stats
  */
 export const generateRandomArtifact = (currentFloor: number, difficulty: number): Item => {
-  const recipe = SYNTHESIS_RECIPES[Math.floor(Math.random() * SYNTHESIS_RECIPES.length)];
+  const recipe = pick(SYNTHESIS_RECIPES) ?? SYNTHESIS_RECIPES[0];
   const [compIdA, compIdB] = recipe.recipe;
   const defA = COMPONENT_DEFINITIONS[compIdA];
   const defB = COMPONENT_DEFINITIONS[compIdB];
@@ -426,7 +420,7 @@ export const upgradeComponent = (
     name: def.name,
     rarity: Rarity.COMMON,
     stats: { [primaryStat]: combinedStatValue },
-    value: Math.floor((componentA.value + componentB.value) * 1.5),
+    value: Math.floor((componentA.value + componentB.value) * LOOT_BALANCE.SYNTHESIS_VALUE_MULT),
     description: def.description,
     isComponent: true,
     componentId: componentA.componentId,
@@ -517,7 +511,7 @@ const boostPassive = (passive?: PassiveEffect): PassiveEffect | undefined => {
   if (!passive) return undefined;
   return {
     ...passive,
-    value: passive.value !== undefined ? Math.floor(passive.value * 1.5) : undefined,
+    value: passive.value !== undefined ? Math.floor(passive.value * LOOT_BALANCE.ENHANCED_VALUE_MULT) : undefined,
   };
 };
 
@@ -555,18 +549,18 @@ export const upgradeArtifact = (
   // Calculate cost
   const cost = CRAFTING_COSTS.UPGRADE_ARTIFACT_BASE + (floor * CRAFTING_COSTS.UPGRADE_ARTIFACT_PER_FLOOR);
 
-  // Create EPIC artifact with boosted stats (75% of combined)
+  // Create EPIC artifact with boosted stats (retain % of combined)
   const upgradedStats: ItemStatBonus = {};
   for (const key of Object.keys(artifactA.stats) as (keyof ItemStatBonus)[]) {
     const valA = artifactA.stats[key] || 0;
     const valB = artifactB.stats[key] || 0;
-    upgradedStats[key] = Math.floor((valA + valB) * 0.75);
+    upgradedStats[key] = Math.floor((valA + valB) * LOOT_BALANCE.UPGRADE_STAT_RETENTION);
   }
   // Also include any stats only in B
   for (const key of Object.keys(artifactB.stats) as (keyof ItemStatBonus)[]) {
     if (upgradedStats[key] === undefined) {
       const valB = artifactB.stats[key] || 0;
-      upgradedStats[key] = Math.floor(valB * 0.75);
+      upgradedStats[key] = Math.floor(valB * LOOT_BALANCE.UPGRADE_STAT_RETENTION);
     }
   }
 
@@ -575,11 +569,11 @@ export const upgradeArtifact = (
     name: artifactA.name, // Same name
     rarity: Rarity.EPIC,
     stats: upgradedStats,
-    value: Math.floor((artifactA.value + artifactB.value) * 1.5),
+    value: Math.floor((artifactA.value + artifactB.value) * LOOT_BALANCE.SYNTHESIS_VALUE_MULT),
     description: artifactA.description,
     isComponent: false,
     recipe: artifactA.recipe,
-    passive: boostPassive(artifactA.passive), // 1.5× passive values
+    passive: boostPassive(artifactA.passive),
     icon: artifactA.icon,
   };
 
@@ -598,7 +592,7 @@ export const disassemble = (artifact: Item): Item | null => {
 
   const [compIdA, compIdB] = artifact.recipe;
   // Randomly pick one of the two component types
-  const returnedCompId = Math.random() < 0.5 ? compIdA : compIdB;
+  const returnedCompId = chance(0.5) ? compIdA : compIdB;
   const def = COMPONENT_DEFINITIONS[returnedCompId];
 
   // Determine return tier based on artifact tier
@@ -648,7 +642,7 @@ export const grantHashiramaCell = (currentFloor: number): Item => {
     id: generateId(),
     name: def.name,
     rarity: Rarity.LEGENDARY, // Special rarity for this rare component
-    stats: { [def.primaryStat]: Math.floor(def.baseValue * floorScaling * 1.5) },
+    stats: { [def.primaryStat]: Math.floor(def.baseValue * floorScaling * BALANCE.PRIMARY_SLOT_MULTIPLIER) },
     value: 500, // High base value
     description: def.description,
     isComponent: true,

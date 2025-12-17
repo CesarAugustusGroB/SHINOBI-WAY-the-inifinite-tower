@@ -1,6 +1,13 @@
 import React from 'react';
-import { Location, LocationType } from '../../game/types';
+import { Location } from '../../game/types';
 import LocationIcon from '../shared/LocationIcon';
+import {
+  getDangerTextColor,
+  getDangerBgColor,
+  getDangerDotColor,
+  getLocationTypeLabel,
+  getLocationTypeColor,
+} from '../../utils/colorHelpers';
 
 interface LocationCardProps {
   location: Location;
@@ -17,56 +24,6 @@ const LocationCard: React.FC<LocationCardProps> = ({
   onClick,
   compact = false,
 }) => {
-  // Consistent danger color thresholds: 1-2 green, 3-4 yellow, 5 orange, 6-7 red
-  const getDangerColor = (danger: number): string => {
-    if (danger <= 2) return 'text-green-400';
-    if (danger <= 4) return 'text-yellow-400';
-    if (danger <= 5) return 'text-orange-400';
-    return 'text-red-400';
-  };
-
-  // Get danger background (for panels)
-  const getDangerBg = (danger: number): string => {
-    if (danger <= 2) return 'bg-green-900/30';
-    if (danger <= 4) return 'bg-yellow-900/30';
-    if (danger <= 5) return 'bg-orange-900/30';
-    return 'bg-red-900/30';
-  };
-
-  // Get danger dot color (for danger level indicator bar)
-  const getDangerDotColor = (danger: number): string => {
-    if (danger <= 2) return 'bg-green-500';
-    if (danger <= 4) return 'bg-yellow-500';
-    if (danger <= 5) return 'bg-orange-500';
-    return 'bg-red-500';
-  };
-
-  // Get location type label
-  const getTypeLabel = (type: LocationType): string => {
-    switch (type) {
-      case LocationType.SETTLEMENT: return 'Settlement';
-      case LocationType.WILDERNESS: return 'Wilderness';
-      case LocationType.STRONGHOLD: return 'Stronghold';
-      case LocationType.LANDMARK: return 'Landmark';
-      case LocationType.SECRET: return 'Secret';
-      case LocationType.BOSS: return 'Boss';
-      default: return 'Unknown';
-    }
-  };
-
-  // Get type color
-  const getTypeColor = (type: LocationType): string => {
-    switch (type) {
-      case LocationType.SETTLEMENT: return 'text-blue-400';
-      case LocationType.WILDERNESS: return 'text-green-400';
-      case LocationType.STRONGHOLD: return 'text-red-400';
-      case LocationType.LANDMARK: return 'text-purple-400';
-      case LocationType.SECRET: return 'text-yellow-400';
-      case LocationType.BOSS: return 'text-orange-500';
-      default: return 'text-zinc-400';
-    }
-  };
-
   // Determine card state
   const isAccessible = location.isAccessible && !location.isCompleted;
   const isCompleted = location.isCompleted;
@@ -99,7 +56,7 @@ const LocationCard: React.FC<LocationCardProps> = ({
         <div className="text-center">
           <LocationIcon icon={location.icon} size="md" />
           <p className="text-xs text-zinc-300 truncate mt-1">{location.name}</p>
-          <span className={`text-[10px] ${getDangerColor(location.dangerLevel)}`}>
+          <span className={`text-[10px] ${getDangerTextColor(location.dangerLevel)}`}>
             ★{location.dangerLevel}
           </span>
         </div>
@@ -130,11 +87,11 @@ const LocationCard: React.FC<LocationCardProps> = ({
             {location.name}
           </h3>
           <div className="flex items-center gap-2 mt-0.5">
-            <span className={`text-xs ${getTypeColor(location.type)}`}>
-              {getTypeLabel(location.type)}
+            <span className={`text-xs ${getLocationTypeColor(location.type)}`}>
+              {getLocationTypeLabel(location.type)}
             </span>
             <span className="text-zinc-600">•</span>
-            <span className={`text-xs ${getDangerColor(location.dangerLevel)}`}>
+            <span className={`text-xs ${getDangerTextColor(location.dangerLevel)}`}>
               Danger {location.dangerLevel}
             </span>
           </div>
@@ -142,7 +99,7 @@ const LocationCard: React.FC<LocationCardProps> = ({
       </div>
 
       {/* Danger indicator */}
-      <div className={`mt-2 px-2 py-1 rounded ${getDangerBg(location.dangerLevel)}`}>
+      <div className={`mt-2 px-2 py-1 rounded ${getDangerBgColor(location.dangerLevel)}`}>
         <div className="flex items-center justify-between">
           <span className="text-xs text-zinc-400">Danger Level</span>
           <div className="flex gap-0.5">

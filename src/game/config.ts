@@ -37,11 +37,22 @@ export const BALANCE = {
   // Equipment
   PRIMARY_SLOT_MULTIPLIER: 1.5, // Primary slot gets 50% stat bonus
 
-  // Combat
+  // Combat - Hit & Evasion
   MAX_DEFENSE_PERCENT: 0.75,
   BASE_HIT_CHANCE: 0.85,
   BASE_CRIT_CHANCE: 0.05,
   CRIT_DAMAGE_MULT: 1.5,
+  HIT_RATE_SCALING: 0.3,          // Hit rate per Speed/Accuracy point
+  EVASION_SCALING: 0.5,           // Enemy evasion per Speed point
+  FLAT_DEFENSE_MAX_REDUCTION: 0.6, // Flat defense can't reduce more than 60%
+
+  // Combat - DoT mitigation
+  DOT_FLAT_DEFENSE_MULT: 0.5,     // DoT gets 50% of flat defense
+  DOT_FLAT_CAP: 0.4,              // DoT flat defense capped at 40% of damage
+  DOT_PERCENT_DEFENSE_MULT: 0.5,  // DoT gets 50% of percent defense
+
+  // HP Regen scaling
+  HP_REGEN_WILLPOWER_DIVISOR: 20, // Divide willpower by this for HP regen
 
   // Experience
   BASE_EXP_GAIN: 25,
@@ -56,6 +67,33 @@ export const BALANCE = {
   // Regeneration
   HP_REGEN_BASE: 0.02,
   CHAKRA_REGEN_BASE: 0.05,
+} as const;
+
+// Enemy generation constants
+export const ENEMY_BALANCE = {
+  // Elite bonuses
+  ELITE_WILLPOWER_MULT: 1.4,      // Elite gets +40% willpower
+  ELITE_STRENGTH_MULT: 1.3,       // Elite gets +30% strength
+  ELITE_SPIRIT_MULT: 1.3,         // Elite gets +30% spirit
+} as const;
+
+// Loot and crafting balance
+export const LOOT_BALANCE = {
+  // Quality rolls
+  COMMON_QUALITY_BASE: 0.4,       // Common items start at 40% quality
+  COMMON_QUALITY_RANGE: 0.2,      // Common quality varies by ±20%
+  RARE_QUALITY_BASE: 0.9,         // Rare items start at 90% quality
+  RARE_QUALITY_RANGE: 0.3,        // Rare quality varies by ±30%
+
+  // Item enhancement
+  ENHANCED_STAT_MULT: 1.25,       // Enhanced items get +25% stats
+  ENHANCED_VALUE_MULT: 1.5,       // Enhanced items get +50% value
+
+  // Synthesis
+  SYNTHESIS_VALUE_MULT: 1.5,      // Synthesized items worth 1.5x components
+
+  // Artifact upgrade
+  UPGRADE_STAT_RETENTION: 0.75,   // Keep 75% of combined stats when upgrading
 } as const;
 
 // System limits

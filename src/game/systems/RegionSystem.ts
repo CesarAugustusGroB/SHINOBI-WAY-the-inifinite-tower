@@ -44,7 +44,12 @@ import {
   LocationActivities,
 } from '../types';
 import { generateEnemy } from './EnemySystem';
-import { DIFFICULTY } from '../config';
+import {
+  dangerToFloor,
+  getDangerScaling,
+  calculateXP,
+  calculateBaseRyo,
+} from './ScalingSystem';
 import {
   logIntelEvaluate,
   logCardDrawStart,
@@ -62,26 +67,26 @@ const generateId = (): string => {
 };
 
 // ============================================================================
-// DANGER SCALING
+// SCALING FUNCTIONS (re-exported from ScalingSystem)
 // ============================================================================
 
-/**
- * Convert danger level (1-7) to enemy stat multiplier.
- * Uses DIFFICULTY config constants for centralized scaling.
- * Danger 1: 0.75x, Danger 4: 1.05x, Danger 7: 1.35x
- */
-export function getDangerScaling(dangerLevel: number): number {
-  return DIFFICULTY.DANGER_BASE + (dangerLevel * DIFFICULTY.DANGER_PER_LEVEL);
+// Re-export scaling functions for backward compatibility
+export {
+  dangerToFloor,
+  getDangerScaling,
+  getWealthMultiplier,
+  applyWealthToRyo,
+  calculateMerchantRerollCost,
+  getMerchantDiscount,
+} from './ScalingSystem';
+
+// Alias functions to match existing API
+export function calculateLocationXP(dangerLevel: number, baseDifficulty: number): number {
+  return calculateXP(dangerLevel, baseDifficulty);
 }
 
-/**
- * Convert danger level to floor equivalent for enemy generation.
- * This maps danger 1-7 to approximate floor ranges.
- * Exported for use in reward calculations across the game.
- */
-export function dangerToFloor(dangerLevel: number, baseDifficulty: number): number {
-  // Danger 1 ≈ Floor 11, Danger 7 ≈ Floor 25
-  return 10 + (dangerLevel * 2) + Math.floor(baseDifficulty / 20);
+export function calculateLocationRyo(dangerLevel: number, baseDifficulty: number): number {
+  return calculateBaseRyo(dangerLevel, baseDifficulty);
 }
 
 /**
@@ -92,50 +97,9 @@ export function getEffectiveScale(location: Location, region: Region): number {
   return dangerToFloor(location.dangerLevel, region.baseDifficulty);
 }
 
-/**
- * Calculate XP gain based on danger level (replaces floor-based XP).
- * Formula: 25 + (effectiveFloor * 5)
- */
-export function calculateLocationXP(dangerLevel: number, baseDifficulty: number): number {
-  const effectiveFloor = dangerToFloor(dangerLevel, baseDifficulty);
-  return 25 + (effectiveFloor * 5);
-}
-
-/**
- * Calculate Ryo gain based on danger level.
- * Formula: (effectiveFloor * 10) + random(0-16)
- */
-export function calculateLocationRyo(dangerLevel: number, baseDifficulty: number): number {
-  const effectiveFloor = dangerToFloor(dangerLevel, baseDifficulty);
-  return (effectiveFloor * 10) + Math.floor(Math.random() * 17);
-}
-
-/**
- * Calculate merchant reroll cost based on danger level.
- * Formula: baseRerollCost + (effectiveFloor * scalingPerLevel)
- */
-export function calculateMerchantRerollCost(
-  dangerLevel: number,
-  baseDifficulty: number,
-  baseRerollCost: number,
-  scalingPerLevel: number
-): number {
-  const effectiveFloor = dangerToFloor(dangerLevel, baseDifficulty);
-  return baseRerollCost + (effectiveFloor * scalingPerLevel);
-}
-
 // ============================================================================
-// WEALTH SYSTEM
+// WEALTH SYSTEM (location-specific functions)
 // ============================================================================
-
-/**
- * Get wealth multiplier for ryo rewards.
- * Level 1 = 0.5x, Level 4 = 1.0x, Level 7 = 1.5x
- * Formula: 0.33 + (wealthLevel * 0.167)
- */
-export function getWealthMultiplier(wealthLevel: number): number {
-  return 0.33 + (wealthLevel * 0.167);
-}
 
 /**
  * Get default wealth level based on LocationType.
@@ -154,22 +118,6 @@ export function getDefaultWealthForLocationType(locationType: LocationType): 1 |
   const [min, max] = ranges[locationType] || [3, 4];
   const wealth = min + Math.floor(Math.random() * (max - min + 1));
   return Math.max(1, Math.min(7, wealth)) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
-}
-
-/**
- * Apply wealth multiplier to a ryo amount.
- */
-export function applyWealthToRyo(baseRyo: number, wealthLevel: number): number {
-  return Math.floor(baseRyo * getWealthMultiplier(wealthLevel));
-}
-
-/**
- * Get merchant discount based on wealth level.
- * Higher wealth = bigger discounts (0% to 30%)
- * Formula: (wealthLevel - 1) * 0.05
- */
-export function getMerchantDiscount(wealthLevel: number): number {
-  return (wealthLevel - 1) * 0.05;
 }
 
 // ============================================================================

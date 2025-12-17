@@ -69,6 +69,10 @@ import {
   getRoomTypeConfig,
 } from '../constants/roomTypes';
 import { EVENTS } from '../constants';
+import { calculateXP, calculateRyo } from './ScalingSystem';
+
+// Re-export scaling functions for backward compatibility
+export { dangerToFloor, getWealthMultiplier, applyWealthToRyo } from './ScalingSystem';
 
 // ============================================================================
 // ID GENERATION
@@ -1044,40 +1048,8 @@ export function evaluateIntel(intel: number): { cardCount: number; revealedCount
 }
 
 // ============================================================================
-// WEALTH SYSTEM
+// REWARD CALCULATIONS (using ScalingSystem)
 // ============================================================================
-
-/**
- * Get wealth multiplier for ryo calculations.
- * Wealth level 1-7 maps to 0.5x-1.5x multiplier.
- * Formula: 0.33 + (wealthLevel * 0.167)
- */
-export function getWealthMultiplier(wealthLevel: number): number {
-  return 0.33 + (wealthLevel * 0.167);
-}
-
-/**
- * Apply wealth multiplier to base ryo amount.
- */
-export function applyWealthToRyo(baseRyo: number, wealthLevel: number): number {
-  return Math.floor(baseRyo * getWealthMultiplier(wealthLevel));
-}
-
-// ============================================================================
-// REWARD CALCULATIONS
-// ============================================================================
-
-/**
- * Convert danger level to effective floor for scaling calculations.
- * This bridges the danger-based system with floor-based reward formulas.
- *
- * Formula: 10 + (dangerLevel * 2) + floor(baseDifficulty / 20)
- * - Danger 1, baseDifficulty 20 → Floor 13
- * - Danger 7, baseDifficulty 40 → Floor 26
- */
-export function dangerToFloor(dangerLevel: number, baseDifficulty: number): number {
-  return 10 + (dangerLevel * 2) + Math.floor(baseDifficulty / 20);
-}
 
 /**
  * Calculate XP gain for completing a room/location.
@@ -1085,8 +1057,7 @@ export function dangerToFloor(dangerLevel: number, baseDifficulty: number): numb
  * Formula: 25 + (effectiveFloor * 5)
  */
 export function calculateLocationXP(floor: BranchingFloor): number {
-  const effectiveFloor = dangerToFloor(floor.dangerLevel, floor.difficulty);
-  return 25 + (effectiveFloor * 5);
+  return calculateXP(floor.dangerLevel, floor.difficulty);
 }
 
 /**
@@ -1095,7 +1066,5 @@ export function calculateLocationXP(floor: BranchingFloor): number {
  * Formula: ((effectiveFloor * 10) + random(0-16)) * wealthMultiplier
  */
 export function calculateLocationRyo(floor: BranchingFloor): number {
-  const effectiveFloor = dangerToFloor(floor.dangerLevel, floor.difficulty);
-  const baseRyo = (effectiveFloor * 10) + Math.floor(Math.random() * 17);
-  return applyWealthToRyo(baseRyo, floor.wealthLevel);
+  return calculateRyo(floor.dangerLevel, floor.difficulty, floor.wealthLevel);
 }

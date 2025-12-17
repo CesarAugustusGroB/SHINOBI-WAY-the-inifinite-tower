@@ -65,6 +65,7 @@ import {
   APPROACH_DEFINITIONS,
   calculateApproachSuccessChance,
 } from '../constants/approaches';
+import { d100, chance, generateUniqueId, pick } from '../utils/rng';
 
 // ============================================================================
 // APPROACH RESULT TYPES
@@ -131,7 +132,7 @@ export function executeApproach(
   const successChance = calculateApproachSuccessChance(approach, stats, terrainStealthBonus);
 
   // Roll for success (1-100)
-  const roll = Math.floor(Math.random() * 100) + 1;
+  const roll = d100();
   const success = roll <= successChance;
 
   // Get the appropriate effects based on success/failure
@@ -184,10 +185,10 @@ function convertEffectsToBuffs(
 
   for (const effect of effects) {
     // Check if effect triggers based on chance
-    if (Math.random() > effect.chance) continue;
+    if (!chance(effect.chance)) continue;
 
     buffs.push({
-      id: `approach_${effect.type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: generateUniqueId(`approach_${effect.type}`),
       name: getBuffName(effect.type, isPlayerBuff),
       duration: effect.duration,
       effect: {
@@ -292,7 +293,7 @@ function generateApproachDescription(
   };
 
   const options = success ? descriptions[approach].success : descriptions[approach].failure;
-  return options[Math.floor(Math.random() * options.length)];
+  return pick(options) ?? options[0];
 }
 
 // ============================================================================

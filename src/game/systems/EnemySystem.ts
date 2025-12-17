@@ -73,7 +73,8 @@ import {
 } from '../types';
 import { BOSS_NAMES, SKILLS, AMBUSH_ENEMIES, ENEMY_PREFIXES } from '../constants';
 import { calculateDerivedStats } from './StatSystem';
-import { DIFFICULTY } from '../config';
+import { DIFFICULTY, ENEMY_BALANCE } from '../config';
+import { pick, chance } from '../utils/rng';
 
 /**
  * Enemy archetype determines base stat distribution and combat style.
@@ -194,8 +195,8 @@ export const generateEnemy = (
 
   let archetype: EnemyArchetype = 'BALANCED';
   if (type === 'AMBUSH') archetype = 'ASSASSIN';
-  else if (type === 'ELITE') archetype = Math.random() > 0.5 ? 'TANK' : 'CASTER';
-  else archetype = ['TANK', 'ASSASSIN', 'BALANCED', 'CASTER', 'GENJUTSU'][Math.floor(Math.random() * 5)] as EnemyArchetype;
+  else if (type === 'ELITE') archetype = chance(0.5) ? 'TANK' : 'CASTER';
+  else archetype = pick(['TANK', 'ASSASSIN', 'BALANCED', 'CASTER', 'GENJUTSU'] as const) ?? 'BALANCED';
 
   let baseStats: PrimaryAttributes;
   switch (archetype) {
@@ -230,9 +231,9 @@ export const generateEnemy = (
   let name = "";
   let skills = [SKILLS.BASIC_ATTACK];
   const elements = Object.values(ElementType).filter(e => e !== ElementType.MENTAL && e !== ElementType.PHYSICAL);
-  let enemyElement: ElementType = elements[Math.floor(Math.random() * elements.length)];
+  let enemyElement: ElementType = pick(elements) ?? ElementType.FIRE;
   if (type === 'AMBUSH') {
-    const template = AMBUSH_ENEMIES[Math.floor(Math.random() * AMBUSH_ENEMIES.length)];
+    const template = pick(AMBUSH_ENEMIES) ?? AMBUSH_ENEMIES[0];
     name = template.name;
     enemyElement = template.element;
     skills.push(template.skill);
@@ -246,21 +247,21 @@ export const generateEnemy = (
     else if (diff > 40) namePool = ENEMY_PREFIXES.STRONG;
     else if (diff < 10) namePool = ENEMY_PREFIXES.WEAK;
 
-    const prefix = namePool[Math.floor(Math.random() * namePool.length)];
-    const job = ['Ninja', 'Samurai', 'Puppeteer', 'Monk'][Math.floor(Math.random() * 4)];
+    const prefix = pick(namePool) ?? 'Rogue';
+    const job = pick(['Ninja', 'Samurai', 'Puppeteer', 'Monk']) ?? 'Ninja';
     name = `${prefix} ${job}`;
 
     if (archetype === 'CASTER') skills.push(SKILLS.FIREBALL);
     else if (archetype === 'ASSASSIN') skills.push(SKILLS.SHURIKEN);
     else if (archetype === 'GENJUTSU') skills.push(SKILLS.HELL_VIEWING);
-    if (diff > 50 && Math.random() < 0.3) skills.push(SKILLS.RASENGAN);
+    if (diff > 50 && chance(0.3)) skills.push(SKILLS.RASENGAN);
   }
 
   const isElite = type === 'ELITE' || type === 'AMBUSH';
   if (isElite) {
-    scaledStats.willpower = Math.floor(scaledStats.willpower * 1.4);
-    scaledStats.strength = Math.floor(scaledStats.strength * 1.3);
-    scaledStats.spirit = Math.floor(scaledStats.spirit * 1.3);
+    scaledStats.willpower = Math.floor(scaledStats.willpower * ENEMY_BALANCE.ELITE_WILLPOWER_MULT);
+    scaledStats.strength = Math.floor(scaledStats.strength * ENEMY_BALANCE.ELITE_STRENGTH_MULT);
+    scaledStats.spirit = Math.floor(scaledStats.spirit * ENEMY_BALANCE.ELITE_SPIRIT_MULT);
   }
 
   const derived = calculateDerivedStats(scaledStats, {});

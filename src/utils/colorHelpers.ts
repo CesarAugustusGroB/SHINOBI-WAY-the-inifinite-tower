@@ -1,4 +1,4 @@
-import { Rarity } from '../game/types';
+import { Rarity, LocationType } from '../game/types';
 
 /**
  * Rarity color utilities - composable functions for different styling needs
@@ -59,5 +59,70 @@ export const getRarityTextColorWithEffects = (rarity: Rarity): string => {
     case Rarity.CURSED: return 'text-red-600 animate-pulse';
     case Rarity.BROKEN: return 'text-stone-500';
     default: return 'text-zinc-400';
+  }
+};
+
+// ============================================================================
+// DANGER LEVEL COLORS
+// Thresholds: 1-2 green, 3-4 yellow, 5 orange, 6-7 red
+// ============================================================================
+
+/** Text color for danger level display */
+export const getDangerTextColor = (danger: number): string => {
+  if (danger <= 2) return 'text-emerald-400';
+  if (danger <= 4) return 'text-yellow-400';
+  if (danger === 5) return 'text-orange-400';
+  return 'text-red-400';
+};
+
+/** Background color for danger level panels */
+export const getDangerBgColor = (danger: number): string => {
+  if (danger <= 2) return 'bg-emerald-900/30';
+  if (danger <= 4) return 'bg-yellow-900/30';
+  if (danger === 5) return 'bg-orange-900/30';
+  return 'bg-red-900/30';
+};
+
+/** Solid background color for danger level bars/dots */
+export const getDangerDotColor = (danger: number): string => {
+  if (danger <= 2) return 'bg-emerald-500';
+  if (danger <= 4) return 'bg-yellow-500';
+  if (danger === 5) return 'bg-orange-500';
+  return 'bg-red-500';
+};
+
+/** Get color for a segment in a danger level bar */
+export const getDangerSegmentColor = (segmentLevel: number, currentLevel: number | null): string => {
+  if (currentLevel === null || segmentLevel > currentLevel) return 'bg-zinc-800';
+  return getDangerDotColor(segmentLevel);
+};
+
+// ============================================================================
+// LOCATION TYPE COLORS
+// ============================================================================
+
+/** Text color for location type labels */
+export const getLocationTypeColor = (type: LocationType): string => {
+  switch (type) {
+    case LocationType.SETTLEMENT: return 'text-blue-400';
+    case LocationType.WILDERNESS: return 'text-green-400';
+    case LocationType.STRONGHOLD: return 'text-red-400';
+    case LocationType.LANDMARK: return 'text-purple-400';
+    case LocationType.SECRET: return 'text-yellow-400';
+    case LocationType.BOSS: return 'text-orange-500';
+    default: return 'text-zinc-400';
+  }
+};
+
+/** Get label for location type */
+export const getLocationTypeLabel = (type: LocationType): string => {
+  switch (type) {
+    case LocationType.SETTLEMENT: return 'Settlement';
+    case LocationType.WILDERNESS: return 'Wilderness';
+    case LocationType.STRONGHOLD: return 'Stronghold';
+    case LocationType.LANDMARK: return 'Landmark';
+    case LocationType.SECRET: return 'Secret';
+    case LocationType.BOSS: return 'Boss';
+    default: return 'Unknown';
   }
 };

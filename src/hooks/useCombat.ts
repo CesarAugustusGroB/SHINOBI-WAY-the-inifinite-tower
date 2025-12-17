@@ -9,6 +9,7 @@ import {
   ActionType,
   TurnPhaseState,
   createInitialTurnPhaseState,
+  LogEntry,
 } from '../game/types';
 import { getEnemyFullStats } from '../game/systems/StatSystem';
 import {
@@ -40,7 +41,7 @@ export type FullStats = ReturnType<typeof getEnemyFullStats>;
 export interface UseCombatProps {
   player: Player | null;
   playerStats: FullStats | null;
-  addLog: (text: string, type?: string, details?: string) => void;
+  addLog: (text: string, type?: LogEntry['type'], details?: string) => void;
   setPlayer: React.Dispatch<React.SetStateAction<Player | null>>;
   setGameState: (state: GameState) => void;
   onVictory: (enemy: Enemy, combatState: CombatState | null) => void;

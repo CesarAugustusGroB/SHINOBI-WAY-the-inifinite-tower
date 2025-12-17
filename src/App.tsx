@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   GameState, Player, Clan, Skill, Enemy, Item, Rarity, DamageType,
-  ApproachType, BranchingRoom, PrimaryStat, TrainingActivity, TrainingIntensity,
+  ApproachType, BranchingRoom, PrimaryStat, TrainingActivity, TrainingIntensity, LogEntry,
   EquipmentSlot, MAX_BAG_SLOTS, ScrollDiscoveryActivity,
   GameEvent, EventChoice, EventOutcome,
   TreasureQuality, DEFAULT_MERCHANT_SLOTS, MAX_MERCHANT_SLOTS,
@@ -75,6 +75,7 @@ import { LAND_OF_WAVES_CONFIG } from './game/constants/regions';
 import { resolveEventChoice } from './game/systems/EventSystem';
 import { useCombat } from './hooks/useCombat';
 import { useCombatExplorationState } from './hooks/useCombatExplorationState';
+import { useExploration, ActivitySceneSetters } from './hooks/useExploration';
 import { GameProvider, GameContextValue } from './contexts/GameContext';
 import { LIMITS, MERCHANT } from './game/config';
 import MainMenu from './scenes/MainMenu';
@@ -89,6 +90,8 @@ import ScrollDiscovery from './scenes/ScrollDiscovery';
 import GameOver from './scenes/GameOver';
 import GameGuide from './scenes/GameGuide';
 import { attemptEliteEscape } from './game/systems/EliteChallengeSystem';
+// Shared components
+import ErrorBoundary from './components/shared/ErrorBoundary';
 // Layout components
 import LeftSidebarPanel from './components/layout/LeftSidebarPanel';
 import RightSidebarPanel from './components/layout/RightSidebarPanel';
@@ -122,7 +125,7 @@ import './App.css';
 const App: React.FC = () => {
   // --- Core State ---
   const [gameState, setGameState] = useState<GameState>(GameState.MENU);
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [player, setPlayer] = useState<Player | null>(null);
   const [droppedItems, setDroppedItems] = useState<Item[]>([]);
   const [droppedSkill, setDroppedSkill] = useState<Skill | null>(null);
@@ -152,41 +155,32 @@ const App: React.FC = () => {
   } | null>(null);
   const logIdCounter = useRef<number>(0);
 
-  // --- Region Exploration State ---
-  const [region, setRegion] = useState<Region | null>(null);
-  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
-  const [locationFloor, setLocationFloor] = useState<import('./game/types').BranchingFloor | null>(null);
-
-  // --- Card-Based Location Selection State ---
-  const [locationDeck, setLocationDeck] = useState<LocationDeck | null>(null);
-  const [intelPool, setIntelPool] = useState<IntelPool>({ totalIntel: 0, maxIntel: 10 });
-  const [drawnCards, setDrawnCards] = useState<LocationCard[]>([]);
-  const [selectedCardIndex, setSelectedCardIndex] = useState<number | null>(null);
-
-  // --- Location Intel System State ---
-  // Intel gathered within a location (0-100%), evaluated at location end
-  // Determines card count (1-3) and reveal status for next location choice
-  const [currentIntel, setCurrentIntel] = useState<number>(50); // First location starts at 50%
-
   // --- Shared Combat/Exploration State ---
   // This hook owns state needed by both useCombat and useExploration
-  const {
-    combatState,
-    setCombatState,
-    approachResult,
-    setApproachResult,
-    branchingFloor,
-    setBranchingFloor,
-    selectedBranchingRoom,
-    setSelectedBranchingRoom,
-    showApproachSelector,
-    setShowApproachSelector,
-  } = useCombatExplorationState();
+  // Including: combat state, branching floor, region exploration, and card-based location selection
+  const sharedExplorationState = useCombatExplorationState();
 
-  const addLog = useCallback((text: string, type: any = 'info', details?: string) => {
+  // Destructure for local use in App.tsx (read-only access mostly)
+  const {
+    combatState, setCombatState,
+    approachResult, setApproachResult,
+    branchingFloor, setBranchingFloor,
+    selectedBranchingRoom, setSelectedBranchingRoom,
+    showApproachSelector, setShowApproachSelector,
+    region, setRegion,
+    selectedLocation, setSelectedLocation,
+    locationFloor, setLocationFloor,
+    locationDeck, setLocationDeck,
+    intelPool, setIntelPool,
+    drawnCards, setDrawnCards,
+    selectedCardIndex, setSelectedCardIndex,
+    currentIntel, setCurrentIntel,
+  } = sharedExplorationState;
+
+  const addLog = useCallback((text: string, type: LogEntry['type'] = 'info', details?: string) => {
     setLogs(prev => {
       logIdCounter.current += 1;
-      const newEntry: any = { id: logIdCounter.current, text, type, details };
+      const newEntry: LogEntry = { id: logIdCounter.current, text, type, details };
       const newLogs = [...prev, newEntry];
       if (newLogs.length > LIMITS.MAX_LOG_ENTRIES) newLogs.shift();
       return newLogs;
@@ -394,6 +388,42 @@ const App: React.FC = () => {
     setCombatState,
     approachResult,
     setApproachResult,
+  });
+
+  // Activity scene setters for useExploration hook
+  const activitySetters: ActivitySceneSetters = {
+    setMerchantItems,
+    setMerchantDiscount,
+    setTrainingData,
+    setScrollDiscoveryData,
+    setEliteChallengeData,
+    setDroppedItems,
+    setDroppedSkill,
+    setActiveEvent,
+  };
+
+  // Exploration hook - manages navigation and activity handling
+  // Uses sharedExplorationState directly (no duplication)
+  const {
+    handleCardSelect,
+    handleEnterSelectedLocation,
+    handleLocationRoomSelect,
+    handleLocationRoomEnter,
+    handleBranchingRoomSelect,
+    handleBranchingRoomEnter,
+    handlePathChoice,
+    handleLeaveLocation,
+    returnToMap,
+  } = useExploration(sharedExplorationState, {
+    player,
+    playerStats,
+    setPlayer,
+    setGameState,
+    gameState,
+    addLog,
+    currentLocation,
+    activitySetters,
+    setEnemy,
   });
 
   interface LevelUpResult {
@@ -614,172 +644,7 @@ const App: React.FC = () => {
     addLog(`Engaged: ${combatEnemy.name}`, 'danger');
   };
 
-  // ============================================================================
-  // BRANCHING EXPLORATION HANDLERS
-  // ============================================================================
-
-  // Handle selecting a room in branching exploration
-  const handleBranchingRoomSelect = (room: BranchingRoom) => {
-    logRoomSelect(room.id, room.name);
-    setSelectedBranchingRoom(room);
-  };
-
-  // Handle entering a room in branching exploration
-  const handleBranchingRoomEnter = (room: BranchingRoom) => {
-    if (!branchingFloor || !player || !playerStats) return;
-
-    // Move to the room
-    const updatedFloor = moveToRoom(branchingFloor, room.id);
-    setBranchingFloor(updatedFloor);
-
-    // Get the current activity for the room
-    const currentRoom = updatedFloor.rooms.find(r => r.id === room.id);
-    if (!currentRoom) return;
-
-    const activity = getCurrentActivity(currentRoom);
-    logRoomEnter(room.id, room.name, activity);
-
-    if (!activity) {
-      // Room is already cleared or has no activities
-      logExplorationCheckpoint('Room already cleared', { roomId: room.id });
-      addLog(`You enter ${currentRoom.name}. Nothing remains here.`, 'info');
-      return;
-    }
-
-    // Handle the current activity
-    switch (activity) {
-      case 'combat':
-        if (currentRoom.activities.combat) {
-          logActivityStart(currentRoom.id, 'combat', { enemy: currentRoom.activities.combat.enemy.name });
-          logModalOpen('ApproachSelector', { roomId: currentRoom.id, enemy: currentRoom.activities.combat.enemy.name });
-          // Show approach selector for combat
-          setSelectedBranchingRoom(currentRoom);
-          setShowApproachSelector(true);
-          addLog(`Enemy spotted: ${currentRoom.activities.combat.enemy.name}. Choose your approach!`, 'info');
-        }
-        break;
-
-      case 'merchant':
-        if (currentRoom.activities.merchant) {
-          logActivityStart(currentRoom.id, 'merchant', { itemCount: currentRoom.activities.merchant.items.length });
-          logStateChange('EXPLORE', 'MERCHANT', 'merchant activity');
-          setMerchantItems(currentRoom.activities.merchant.items);
-          // Apply wealth-based discount on top of room discount
-          const roomDiscount = currentRoom.activities.merchant.discountPercent || 0;
-          const wealthDiscount = getMerchantDiscount(currentLocation?.wealthLevel ?? 4);
-          const totalDiscount = Math.min(0.5, roomDiscount / 100 + wealthDiscount); // Cap at 50%
-          setMerchantDiscount(totalDiscount * 100);
-          setSelectedBranchingRoom(currentRoom);
-          setGameState(GameState.MERCHANT);
-          addLog(`A merchant greets you. ${currentRoom.activities.merchant.items.length} items available${wealthDiscount > 0 ? ` (${Math.round(wealthDiscount * 100)}% wealth discount!)` : ''}.`, 'info');
-        }
-        break;
-
-      case 'event':
-        if (currentRoom.activities.event) {
-          logActivityStart(currentRoom.id, 'event', { eventId: currentRoom.activities.event.definition.id });
-          logStateChange('EXPLORE', 'EVENT', 'event activity');
-          setActiveEvent(currentRoom.activities.event.definition);
-          setGameState(GameState.EVENT);
-        }
-        break;
-
-      case 'rest':
-        if (currentRoom.activities.rest) {
-          logActivityStart(currentRoom.id, 'rest', { healPercent: currentRoom.activities.rest.healPercent });
-          const restData = currentRoom.activities.rest;
-          const hpHeal = Math.floor(playerStats.derived.maxHp * (restData.healPercent / 100));
-          const chakraHeal = Math.floor(playerStats.derived.maxChakra * (restData.chakraRestorePercent / 100));
-
-          setPlayer(p => p ? {
-            ...p,
-            currentHp: Math.min(playerStats.derived.maxHp, p.currentHp + hpHeal),
-            currentChakra: Math.min(playerStats.derived.maxChakra, p.currentChakra + chakraHeal)
-          } : null);
-
-          addLog(`You rest and recover. +${hpHeal} HP, +${chakraHeal} Chakra.`, 'gain');
-
-          const updatedFloorAfterRest = completeActivity(updatedFloor, room.id, 'rest');
-          setBranchingFloor(updatedFloorAfterRest);
-          logActivityComplete(currentRoom.id, 'rest');
-        }
-        break;
-
-      case 'training':
-        if (currentRoom.activities.training && !currentRoom.activities.training.completed) {
-          logActivityStart(currentRoom.id, 'training', { options: currentRoom.activities.training.options.map(o => o.stat) });
-          logStateChange('EXPLORE', 'TRAINING', 'training activity');
-          setTrainingData(currentRoom.activities.training);
-          setSelectedBranchingRoom(currentRoom);
-          setGameState(GameState.TRAINING);
-          addLog('You arrive at a training area. Choose your training regimen.', 'info');
-        }
-        break;
-
-      case 'scrollDiscovery':
-        if (currentRoom.activities.scrollDiscovery && !currentRoom.activities.scrollDiscovery.completed) {
-          logActivityStart(currentRoom.id, 'scrollDiscovery', { scrollCount: currentRoom.activities.scrollDiscovery.availableScrolls.length });
-          logStateChange('EXPLORE', 'SCROLL_DISCOVERY', 'scroll discovery activity');
-          setScrollDiscoveryData(currentRoom.activities.scrollDiscovery);
-          setSelectedBranchingRoom(currentRoom);
-          setGameState(GameState.SCROLL_DISCOVERY);
-          addLog('You discovered ancient jutsu scrolls!', 'gain');
-        }
-        break;
-
-      case 'eliteChallenge':
-        if (currentRoom.activities.eliteChallenge && !currentRoom.activities.eliteChallenge.completed) {
-          const challenge = currentRoom.activities.eliteChallenge;
-          logActivityStart(currentRoom.id, 'eliteChallenge', { enemy: challenge.enemy.name, artifact: challenge.artifact.name });
-          logStateChange('EXPLORE', 'ELITE_CHALLENGE', 'elite challenge activity');
-          // Show elite challenge choice screen
-          setEliteChallengeData({
-            enemy: challenge.enemy,
-            artifact: challenge.artifact,
-            room: currentRoom,
-          });
-          setGameState(GameState.ELITE_CHALLENGE);
-          addLog(`An artifact guardian bars your path...`, 'danger');
-        }
-        break;
-
-      case 'treasure':
-        if (currentRoom.activities.treasure) {
-          const treasure = currentRoom.activities.treasure;
-          logActivityStart(currentRoom.id, 'treasure', { itemCount: treasure.items.length, ryo: treasure.ryo });
-          logStateChange('EXPLORE', 'LOOT', 'treasure activity');
-          setDroppedItems(treasure.items);
-          setDroppedSkill(null);
-          // Apply wealth multiplier to treasure ryo
-          const branchingTreasureWealth = currentLocation?.wealthLevel ?? 4;
-          const adjustedBranchingTreasureRyo = applyWealthToRyo(treasure.ryo, branchingTreasureWealth);
-          if (adjustedBranchingTreasureRyo > 0) {
-            setPlayer(p => p ? { ...p, ryo: p.ryo + adjustedBranchingTreasureRyo } : null);
-            addLog(`Found treasure! +${adjustedBranchingTreasureRyo} Ryō${branchingTreasureWealth !== 4 ? ` (${branchingTreasureWealth > 4 ? 'wealthy' : 'poor'} area)` : ''}.`, 'loot');
-          }
-          const updatedFloorAfterTreasure = completeActivity(updatedFloor, room.id, 'treasure');
-          setBranchingFloor(updatedFloorAfterTreasure);
-          logActivityComplete(currentRoom.id, 'treasure');
-          setGameState(GameState.LOOT);
-        }
-        break;
-
-      case 'infoGathering':
-        if (currentRoom.activities.infoGathering) {
-          const infoActivity = currentRoom.activities.infoGathering;
-          logActivityStart(currentRoom.id, 'infoGathering', { intelGain: infoActivity.intelGain });
-          // Add intel gain
-          setCurrentIntel(prev => Math.min(100, prev + infoActivity.intelGain));
-          logIntelGain('InfoGathering', infoActivity.intelGain, Math.min(100, currentIntel + infoActivity.intelGain));
-          addLog(`${infoActivity.flavorText} +${infoActivity.intelGain}% intel.`, 'info');
-          // Mark activity complete
-          const updatedFloorAfterInfo = completeActivity(updatedFloor, room.id, 'infoGathering');
-          setBranchingFloor(updatedFloorAfterInfo);
-          logActivityComplete(currentRoom.id, 'infoGathering');
-        }
-        break;
-    }
-  };
+  // Branching exploration handlers moved to useExploration hook
 
   const handleEventChoice = (choice: EventChoice) => {
     if (!player || !playerStats) return;
@@ -903,300 +768,9 @@ const App: React.FC = () => {
     setEventOutcome(null);
   };
 
-  // Return to exploration map after loot/events
-  const returnToMap = () => {
-    logRoomExit(selectedBranchingRoom?.id || 'unknown', 'returnToMap');
-    logStateChange(gameState.toString(), 'EXPLORE', 'returnToMap');
-    setDroppedItems([]);
-    setDroppedSkill(null);
-    setEnemy(null);
-
-    // If in location mode (region with locationFloor), check for activity chaining
-    if (region && locationFloor && region.currentLocationId) {
-      const currentRoom = getCurrentRoom(locationFloor);
-      if (currentRoom) {
-        const nextActivity = getCurrentActivity(currentRoom);
-        if (nextActivity) {
-          // Auto-trigger next activity in room
-          setSelectedBranchingRoom(null);
-          setTimeout(() => handleLocationRoomEnter(currentRoom), 100);
-          return;
-        }
-      }
-
-      // Check if location is completed (exit room cleared)
-      const location = getCurrentLocation(region);
-      if (location?.isCompleted) {
-        // Location complete - trigger return to region map
-        setSelectedBranchingRoom(null);
-        setTimeout(() => handleLeaveLocation(), 100);
-        return;
-      }
-
-      setSelectedBranchingRoom(null);
-      setGameState(GameState.LOCATION_EXPLORE);
-    } else {
-      setSelectedBranchingRoom(null);
-      setGameState(GameState.EXPLORE);
-    }
-  };
-
-  // ============================================================================
-  // REGION EXPLORATION HANDLERS
-  // ============================================================================
-
-  // Handle selecting a card on the region map
-  const handleCardSelect = (index: number) => {
-    if (index >= 0 && index < drawnCards.length) {
-      const card = drawnCards[index];
-      logLocationSelect(card.locationId, card.location.name);
-      setSelectedCardIndex(index);
-      setSelectedLocation(card.location);
-    }
-  };
-
-  // Handle entering location from selected card
-  const handleEnterSelectedLocation = () => {
-    if (!region || !locationDeck || selectedCardIndex === null) return;
-
-    const selectedCard = drawnCards[selectedCardIndex];
-    if (!selectedCard) return;
-
-    // Reset intel for new location (starts at 0, not 50%)
-    // First location already started at 50% from initial state
-    setCurrentIntel(0);
-    logIntelReset(selectedCard.location.name);
-
-    const locationToEnter = selectedCard.location;
-
-    logLocationEnter(locationToEnter.id, locationToEnter.name, locationToEnter.dangerLevel);
-    // Rooms are generated dynamically by locationToBranchingFloor, so no need to prepare for revisit
-    const updatedRegion = enterLocationFromCard(region, locationToEnter.id);
-    setRegion(updatedRegion);
-    setSelectedLocation(locationToEnter);
-
-    // Create a BranchingFloor from the location for use with LocationMap
-    const locationFloorData = locationToBranchingFloor(updatedRegion);
-    setLocationFloor(locationFloorData);
-
-    addLog(`Entering ${locationToEnter.name}${selectedCard.isRevisit ? ' (Revisit)' : ''}...`, 'info');
-    setGameState(GameState.LOCATION_EXPLORE);
-  };
-
-  // Handle selecting a room within a location (for LocationMap)
-  const handleLocationRoomSelect = (room: BranchingRoom) => {
-    logRoomSelect(room.id, room.name);
-    setSelectedBranchingRoom(room);
-  };
-
-  // Handle entering a room within a location (for LocationMap)
-  const handleLocationRoomEnter = (room: BranchingRoom) => {
-    if (!locationFloor || !region || !player || !playerStats) return;
-
-    // Move to the room using LocationSystem
-    const updatedFloor = moveToRoom(locationFloor, room.id, player);
-    setLocationFloor(updatedFloor);
-
-    // Get the current activity for the room
-    const currentRoom = updatedFloor.rooms.find(r => r.id === room.id);
-    if (!currentRoom) return;
-
-    const activity = getCurrentActivity(currentRoom);
-    logRoomEnter(room.id, room.name, activity);
-
-    if (!activity) {
-      // Room is already cleared or has no activities
-      logExplorationCheckpoint('Room already cleared', { roomId: room.id });
-      addLog(`You enter ${currentRoom.name}. Nothing remains here.`, 'info');
-      return;
-    }
-
-    // Handle the current activity (same as handleBranchingRoomEnter)
-    switch (activity) {
-      case 'combat':
-        if (currentRoom.activities.combat) {
-          logActivityStart(currentRoom.id, 'combat', { enemy: currentRoom.activities.combat.enemy.name });
-          logModalOpen('ApproachSelector', { roomId: currentRoom.id, enemy: currentRoom.activities.combat.enemy.name });
-          setSelectedBranchingRoom(currentRoom);
-          setShowApproachSelector(true);
-          addLog(`Enemy spotted: ${currentRoom.activities.combat.enemy.name}. Choose your approach!`, 'info');
-        }
-        break;
-
-      case 'merchant':
-        if (currentRoom.activities.merchant) {
-          logActivityStart(currentRoom.id, 'merchant', { itemCount: currentRoom.activities.merchant.items.length });
-          logStateChange('LOCATION_EXPLORE', 'MERCHANT', 'merchant activity');
-          setMerchantItems(currentRoom.activities.merchant.items);
-          // Apply wealth-based discount on top of room discount
-          const locationRoomDiscount = currentRoom.activities.merchant.discountPercent || 0;
-          const locationWealthDiscount = getMerchantDiscount(currentLocation?.wealthLevel ?? 4);
-          const locationTotalDiscount = Math.min(0.5, locationRoomDiscount / 100 + locationWealthDiscount); // Cap at 50%
-          setMerchantDiscount(locationTotalDiscount * 100);
-          setSelectedBranchingRoom(currentRoom);
-          setGameState(GameState.MERCHANT);
-          addLog(`A merchant greets you. ${currentRoom.activities.merchant.items.length} items available${locationWealthDiscount > 0 ? ` (${Math.round(locationWealthDiscount * 100)}% wealth discount!)` : ''}.`, 'info');
-        }
-        break;
-
-      case 'event':
-        if (currentRoom.activities.event) {
-          logActivityStart(currentRoom.id, 'event', { eventId: currentRoom.activities.event.definition.id });
-          logStateChange('LOCATION_EXPLORE', 'EVENT', 'event activity');
-          setActiveEvent(currentRoom.activities.event.definition);
-          setGameState(GameState.EVENT);
-        }
-        break;
-
-      case 'rest':
-        if (currentRoom.activities.rest) {
-          logActivityStart(currentRoom.id, 'rest', { healPercent: currentRoom.activities.rest.healPercent });
-          const restData = currentRoom.activities.rest;
-          const hpHeal = Math.floor(playerStats.derived.maxHp * (restData.healPercent / 100));
-          const chakraHeal = Math.floor(playerStats.derived.maxChakra * (restData.chakraRestorePercent / 100));
-
-          setPlayer(p => p ? {
-            ...p,
-            currentHp: Math.min(playerStats.derived.maxHp, p.currentHp + hpHeal),
-            currentChakra: Math.min(playerStats.derived.maxChakra, p.currentChakra + chakraHeal)
-          } : null);
-
-          addLog(`You rest and recover. +${hpHeal} HP, +${chakraHeal} Chakra.`, 'gain');
-
-          const floorAfterRest = completeActivity(updatedFloor, room.id, 'rest');
-          setLocationFloor(floorAfterRest);
-          logActivityComplete(currentRoom.id, 'rest');
-        }
-        break;
-
-      case 'training':
-        if (currentRoom.activities.training && !currentRoom.activities.training.completed) {
-          logActivityStart(currentRoom.id, 'training', { options: currentRoom.activities.training.options.map(o => o.stat) });
-          logStateChange('LOCATION_EXPLORE', 'TRAINING', 'training activity');
-          setTrainingData(currentRoom.activities.training);
-          setSelectedBranchingRoom(currentRoom);
-          setGameState(GameState.TRAINING);
-          addLog('You arrive at a training area. Choose your training regimen.', 'info');
-        }
-        break;
-
-      case 'scrollDiscovery':
-        if (currentRoom.activities.scrollDiscovery && !currentRoom.activities.scrollDiscovery.completed) {
-          logActivityStart(currentRoom.id, 'scrollDiscovery', { scrollCount: currentRoom.activities.scrollDiscovery.availableScrolls.length });
-          logStateChange('LOCATION_EXPLORE', 'SCROLL_DISCOVERY', 'scroll discovery activity');
-          setScrollDiscoveryData(currentRoom.activities.scrollDiscovery);
-          setSelectedBranchingRoom(currentRoom);
-          setGameState(GameState.SCROLL_DISCOVERY);
-          addLog('You discovered ancient jutsu scrolls!', 'gain');
-        }
-        break;
-
-      case 'eliteChallenge':
-        if (currentRoom.activities.eliteChallenge && !currentRoom.activities.eliteChallenge.completed) {
-          const challenge = currentRoom.activities.eliteChallenge;
-          logActivityStart(currentRoom.id, 'eliteChallenge', { enemy: challenge.enemy.name, artifact: challenge.artifact.name });
-          logStateChange('LOCATION_EXPLORE', 'ELITE_CHALLENGE', 'elite challenge activity');
-          setEliteChallengeData({
-            enemy: challenge.enemy,
-            artifact: challenge.artifact,
-            room: currentRoom,
-          });
-          setGameState(GameState.ELITE_CHALLENGE);
-          addLog(`An artifact guardian bars your path...`, 'danger');
-        }
-        break;
-
-      case 'treasure':
-        if (currentRoom.activities.treasure) {
-          const treasure = currentRoom.activities.treasure;
-          logActivityStart(currentRoom.id, 'treasure', { itemCount: treasure.items.length, ryo: treasure.ryo });
-          logStateChange('LOCATION_EXPLORE', 'LOOT', 'treasure activity');
-          setDroppedItems(treasure.items);
-          setDroppedSkill(null);
-          // Apply wealth multiplier to treasure ryo
-          const treasureWealth = currentLocation?.wealthLevel ?? 4;
-          const adjustedTreasureRyo = applyWealthToRyo(treasure.ryo, treasureWealth);
-          if (adjustedTreasureRyo > 0) {
-            setPlayer(p => p ? { ...p, ryo: p.ryo + adjustedTreasureRyo } : null);
-            addLog(`Found treasure! +${adjustedTreasureRyo} Ryō${treasureWealth !== 4 ? ` (${treasureWealth > 4 ? 'wealthy' : 'poor'} area)` : ''}.`, 'loot');
-          }
-          const floorAfterTreasure = completeActivity(updatedFloor, room.id, 'treasure');
-          setLocationFloor(floorAfterTreasure);
-          logActivityComplete(currentRoom.id, 'treasure');
-          setGameState(GameState.LOOT);
-        }
-        break;
-
-      case 'infoGathering':
-        if (currentRoom.activities.infoGathering) {
-          const infoActivity = currentRoom.activities.infoGathering;
-          logActivityStart(currentRoom.id, 'infoGathering', { intelGain: infoActivity.intelGain });
-          // Add intel gain
-          setCurrentIntel(prev => Math.min(100, prev + infoActivity.intelGain));
-          logIntelGain('InfoGathering', infoActivity.intelGain, Math.min(100, currentIntel + infoActivity.intelGain));
-          addLog(`${infoActivity.flavorText} +${infoActivity.intelGain}% intel.`, 'info');
-          // Mark activity complete
-          const floorAfterInfo = completeActivity(updatedFloor, room.id, 'infoGathering');
-          setLocationFloor(floorAfterInfo);
-          logActivityComplete(currentRoom.id, 'infoGathering');
-        }
-        break;
-    }
-  };
-
-
-  // Handle path choice (legacy - kept for compatibility but cards are now the primary choice)
-  const handlePathChoice = (path: LocationPath) => {
-    if (!region || !locationDeck) return;
-    const targetLoc = region.locations.find(l => l.id === path.targetLocationId);
-    logPathChoice(path.id, targetLoc?.name || 'Unknown', path.pathType);
-    const updatedRegion = choosePath(region, path.id);
-    setRegion(updatedRegion);
-
-    // Use currentIntel to determine card count and reveal status
-    const { cardCount, revealedCount } = evaluateIntel(currentIntel);
-
-    // Draw cards and apply intel-based reveal levels
-    const rawCards = drawLocationCards(updatedRegion, locationDeck, intelPool, cardCount);
-    const newCards = rawCards.map((card, index) => ({
-      ...card,
-      intelLevel: index < revealedCount ? IntelRevealLevel.FULL : IntelRevealLevel.NONE,
-    }));
-    setDrawnCards(newCards);
-    setSelectedCardIndex(null);
-
-    addLog(`Traveling to the next location...`, 'info');
-    setGameState(GameState.REGION_MAP);
-  };
-
-  // Handle leaving a location (back to region map with new cards)
-  const handleLeaveLocation = () => {
-    if (!region || !locationDeck) return;
-    const location = getCurrentLocation(region);
-
-    if (location?.isCompleted) {
-      // Location complete - draw new cards and return to region map
-      logLocationLeave(location.id, location.name, 'completed');
-
-      // Use currentIntel to determine card count and reveal status
-      const { cardCount, revealedCount } = evaluateIntel(currentIntel);
-
-      // Draw cards and apply intel-based reveal levels
-      const rawCards = drawLocationCards(region, locationDeck, intelPool, cardCount);
-      const newCards = rawCards.map((card, index) => ({
-        ...card,
-        intelLevel: index < revealedCount ? IntelRevealLevel.FULL : IntelRevealLevel.NONE,
-      }));
-      setDrawnCards(newCards);
-      setSelectedCardIndex(null);
-
-      addLog('Location cleared. Choose your next destination.', 'info');
-      setGameState(GameState.REGION_MAP);
-    } else {
-      // Can't leave incomplete location
-      addLog('Complete the location before leaving.', 'danger');
-    }
-  };
+  // Exploration handlers (returnToMap, handleCardSelect, handleEnterSelectedLocation,
+  // handleLocationRoomSelect, handleLocationRoomEnter, handlePathChoice, handleLeaveLocation)
+  // are now provided by useExploration hook
 
   // Close reward modal - check for pending artifact from elite challenge
   const handleRewardClose = () => {
@@ -2100,25 +1674,27 @@ const App: React.FC = () => {
       <div className="flex-1 flex flex-col relative bg-zinc-950">
         <div className="flex-1 p-6 flex flex-col items-center justify-center relative overflow-y-auto parchment-panel">
           {gameState === GameState.COMBAT && player && enemy && playerStats && enemyStats && (
-            <Combat
-              ref={combatRef}
-              player={player}
-              playerStats={playerStats}
-              enemy={enemy}
-              enemyStats={enemyStats}
-              turnState={turnState}
-              turnPhase={turnPhase}
-              onUseSkill={useSkill}
-              onPassTurn={() => {
-                addLog("You focus on defense and wait.", 'info');
-                setTurnState('ENEMY_TURN');
-              }}
-              getDamageTypeColor={getDamageTypeColor}
-              getRarityColor={getRarityColor}
-              autoCombatEnabled={autoCombatEnabled}
-              onToggleAutoCombat={() => setAutoCombatEnabled(prev => !prev)}
-              autoPassTimeRemaining={autoPassTimeRemaining}
-            />
+            <ErrorBoundary sceneName="Combat">
+              <Combat
+                ref={combatRef}
+                player={player}
+                playerStats={playerStats}
+                enemy={enemy}
+                enemyStats={enemyStats}
+                turnState={turnState}
+                turnPhase={turnPhase}
+                onUseSkill={useSkill}
+                onPassTurn={() => {
+                  addLog("You focus on defense and wait.", 'info');
+                  setTurnState('ENEMY_TURN');
+                }}
+                getDamageTypeColor={getDamageTypeColor}
+                getRarityColor={getRarityColor}
+                autoCombatEnabled={autoCombatEnabled}
+                onToggleAutoCombat={() => setAutoCombatEnabled(prev => !prev)}
+                autoPassTimeRemaining={autoPassTimeRemaining}
+              />
+            </ErrorBoundary>
           )}
 
           {gameState === GameState.EVENT && activeEvent && (
@@ -2137,39 +1713,43 @@ const App: React.FC = () => {
           )}
 
           {gameState === GameState.LOOT && (
-            <Loot
-              droppedItems={droppedItems}
-              droppedSkill={droppedSkill}
-              player={player}
-              playerStats={playerStats}
-              onEquipItem={equipItem}
-              onSellItem={sellItem}
-              onStoreToBag={storeToBag}
-              onLearnSkill={learnSkill}
-              onLeaveAll={returnToMap}
-              getRarityColor={getRarityColor}
-              getDamageTypeColor={getDamageTypeColor}
-              isProcessing={isProcessingLoot}
-            />
+            <ErrorBoundary sceneName="Loot">
+              <Loot
+                droppedItems={droppedItems}
+                droppedSkill={droppedSkill}
+                player={player}
+                playerStats={playerStats}
+                onEquipItem={equipItem}
+                onSellItem={sellItem}
+                onStoreToBag={storeToBag}
+                onLearnSkill={learnSkill}
+                onLeaveAll={returnToMap}
+                getRarityColor={getRarityColor}
+                getDamageTypeColor={getDamageTypeColor}
+                isProcessing={isProcessingLoot}
+              />
+            </ErrorBoundary>
           )}
 
           {gameState === GameState.MERCHANT && (
-            <Merchant
-              merchantItems={merchantItems}
-              discountPercent={merchantDiscount}
-              player={player}
-              playerStats={playerStats}
-              dangerLevel={currentDangerLevel}
-              baseDifficulty={currentBaseDifficulty}
-              onBuyItem={buyItem}
-              onLeave={leaveMerchant}
-              onReroll={handleMerchantReroll}
-              onBuySlot={handleBuyMerchantSlot}
-              onUpgradeQuality={handleUpgradeTreasureQuality}
-              getRarityColor={getRarityColor}
-              getDamageTypeColor={getDamageTypeColor}
-              isProcessing={isProcessingLoot}
-            />
+            <ErrorBoundary sceneName="Merchant">
+              <Merchant
+                merchantItems={merchantItems}
+                discountPercent={merchantDiscount}
+                player={player}
+                playerStats={playerStats}
+                dangerLevel={currentDangerLevel}
+                baseDifficulty={currentBaseDifficulty}
+                onBuyItem={buyItem}
+                onLeave={leaveMerchant}
+                onReroll={handleMerchantReroll}
+                onBuySlot={handleBuyMerchantSlot}
+                onUpgradeQuality={handleUpgradeTreasureQuality}
+                getRarityColor={getRarityColor}
+                getDamageTypeColor={getDamageTypeColor}
+                isProcessing={isProcessingLoot}
+              />
+            </ErrorBoundary>
           )}
 
           {gameState === GameState.TRAINING && trainingData && player && playerStats && (
