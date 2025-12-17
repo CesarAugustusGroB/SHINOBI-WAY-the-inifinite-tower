@@ -760,8 +760,8 @@ const App: React.FC = () => {
         const updatedFloor = completeActivity(locationFloor, currentRoom.id, 'event');
         setLocationFloor(updatedFloor);
 
-        // Add intel from event completion (average ~15%)
-        const eventIntelGain = INTEL_GAIN.EVENT_DEFAULT;
+        // Add intel from event completion (variable based on outcome, fallback to default)
+        const eventIntelGain = eventOutcome?.outcome?.effects?.intelGain ?? INTEL_GAIN.EVENT_DEFAULT;
         setCurrentIntel(prev => Math.min(100, prev + eventIntelGain));
         logIntelGain('Event', eventIntelGain, Math.min(100, currentIntel + eventIntelGain));
       }

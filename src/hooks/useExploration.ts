@@ -166,10 +166,7 @@ export function useExploration(
   // RETURN TO MAP (requires cross-hook coordination)
   // ============================================================================
 
-  // Forward refs for circular dependency in returnToMap
-  const handleLocationRoomEnterRef = useCallback((room: BranchingRoom) => {
-    handleLocationRoomEnter(room);
-  }, [handleLocationRoomEnter]);
+  // Forward ref for handleLeaveLocation in returnToMap
 
   const handleLeaveLocationRef = useCallback(() => {
     handleLeaveLocation();
@@ -192,9 +189,10 @@ export function useExploration(
       if (currentRoom) {
         const nextActivity = getCurrentActivity(currentRoom);
         if (nextActivity) {
-          // Auto-trigger next activity in room
+          // Auto-trigger next activity in room without incrementing roomsVisited
+          // (we're staying in the same room, just processing the next activity)
           setSelectedBranchingRoom(null);
-          setTimeout(() => handleLocationRoomEnterRef(currentRoom), 100);
+          setTimeout(() => executeRoomActivity(currentRoom, locationFloor, setLocationFloor, GameState.LOCATION_EXPLORE), 100);
           return;
         }
       }
@@ -216,7 +214,7 @@ export function useExploration(
   }, [
     selectedBranchingRoom, gameState, region, locationFloor,
     setDroppedItems, setDroppedSkill, setEnemy, setSelectedBranchingRoom, setGameState,
-    handleLocationRoomEnterRef, handleLeaveLocationRef
+    executeRoomActivity, setLocationFloor, handleLeaveLocationRef
   ]);
 
   // ============================================================================

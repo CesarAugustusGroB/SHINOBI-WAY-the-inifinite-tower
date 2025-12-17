@@ -62,10 +62,11 @@ const LocationMap: React.FC<LocationMapProps> = ({
       // Don't trigger if user is typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
-      // Number keys 1-2 to select child rooms
-      if (e.code === 'Digit1' || e.code === 'Digit2') {
+      // Number keys 1-2 to select child rooms (fixed 2 children per room)
+      if (['Digit1', 'Digit2', 'Digit3', 'Digit4'].includes(e.code)) {
         e.preventDefault();
-        const index = e.code === 'Digit1' ? 0 : 1;
+        const indexMap: Record<string, number> = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3 };
+        const index = indexMap[e.code];
         const childRoom = childRooms[index];
         if (childRoom) {
           setSelectedRoomId(childRoom.id);
@@ -168,12 +169,12 @@ const LocationMap: React.FC<LocationMapProps> = ({
       <div className="flex-1 relative p-4 min-h-[400px]">
         {/* Room Cards Container */}
         <div className="relative z-10 h-full flex flex-col items-center justify-between py-4">
-          {/* Grandchildren grouped by parent - Top row */}
-          <div className="flex justify-center gap-16">
+          {/* Grandchildren grouped by parent - Top row (2 per group) */}
+          <div className="flex justify-center gap-8 flex-wrap">
             {childRooms.map((child) => {
               const childGrandchildren = getChildRooms(branchingFloor, child.id);
               return (
-                <div key={`gc-group-${child.id}`} className="flex gap-4">
+                <div key={`gc-group-${child.id}`} className="flex gap-2 flex-wrap justify-center">
                   {childGrandchildren.map((room) => (
                     <RoomCard
                       key={room.id}
@@ -193,7 +194,7 @@ const LocationMap: React.FC<LocationMapProps> = ({
           </div>
 
           {/* Children - Middle (2 rooms) - Immediate choices */}
-          <div className="flex justify-center gap-32">
+          <div className="flex justify-center gap-8 flex-wrap">
             {childRooms.map((room) => (
               <RoomCard
                 key={room.id}

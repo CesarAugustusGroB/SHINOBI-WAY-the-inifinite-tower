@@ -125,8 +125,8 @@ const EventResultModal: React.FC<EventResultModalProps> = ({ outcome, onClose })
               </div>
             )}
 
-            {/* Experience and Ryo */}
-            {(effects.exp || effects.ryo) && (
+            {/* Experience, Ryo, and Intel */}
+            {(effects.exp || effects.ryo || effects.intelGain) && (
               <div className="grid grid-cols-2 gap-3">
                 {effects.exp && (
                   <div className="bg-cyan-900/20 border border-cyan-800/50 rounded-lg p-3 text-center">
@@ -146,6 +146,15 @@ const EventResultModal: React.FC<EventResultModalProps> = ({ outcome, onClose })
                     <p className={`text-xl font-bold ${effects.ryo > 0 ? 'text-yellow-300' : 'text-red-300'}`}>
                       {effects.ryo > 0 ? `+${effects.ryo}` : effects.ryo}
                     </p>
+                  </div>
+                )}
+                {effects.intelGain && effects.intelGain > 0 && (
+                  <div className="bg-amber-900/20 border border-amber-800/50 rounded-lg p-3 text-center">
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <span className="text-amber-400">🔮</span>
+                      <span className="text-xs text-amber-400 uppercase tracking-wider">Intel</span>
+                    </div>
+                    <p className="text-xl font-bold text-amber-300">+{effects.intelGain}%</p>
                   </div>
                 )}
               </div>

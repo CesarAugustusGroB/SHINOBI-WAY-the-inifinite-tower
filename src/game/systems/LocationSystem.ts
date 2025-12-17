@@ -9,15 +9,15 @@
  *
  * ## FLOOR STRUCTURE
  *
- * The floor uses a dynamic 1→2→4 branching pattern:
+ * The floor uses a 1→2→2 branching pattern:
  * ```
  *                    [START] (Tier 0, Floor 1 only)
  *                    /     \
  *               [LEFT]    [RIGHT] (Tier 1)
- *               /    \    /    \
- *            [L_O] [L_I][R_I] [R_O] (Tier 2)
- *              |     |    |     |
- *           [...dynamic generation continues...]
+ *               /   \      /   \
+ *           [CHILD_0] [CHILD_1] (Tier 2, 2 children per parent)
+ *              |         |
+ *           [...dynamic generation continues with 2 children each...]
  * ```
  *
  * Rooms are generated dynamically as the player explores to ensure:
@@ -81,6 +81,48 @@ export { dangerToFloor, getWealthMultiplier, applyWealthToRyo } from './ScalingS
 const generateId = (): string => {
   return `room-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 };
+
+// ============================================================================
+// QUALITY UPGRADE HELPER
+// ============================================================================
+
+/**
+ * Maybe upgrade treasure quality with 50% chance.
+ * BROKEN → COMMON → RARE (caps at RARE).
+ */
+function maybeUpgradeQuality(baseQuality: TreasureQuality): TreasureQuality {
+  if (Math.random() >= 0.5) return baseQuality;
+  if (baseQuality === TreasureQuality.BROKEN) return TreasureQuality.COMMON;
+  if (baseQuality === TreasureQuality.COMMON) return TreasureQuality.RARE;
+  return baseQuality; // Already RARE, no upgrade
+}
+
+// ============================================================================
+// DYNAMIC BRANCHING HELPERS
+// ============================================================================
+
+/**
+ * Get the number of children for a room.
+ * Fixed at 2 children per room for consistent branching.
+ */
+export function getChildCount(): number {
+  return 2;
+}
+
+/**
+ * Get the positions array for a given number of children.
+ * Uses CHILD_0 and CHILD_1 for the 2-child branching pattern.
+ *
+ * @param childCount - Number of children (fixed at 2)
+ * @returns Array of RoomPosition values
+ */
+export function getChildPositions(childCount: number): RoomPosition[] {
+  const positions: RoomPosition[] = [];
+  for (let i = 0; i < Math.min(childCount, 2); i++) {
+    positions.push(`CHILD_${i}` as RoomPosition);
+  }
+  return positions;
+}
 
 // ============================================================================
 // FLOOR TO DANGER LEVEL CONVERSION
@@ -213,6 +255,225 @@ function createRoom(
  * @param player - Player for treasure quality and merchant slots (optional for backward compat)
  * @returns RoomActivities object with all generated activities
  */
+// ============================================================================
+// ACTIVITY GENERATION HELPERS
+// ============================================================================
+
+/**
+ * Generate combat activity for a room.
+ */
+function generateCombatActivity(
+  room: BranchingRoom,
+  config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType],
+  floor: number,
+  difficulty: number,
+  arc: string,
+  player?: Player
+): RoomActivities['combat'] | undefined {
+  if (config.hasCombat !== 'required' && (config.hasCombat !== 'optional' || Math.random() >= 0.5)) {
+    return undefined;
+  }
+
+  const isElite = room.tier === 2 && Math.random() < 0.3;
+  const enemyType = isElite ? 'ELITE' : 'NORMAL';
+  const dangerLevel = floorToDangerLevel(floor);
+  const enemy = generateEnemy(dangerLevel, player?.locationsCleared ?? 0, enemyType, difficulty, arc);
+
+  const modifiers: CombatModifierType[] = config.combatModifiers
+    ? [config.combatModifiers[Math.floor(Math.random() * config.combatModifiers.length)]]
+    : [CombatModifierType.NONE];
+
+  return { enemy, modifiers, completed: false };
+}
+
+/**
+ * Generate merchant activity for a room.
+ */
+function generateMerchantActivity(
+  config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType],
+  floor: number,
+  difficulty: number,
+  player?: Player
+): RoomActivities['merchant'] | undefined {
+  if (!config.hasMerchant) return undefined;
+
+  const itemCount = player?.merchantSlots ?? DEFAULT_MERCHANT_SLOTS;
+  const items: Item[] = [];
+  for (let i = 0; i < itemCount; i++) {
+    items.push(generateLoot(floor, difficulty));
+  }
+
+  return {
+    items,
+    discountPercent: Math.random() < 0.2 ? 15 : 0,
+    completed: false,
+  };
+}
+
+/**
+ * Generate event activity for a room.
+ */
+function generateEventActivity(
+  config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType],
+  arc: string
+): RoomActivities['event'] | undefined {
+  if (!config.hasEvent) return undefined;
+
+  const arcEvents = EVENTS.filter(e => !e.allowedArcs || e.allowedArcs.includes(arc));
+  const event = arcEvents.length > 0
+    ? arcEvents[Math.floor(Math.random() * arcEvents.length)]
+    : EVENTS[0];
+
+  if (!event) return undefined;
+
+  return { definition: event, completed: false };
+}
+
+/**
+ * Generate scroll discovery activity for a room.
+ */
+function generateScrollDiscoveryActivity(
+  config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType],
+  floor: number
+): RoomActivities['scrollDiscovery'] | undefined {
+  if (!config.hasScrollDiscovery && (!config.hasEvent || Math.random() >= 0.25)) {
+    return undefined;
+  }
+
+  const skill = generateSkillForFloor(floor);
+  return {
+    availableScrolls: [skill],
+    cost: { chakra: 15 + floor * 2 },
+    completed: false,
+  };
+}
+
+/**
+ * Generate elite challenge activity for a room.
+ * This is the ONLY source of artifacts in the game.
+ */
+function generateEliteChallengeActivity(
+  room: BranchingRoom,
+  floor: number,
+  difficulty: number,
+  arc: string,
+  player?: Player
+): RoomActivities['eliteChallenge'] | undefined {
+  const isValidRoom = room.type === BranchingRoomType.SHRINE || room.type === BranchingRoomType.RUINS;
+  if (!isValidRoom || Math.random() >= 0.15) return undefined;
+
+  const eliteDangerLevel = floorToDangerLevel(floor + 1);
+  const eliteEnemy = generateEnemy(eliteDangerLevel, player?.locationsCleared ?? 0, 'ELITE', difficulty + 15, arc);
+  eliteEnemy.name = `${eliteEnemy.name} (Artifact Guardian)`;
+
+  return {
+    enemy: eliteEnemy,
+    artifact: generateRandomArtifact(floor, difficulty + 20),
+    completed: false,
+  };
+}
+
+/**
+ * Generate rest activity for a room.
+ */
+function generateRestActivity(
+  config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType]
+): RoomActivities['rest'] | undefined {
+  if (!config.hasRest) return undefined;
+
+  return {
+    healPercent: 30 + Math.floor(Math.random() * 20),
+    chakraRestorePercent: 40 + Math.floor(Math.random() * 20),
+    completed: false,
+  };
+}
+
+/**
+ * Generate training activity for a room.
+ */
+function generateTrainingActivity(
+  config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType],
+  floor: number
+): RoomActivities['training'] | undefined {
+  if (!config.hasTraining) return undefined;
+
+  const allStats: PrimaryStat[] = [
+    PrimaryStat.WILLPOWER, PrimaryStat.CHAKRA, PrimaryStat.STRENGTH,
+    PrimaryStat.SPIRIT, PrimaryStat.INTELLIGENCE, PrimaryStat.CALMNESS,
+    PrimaryStat.SPEED, PrimaryStat.ACCURACY, PrimaryStat.DEXTERITY,
+  ];
+
+  const shuffled = [...allStats].sort(() => Math.random() - 0.5);
+  const selectedStats = shuffled.slice(0, 3);
+
+  const baseHpCost = 10 + floor * 2;
+  const baseChakraCost = 5 + floor;
+  const baseGain = 1 + Math.floor(floor / 10);
+
+  return {
+    options: selectedStats.map(stat => ({
+      stat,
+      intensities: {
+        light: { cost: { hp: baseHpCost, chakra: baseChakraCost }, gain: baseGain },
+        medium: { cost: { hp: baseHpCost * 2, chakra: baseChakraCost * 2 }, gain: baseGain * 2 },
+        intense: { cost: { hp: baseHpCost * 3, chakra: baseChakraCost * 3 }, gain: baseGain * 3 },
+      },
+    })),
+    completed: false,
+  };
+}
+
+/**
+ * Generate treasure activity for a room.
+ */
+function generateTreasureActivity(
+  config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType],
+  floor: number,
+  difficulty: number,
+  player?: Player
+): RoomActivities['treasure'] | undefined {
+  if (!config.hasTreasure) return undefined;
+
+  const quality = maybeUpgradeQuality(player?.treasureQuality ?? DEFAULT_TREASURE_QUALITY);
+
+  return {
+    items: [generateComponentByQuality(floor, difficulty + 5, quality)],
+    ryo: 50 + floor * 10 + Math.floor(Math.random() * 67),
+    collected: false,
+  };
+}
+
+/**
+ * Generate info gathering activity for a room.
+ */
+function generateInfoGatheringActivity(
+  config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType]
+): RoomActivities['infoGathering'] | undefined {
+  if (!config.hasInfoGathering) return undefined;
+
+  const flavorTexts = [
+    'You gather information from locals.',
+    'Ancient inscriptions reveal secrets.',
+    'A passing traveler shares rumors.',
+    'You overhear valuable intelligence.',
+    'Careful observation reveals hidden details.',
+  ];
+
+  return {
+    intelGain: 25,
+    flavorText: flavorTexts[Math.floor(Math.random() * flavorTexts.length)],
+    completed: false,
+  };
+}
+
+// ============================================================================
+// MAIN ACTIVITY GENERATION ORCHESTRATOR
+// ============================================================================
+
+/**
+ * Generate all activities for a room based on room type configuration.
+ * Delegates to specialized helper functions for each activity type.
+ */
 function generateActivities(
   room: BranchingRoom,
   config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType],
@@ -223,169 +484,32 @@ function generateActivities(
 ): RoomActivities {
   const activities: RoomActivities = {};
 
-  // Combat (first if present)
-  if (config.hasCombat === 'required' || (config.hasCombat === 'optional' && Math.random() < 0.5)) {
-    const isElite = room.tier === 2 && Math.random() < 0.3;
-    const enemyType = isElite ? 'ELITE' : 'NORMAL';
-    const dangerLevel = floorToDangerLevel(floor);
-    const enemy = generateEnemy(dangerLevel, player?.locationsCleared ?? 0, enemyType, difficulty, arc);
+  const combat = generateCombatActivity(room, config, floor, difficulty, arc, player);
+  if (combat) activities.combat = combat;
 
-    // Select combat modifiers
-    const modifiers: CombatModifierType[] = config.combatModifiers
-      ? [config.combatModifiers[Math.floor(Math.random() * config.combatModifiers.length)]]
-      : [CombatModifierType.NONE];
+  const merchant = generateMerchantActivity(config, floor, difficulty, player);
+  if (merchant) activities.merchant = merchant;
 
-    activities.combat = {
-      enemy,
-      modifiers,
-      completed: false,
-    };
-  }
+  const event = generateEventActivity(config, arc);
+  if (event) activities.event = event;
 
-  // Merchant - uses player.merchantSlots for item count (defaults to 1)
-  if (config.hasMerchant) {
-    const itemCount = player?.merchantSlots ?? DEFAULT_MERCHANT_SLOTS;
-    const items: Item[] = [];
-    for (let i = 0; i < itemCount; i++) {
-      items.push(generateLoot(floor, difficulty));
-    }
+  const scrollDiscovery = generateScrollDiscoveryActivity(config, floor);
+  if (scrollDiscovery) activities.scrollDiscovery = scrollDiscovery;
 
-    activities.merchant = {
-      items,
-      discountPercent: Math.random() < 0.2 ? 15 : 0,
-      completed: false,
-    };
-  }
+  const eliteChallenge = generateEliteChallengeActivity(room, floor, difficulty, arc, player);
+  if (eliteChallenge) activities.eliteChallenge = eliteChallenge;
 
-  // Event - Use enhanced events with requirements, costs, and weighted outcomes
-  if (config.hasEvent) {
-    const arcEvents = EVENTS.filter(
-      e => !e.allowedArcs || e.allowedArcs.includes(arc)
-    );
-    const event = arcEvents.length > 0
-      ? arcEvents[Math.floor(Math.random() * arcEvents.length)]
-      : EVENTS[0];
+  const rest = generateRestActivity(config);
+  if (rest) activities.rest = rest;
 
-    if (event) {
-      activities.event = {
-        definition: event,
-        completed: false,
-      };
-    }
-  }
+  const training = generateTrainingActivity(config, floor);
+  if (training) activities.training = training;
 
-  // Scroll Discovery - chance to find jutsu scrolls in certain rooms
-  // Shrines, Ruins, and rooms with events have a chance for scrolls
-  if (config.hasScrollDiscovery || (config.hasEvent && Math.random() < 0.25)) {
-    const skill = generateSkillForFloor(floor);
-    activities.scrollDiscovery = {
-      availableScrolls: [skill],
-      cost: { chakra: 15 + floor * 2 }, // Chakra cost to study the scroll
-      completed: false,
-    };
-  }
+  const treasure = generateTreasureActivity(config, floor, difficulty, player);
+  if (treasure) activities.treasure = treasure;
 
-  // Elite Challenge - rare chance in SHRINE and RUINS to fight elite for artifact
-  // This is the ONLY source of artifacts in the game
-  if ((room.type === BranchingRoomType.SHRINE || room.type === BranchingRoomType.RUINS) && Math.random() < 0.15) {
-    const eliteDangerLevel = floorToDangerLevel(floor + 1);
-    const eliteEnemy = generateEnemy(eliteDangerLevel, player?.locationsCleared ?? 0, 'ELITE', difficulty + 15, arc);
-    eliteEnemy.name = `${eliteEnemy.name} (Artifact Guardian)`;
-
-    activities.eliteChallenge = {
-      enemy: eliteEnemy,
-      artifact: generateRandomArtifact(floor, difficulty + 20),
-      completed: false,
-    };
-  }
-
-  // Rest
-  if (config.hasRest) {
-    activities.rest = {
-      healPercent: 30 + Math.floor(Math.random() * 20),
-      chakraRestorePercent: 40 + Math.floor(Math.random() * 20),
-      completed: false,
-    };
-  }
-
-  // Training - Multiple stat options with intensity levels
-  if (config.hasTraining) {
-    // All 9 primary stats available for training
-    const allStats: PrimaryStat[] = [
-      PrimaryStat.WILLPOWER,
-      PrimaryStat.CHAKRA,
-      PrimaryStat.STRENGTH,
-      PrimaryStat.SPIRIT,
-      PrimaryStat.INTELLIGENCE,
-      PrimaryStat.CALMNESS,
-      PrimaryStat.SPEED,
-      PrimaryStat.ACCURACY,
-      PrimaryStat.DEXTERITY,
-    ];
-
-    // Shuffle and pick 3 random stats
-    const shuffled = [...allStats].sort(() => Math.random() - 0.5);
-    const selectedStats = shuffled.slice(0, 3);
-
-    // Base costs and gains scale with floor
-    const baseHpCost = 10 + floor * 2;
-    const baseChakraCost = 5 + floor;
-    const baseGain = 1 + Math.floor(floor / 10);
-
-    activities.training = {
-      options: selectedStats.map(stat => ({
-        stat,
-        intensities: {
-          light: {
-            cost: { hp: baseHpCost, chakra: baseChakraCost },
-            gain: baseGain,
-          },
-          medium: {
-            cost: { hp: baseHpCost * 2, chakra: baseChakraCost * 2 },
-            gain: baseGain * 2,
-          },
-          intense: {
-            cost: { hp: baseHpCost * 3, chakra: baseChakraCost * 3 },
-            gain: baseGain * 3,
-          },
-        },
-      })),
-      completed: false,
-    };
-  }
-
-  // Treasure - 1 item with 50% chance to upgrade quality by one tier
-  if (config.hasTreasure) {
-    let quality = player?.treasureQuality ?? DEFAULT_TREASURE_QUALITY;
-
-    // 50% chance to upgrade quality by one tier
-    if (Math.random() < 0.5) {
-      if (quality === TreasureQuality.BROKEN) quality = TreasureQuality.COMMON;
-      else if (quality === TreasureQuality.COMMON) quality = TreasureQuality.RARE;
-    }
-
-    activities.treasure = {
-      items: [generateComponentByQuality(floor, difficulty + 5, quality)],
-      ryo: 50 + floor * 10 + Math.floor(Math.random() * 67),
-      collected: false,
-    };
-  }
-
-  // Info Gathering (+25% intel)
-  if (config.hasInfoGathering) {
-    const flavorTexts = [
-      'You gather information from locals.',
-      'Ancient inscriptions reveal secrets.',
-      'A passing traveler shares rumors.',
-      'You overhear valuable intelligence.',
-      'Careful observation reveals hidden details.',
-    ];
-    activities.infoGathering = {
-      intelGain: 25, // Same as INTEL_GAIN.INFO_GATHERING
-      flavorText: flavorTexts[Math.floor(Math.random() * flavorTexts.length)],
-      completed: false,
-    };
-  }
+  const infoGathering = generateInfoGatheringActivity(config);
+  if (infoGathering) activities.infoGathering = infoGathering;
 
   return activities;
 }
@@ -435,27 +559,26 @@ function generateGuardian(floor: number, difficulty: number, locationsCleared: n
 // ============================================================================
 //
 // The exit room system creates a dynamic floor length that scales with
-// progression while ensuring players always explore a meaningful amount.
+// danger level while ensuring players always explore a meaningful amount.
 //
-// Formula: minRooms = 3 + floor (capped at 18)
-// After minimum: 20% base + 10% per additional room (capped at 80%)
+// Formula: minRooms = 2 + dangerLevel (D1→3, D4→6, D7→9)
+// After minimum: 30% base + 5% per additional room (capped at 80%)
 //
 // Example progression:
-// - Floor 1: Min 4 rooms, exit appears around rooms 4-8
-// - Floor 5: Min 8 rooms, exit appears around rooms 8-12
-// - Floor 15+: Min 18 rooms, exit appears around rooms 18-24
+// - Danger 1: Min 3 rooms, exit appears around rooms 3-13
+// - Danger 4: Min 6 rooms, exit appears around rooms 6-16
+// - Danger 7: Min 9 rooms, exit appears around rooms 9-19
 // ============================================================================
 
 /**
  * Calculate minimum rooms player must visit before exit can appear.
- * This ensures each floor has a minimum exploration requirement.
+ * Uses danger level (1-7) for reasonable minimums in location-based exploration.
  *
- * @param floor - Current floor number
+ * @param dangerLevel - Location danger level (1-7)
  * @returns Minimum room count before exit is possible
  */
-function getMinRoomsBeforeExit(floor: number): number {
-  // Cap at 15 to prevent excessive floor length on high floors
-  return 3 + Math.min(floor, 15); // Results: Floor 1→4, Floor 10→13, Floor 15+→18
+function getMinRoomsBeforeExit(dangerLevel: number): number {
+  return 2 + dangerLevel; // Results: D1→3, D4→6, D7→9
 }
 
 /**
@@ -464,26 +587,25 @@ function getMinRoomsBeforeExit(floor: number): number {
  *
  * ## Probability Curve:
  * - Below minimum: 0% (no exit possible)
- * - At minimum: 20% base chance
- * - Each room beyond: +10% cumulative
+ * - At minimum: 30% base chance
+ * - Each room beyond: +5% cumulative
  * - Maximum: 80% (always some uncertainty)
  *
  * @param roomsVisited - Total rooms player has entered
- * @param floor - Current floor number (affects minimum)
- * @param depth - Room depth in tree (unused, kept for flexibility)
+ * @param dangerLevel - Location danger level (affects minimum)
  * @returns Probability 0.0-0.8 that next room is the exit
  */
-function calculateExitProbability(roomsVisited: number, floor: number, depth: number): number {
-  const minRooms = getMinRoomsBeforeExit(floor);
+function calculateExitProbability(roomsVisited: number, dangerLevel: number): number {
+  const minRooms = getMinRoomsBeforeExit(dangerLevel);
 
   if (roomsVisited < minRooms) {
     return 0;
   }
 
-  // Base 20% chance, increases with rooms visited beyond minimum
+  // Base 30% chance, increases with rooms visited beyond minimum
   const roomsBeyondMin = roomsVisited - minRooms;
-  const baseChance = 0.2;
-  const incrementPerRoom = 0.1; // +10% per room beyond minimum
+  const baseChance = 0.3;
+  const incrementPerRoom = 0.05; // +5% per room beyond minimum
 
   return Math.min(0.8, baseChance + (roomsBeyondMin * incrementPerRoom));
 }
@@ -491,7 +613,7 @@ function calculateExitProbability(roomsVisited: number, floor: number, depth: nu
 /**
  * Determine if a new room should be the exit
  */
-function shouldBeExitRoom(branchingFloor: BranchingFloor, depth: number): boolean {
+function shouldBeExitRoom(branchingFloor: BranchingFloor): boolean {
   // If exit already exists, no more exit rooms
   if (branchingFloor.exitRoomId) {
     return false;
@@ -499,8 +621,7 @@ function shouldBeExitRoom(branchingFloor: BranchingFloor, depth: number): boolea
 
   const probability = calculateExitProbability(
     branchingFloor.roomsVisited,
-    branchingFloor.floor,
-    depth
+    branchingFloor.dangerLevel
   );
 
   return Math.random() < probability;
@@ -511,8 +632,58 @@ function shouldBeExitRoom(branchingFloor: BranchingFloor, depth: number): boolea
 // ============================================================================
 
 /**
- * Generate children for a room dynamically
- * Called when player moves to a room that needs its grandchildren generated
+ * Configure a room as an exit room with guardian enemy and treasure.
+ * Returns a new room object instead of mutating the input.
+ */
+function configureAsExitRoom(
+  room: BranchingRoom,
+  floor: number,
+  difficulty: number,
+  arc: string,
+  player?: Player
+): BranchingRoom {
+  const quality = maybeUpgradeQuality(player?.treasureQuality ?? DEFAULT_TREASURE_QUALITY);
+
+  return {
+    ...room,
+    isExit: true,
+    name: getRandomRoomName(BranchingRoomType.BOSS_GATE, arc),
+    description: getRandomRoomDescription(BranchingRoomType.BOSS_GATE),
+    icon: ROOM_TYPE_CONFIGS[BranchingRoomType.BOSS_GATE].icon,
+    activities: {
+      combat: {
+        enemy: generateGuardian(floor, difficulty, player?.locationsCleared ?? 0, arc),
+        modifiers: [CombatModifierType.NONE],
+        completed: false,
+      },
+      treasure: {
+        items: [generateComponentByQuality(floor, difficulty + 15, quality)],
+        ryo: 67 + floor * 10,
+        collected: false,
+      },
+    },
+  };
+}
+
+/**
+ * Link child rooms to their parent and update the parent's state.
+ */
+function linkChildrenToParent(
+  rooms: BranchingRoom[],
+  parentId: string,
+  childIds: string[]
+): BranchingRoom[] {
+  return rooms.map(r => {
+    if (r.id === parentId) {
+      return { ...r, childIds, hasGeneratedChildren: true };
+    }
+    return r;
+  });
+}
+
+/**
+ * Generate children for a room dynamically (2-4 children).
+ * Uses lazy loading - children are only generated when their parent is visited.
  */
 export function generateChildrenForRoom(
   branchingFloor: BranchingFloor,
@@ -527,15 +698,14 @@ export function generateChildrenForRoom(
   const { floor, arc, difficulty } = branchingFloor;
   const newRooms: BranchingRoom[] = [];
   const childDepth = room.depth + 1;
+  let updatedFloor = branchingFloor;
 
-  // Generate 2 children for this room
-  const positions: RoomPosition[] = room.position === 'LEFT' || room.position === 'LEFT_OUTER' || room.position === 'LEFT_INNER'
-    ? ['LEFT_OUTER', 'LEFT_INNER']
-    : ['RIGHT_INNER', 'RIGHT_OUTER'];
+  // Generate 2-4 children for this room (dynamic branching)
+  const childCount = getChildCount();
+  const positions = getChildPositions(childCount);
 
-  for (let i = 0; i < 2; i++) {
-    // Check if this child should be the exit
-    const isExit = shouldBeExitRoom(branchingFloor, childDepth);
+  for (let i = 0; i < childCount; i++) {
+    const isExit = shouldBeExitRoom(updatedFloor);
 
     const childRoom = createRoom(
       2, // Children are always displayed as tier 2 (grandchildren in relative view)
@@ -549,57 +719,21 @@ export function generateChildrenForRoom(
       player
     );
 
+    const finalRoom = isExit
+      ? configureAsExitRoom(childRoom, floor, difficulty, arc, player)
+      : childRoom;
+
     if (isExit) {
-      childRoom.isExit = true;
-      childRoom.name = getRandomRoomName(BranchingRoomType.BOSS_GATE, arc);
-      childRoom.description = getRandomRoomDescription(BranchingRoomType.BOSS_GATE);
-      childRoom.icon = ROOM_TYPE_CONFIGS[BranchingRoomType.BOSS_GATE].icon;
-
-      // Replace activities with semi-boss (1 item with 50% quality boost)
-      let quality = player?.treasureQuality ?? DEFAULT_TREASURE_QUALITY;
-      if (Math.random() < 0.5) {
-        if (quality === TreasureQuality.BROKEN) quality = TreasureQuality.COMMON;
-        else if (quality === TreasureQuality.COMMON) quality = TreasureQuality.RARE;
-      }
-      const treasureItems = [generateComponentByQuality(floor, difficulty + 15, quality)];
-
-      childRoom.activities = {
-        combat: {
-          enemy: generateGuardian(floor, difficulty, player?.locationsCleared ?? 0, arc),
-          modifiers: [CombatModifierType.NONE],
-          completed: false,
-        },
-        treasure: {
-          items: treasureItems,
-          ryo: 67 + floor * 10,
-          collected: false,
-        },
-      };
-
-      // Update exitRoomId
-      branchingFloor = {
-        ...branchingFloor,
-        exitRoomId: childRoom.id,
-      };
+      updatedFloor = { ...updatedFloor, exitRoomId: finalRoom.id };
     }
 
-    newRooms.push(childRoom);
+    newRooms.push(finalRoom);
   }
 
-  // Update the parent room's childIds and hasGeneratedChildren flag
-  const updatedRooms = branchingFloor.rooms.map(r => {
-    if (r.id === roomId) {
-      return {
-        ...r,
-        childIds: newRooms.map(nr => nr.id),
-        hasGeneratedChildren: true,
-      };
-    }
-    return r;
-  });
+  const updatedRooms = linkChildrenToParent(updatedFloor.rooms, roomId, newRooms.map(r => r.id));
 
   return {
-    ...branchingFloor,
+    ...updatedFloor,
     rooms: [...updatedRooms, ...newRooms],
     totalRooms: updatedRooms.length + newRooms.length,
   };
@@ -703,19 +837,31 @@ export function generateBranchingFloorFromConfig(config: FloorGenerationConfig):
     startRoom.childIds = [tier1Left.id, tier1Right.id];
   }
 
-  // Tier 2: Four rooms
+  // Tier 2: Dynamic 2-4 rooms per tier 1 parent
   const tier2Depth = isFirstFloor ? 2 : 1;
   const tier2Rooms: BranchingRoom[] = [];
 
-  const tier2LeftOuter = createRoom(2, 'LEFT_OUTER', tier1Left.id, floor, difficulty, arc, undefined, tier2Depth, player);
-  const tier2LeftInner = createRoom(2, 'LEFT_INNER', tier1Left.id, floor, difficulty, arc, undefined, tier2Depth, player);
-  tier2Rooms.push(tier2LeftOuter, tier2LeftInner);
-  tier1Left.childIds = [tier2LeftOuter.id, tier2LeftInner.id];
+  // Generate children for left branch (2-4 children)
+  const leftChildCount = getChildCount();
+  const leftPositions = getChildPositions(leftChildCount);
+  const leftChildren: BranchingRoom[] = [];
+  for (let i = 0; i < leftChildCount; i++) {
+    const childRoom = createRoom(2, leftPositions[i], tier1Left.id, floor, difficulty, arc, undefined, tier2Depth, player);
+    leftChildren.push(childRoom);
+  }
+  tier2Rooms.push(...leftChildren);
+  tier1Left.childIds = leftChildren.map(r => r.id);
 
-  const tier2RightInner = createRoom(2, 'RIGHT_INNER', tier1Right.id, floor, difficulty, arc, undefined, tier2Depth, player);
-  const tier2RightOuter = createRoom(2, 'RIGHT_OUTER', tier1Right.id, floor, difficulty, arc, undefined, tier2Depth, player);
-  tier2Rooms.push(tier2RightInner, tier2RightOuter);
-  tier1Right.childIds = [tier2RightInner.id, tier2RightOuter.id];
+  // Generate children for right branch (2-4 children)
+  const rightChildCount = getChildCount();
+  const rightPositions = getChildPositions(rightChildCount);
+  const rightChildren: BranchingRoom[] = [];
+  for (let i = 0; i < rightChildCount; i++) {
+    const childRoom = createRoom(2, rightPositions[i], tier1Right.id, floor, difficulty, arc, undefined, tier2Depth, player);
+    rightChildren.push(childRoom);
+  }
+  tier2Rooms.push(...rightChildren);
+  tier1Right.childIds = rightChildren.map(r => r.id);
 
   rooms.push(...tier2Rooms);
 
@@ -751,7 +897,7 @@ export function generateBranchingFloorFromConfig(config: FloorGenerationConfig):
 }
 
 /**
- * Generate a complete branching floor with initial 1→2→4 structure.
+ * Generate a complete branching floor with initial 1→2→(2-4) dynamic structure.
  * Convenience wrapper around generateBranchingFloorFromConfig.
  */
 export function generateBranchingFloor(
@@ -815,6 +961,10 @@ export function moveToRoom(
     return branchingFloor;
   }
 
+  // Only increment roomsVisited if actually moving to a different room
+  // (re-entering current room for remaining activities shouldn't count)
+  const isNewRoom = branchingFloor.currentRoomId !== targetRoomId;
+
   // Update current room flags - preserve existing accessibility
   const updatedRooms = branchingFloor.rooms.map(room => ({
     ...room,
@@ -825,7 +975,7 @@ export function moveToRoom(
     ...branchingFloor,
     currentRoomId: targetRoomId,
     rooms: updatedRooms,
-    roomsVisited: branchingFloor.roomsVisited + 1, // Increment rooms visited
+    roomsVisited: isNewRoom ? branchingFloor.roomsVisited + 1 : branchingFloor.roomsVisited,
   };
 
   // Generate grandchildren for this room's children (ensure 2 levels visible)

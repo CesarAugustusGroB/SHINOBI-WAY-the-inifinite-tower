@@ -118,6 +118,16 @@ const LocationCardDisplay: React.FC<LocationCardDisplayProps> = ({
         <DangerLevelBar level={displayInfo.dangerLevel} />
         {/* Wealth Level Bar */}
         <WealthLevelBar level={displayInfo.wealthLevel} />
+        {/* Min Rooms Display */}
+        {displayInfo.minRooms !== null && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-zinc-500 flex items-center gap-1">
+              <span>🚪</span>
+              <span>Rooms</span>
+            </span>
+            <span className="text-zinc-300 font-medium">{displayInfo.minRooms}+</span>
+          </div>
+        )}
       </div>
 
       {/* Activity Icons */}

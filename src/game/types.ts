@@ -626,6 +626,7 @@ export interface EventOutcome {
     // Player progression upgrades
     upgradeTreasureQuality?: boolean; // Permanently upgrade treasure quality (BROKEN → COMMON → RARE)
     addMerchantSlot?: boolean; // Add a merchant slot
+    intelGain?: number; // Intel gained from this outcome (0-40 range)
 
     // Combat triggers
     triggerCombat?: {
@@ -990,7 +991,13 @@ export enum CombatModifierType {
 }
 
 export type RoomTier = 0 | 1 | 2;
-export type RoomPosition = 'LEFT' | 'RIGHT' | 'CENTER' | 'LEFT_OUTER' | 'LEFT_INNER' | 'RIGHT_INNER' | 'RIGHT_OUTER';
+// Position types for rooms in the branching structure
+// Base: CENTER, LEFT, RIGHT for tier 0-1
+// Children: CHILD_0/CHILD_1 for the 2-child branching pattern
+export type RoomPosition =
+  | 'LEFT' | 'RIGHT' | 'CENTER'
+  | 'LEFT_OUTER' | 'LEFT_INNER' | 'RIGHT_INNER' | 'RIGHT_OUTER'
+  | 'CHILD_0' | 'CHILD_1';
 
 // Activity interfaces for multi-activity rooms
 export interface CombatActivity {
@@ -1282,6 +1289,9 @@ export interface Location {
   // Difficulty (1-7 scale)
   dangerLevel: 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
+  // Location size (minimum rooms before exit can appear)
+  minRooms: number;  // 5-20 based on LocationType
+
   // Environment
   terrain: LocationTerrainType;
   terrainEffects: LocationTerrainEffect[];
@@ -1382,6 +1392,7 @@ export interface LocationConfig {
   type: LocationType;
   icon: LocationIcon;
   dangerLevel: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  minRooms?: number;  // Optional - if not provided, auto-calculated from type
   terrain: LocationTerrainType;
   terrainEffects: LocationTerrainEffect[];
   biome: string;
@@ -1505,6 +1516,9 @@ export interface CardDisplayInfo {
   activities: LocationActivities | null;
   isBoss: boolean;
   isSecret: boolean;
+
+  // Location size info
+  minRooms: number | null;  // Revealed at PARTIAL intel or higher
 }
 
 /**

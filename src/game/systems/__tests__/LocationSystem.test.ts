@@ -119,6 +119,18 @@ describe('moveToRoom', () => {
     expect(floor.roomsVisited).toBe(initialVisited + 1);
   });
 
+  it('does not increment rooms visited when re-entering same room', () => {
+    let floor = generateBranchingFloor(1, 50, player);
+    const currentRoomId = floor.currentRoomId;
+    const initialVisited = floor.roomsVisited;
+
+    // Try to move to the same room (re-entry for remaining activities)
+    floor = moveToRoom(floor, currentRoomId);
+
+    // roomsVisited should NOT have incremented
+    expect(floor.roomsVisited).toBe(initialVisited);
+  });
+
   it('does not move to inaccessible room', () => {
     let floor = generateBranchingFloor(1, 50, player);
     const tier2Room = floor.rooms.find(r => r.tier === 2);

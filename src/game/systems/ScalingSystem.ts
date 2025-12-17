@@ -56,14 +56,14 @@ export function getDangerScaling(dangerLevel: number): number {
 
 /**
  * Get wealth multiplier for ryo rewards.
- * Level 1 = 0.5x, Level 4 = 1.0x, Level 7 = 1.5x
- * Formula: 0.33 + (wealthLevel * 0.167)
+ * Level 1 = 0.5x, Level 4 = 1.01x, Level 7 = 1.52x
+ * Formula: 0.5 + ((wealthLevel - 1) * 0.17)
  *
  * @param wealthLevel - Location wealth (1-7)
  * @returns Multiplier for ryo calculations
  */
 export function getWealthMultiplier(wealthLevel: number): number {
-  return 0.33 + (wealthLevel * 0.167);
+  return 0.5 + ((wealthLevel - 1) * 0.17);
 }
 
 /**

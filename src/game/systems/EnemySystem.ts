@@ -35,17 +35,17 @@
  * totalScaling = dangerMult × progressionMult × diffMult × ENEMY_EASE_FACTOR
  *
  * - dangerMult = DANGER_BASE + (dangerLevel × DANGER_PER_LEVEL)
- *   → D1=0.80, D4=1.25, D7=1.70
+ *   → D1=0.70, D4=1.15, D7=1.60
  * - progressionMult = 1 + (locationsCleared × PROGRESSION_PER_LOCATION)
  *   → +4% per location cleared globally
- * - diffMult = 0.50 + (difficulty / 200)
+ * - diffMult = 0.40 + (difficulty / 200)
  * - ENEMY_EASE_FACTOR = 0.85
  *
  * Example: Danger 4, 5 locations cleared, difficulty 40
- * - dangerMult = 0.65 + (4 × 0.15) = 1.25
+ * - dangerMult = 0.55 + (4 × 0.15) = 1.15
  * - progressionMult = 1 + (5 × 0.04) = 1.20
- * - diffMult = 0.50 + 0.20 = 0.70
- * - totalScaling = 1.25 × 1.20 × 0.70 × 0.85 = 0.89× base stats
+ * - diffMult = 0.40 + 0.20 = 0.60
+ * - totalScaling = 1.15 × 1.20 × 0.60 × 0.85 = 0.70× base stats
  *
  * ## ENEMY TYPES
  *

@@ -120,6 +120,25 @@ export function getDefaultWealthForLocationType(locationType: LocationType): 1 |
   return Math.max(1, Math.min(7, wealth)) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
 }
 
+/**
+ * Get default minimum rooms based on LocationType.
+ * Returns a value in the range for that type with some randomness.
+ * Range: 5-20 rooms
+ */
+export function getDefaultMinRoomsForLocationType(locationType: LocationType): number {
+  const ranges: Record<LocationType, [number, number]> = {
+    [LocationType.SETTLEMENT]: [5, 8],    // Small, focused areas
+    [LocationType.WILDERNESS]: [8, 12],   // Medium exploration
+    [LocationType.STRONGHOLD]: [10, 15],  // Large military complexes
+    [LocationType.LANDMARK]: [8, 12],     // Medium historical sites
+    [LocationType.SECRET]: [12, 18],      // Extensive hidden areas
+    [LocationType.BOSS]: [15, 20],        // Large boss dungeons
+  };
+
+  const [min, max] = ranges[locationType] || [8, 12];
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
 // ============================================================================
 // INTEL SYSTEM
 // ============================================================================
@@ -253,6 +272,9 @@ function createLocation(
     type: config.type,
     icon: config.icon,
     dangerLevel: config.dangerLevel,
+
+    // Location size - use config value or auto-generate from LocationType
+    minRooms: config.minRooms ?? getDefaultMinRoomsForLocationType(config.type),
 
     terrain: config.terrain,
     terrainEffects: config.terrainEffects,
@@ -817,6 +839,7 @@ export function getCardDisplayInfo(card: LocationCard): CardDisplayInfo {
         activities: null,
         isBoss: false,
         isSecret: false,
+        minRooms: null,
       };
 
     case IntelRevealLevel.PARTIAL:
@@ -832,6 +855,7 @@ export function getCardDisplayInfo(card: LocationCard): CardDisplayInfo {
         activities: getLocationActivities(location),
         isBoss: location.type === LocationType.BOSS,
         isSecret: location.type === LocationType.SECRET,
+        minRooms: location.minRooms,
       };
 
     case IntelRevealLevel.FULL:
@@ -847,6 +871,7 @@ export function getCardDisplayInfo(card: LocationCard): CardDisplayInfo {
         activities: getLocationActivities(location),
         isBoss: location.type === LocationType.BOSS,
         isSecret: location.type === LocationType.SECRET,
+        minRooms: location.minRooms,
       };
 
     default:
@@ -862,6 +887,7 @@ export function getCardDisplayInfo(card: LocationCard): CardDisplayInfo {
         activities: null,
         isBoss: false,
         isSecret: false,
+        minRooms: null,
       };
   }
 }

@@ -17,12 +17,12 @@ export const DIFFICULTY = {
   ENEMY_EASE_FACTOR: 0.85,
 
   // Difficulty slider scaling
-  DIFFICULTY_BASE: 0.50,         // Minimum multiplier at difficulty 0
+  DIFFICULTY_BASE: 0.40,         // Minimum multiplier at difficulty 0
   DIFFICULTY_DIVISOR: 200,       // difficulty / 200 added to base
 
   // Danger level scaling (enemy generation)
-  DANGER_BASE: 0.65,             // Base multiplier at danger 0
-  DANGER_PER_LEVEL: 0.15,        // +15% per danger level (D1=0.80, D4=1.25, D7=1.70)
+  DANGER_BASE: 0.55,             // Base multiplier at danger 0
+  DANGER_PER_LEVEL: 0.15,        // +15% per danger level (D1=0.70, D4=1.15, D7=1.60)
 
   // Progression scaling (locations cleared globally)
   PROGRESSION_PER_LOCATION: 0.04, // +4% per location cleared
