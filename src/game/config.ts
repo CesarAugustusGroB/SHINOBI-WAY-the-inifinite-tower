@@ -3,6 +3,8 @@
  * Centralized location for timing, balance, and limit values
  */
 
+import { LaunchProperties } from '../config/featureFlags';
+
 // Timing constants (in milliseconds)
 export const TIMING = {
   ENEMY_TURN_DELAY: 800,
@@ -96,10 +98,10 @@ export const LOOT_BALANCE = {
   UPGRADE_STAT_RETENTION: 0.75,   // Keep 75% of combined stats when upgrading
 } as const;
 
-// System limits
+// System limits - controlled by LaunchProperties where applicable
 export const LIMITS = {
-  MAX_LOG_ENTRIES: 50,
-  MAX_SKILLS: 4,
+  MAX_LOG_ENTRIES: LaunchProperties.COMBAT_LOG_MAX_ENTRIES,
+  MAX_SKILLS: LaunchProperties.MAX_EQUIPPED_SKILLS,
   MAX_BUFF_DURATION: 10,
 } as const;
 

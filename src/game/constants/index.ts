@@ -15,7 +15,7 @@ export * from './terrain';
 export * from './approaches';
 export * from './skills';
 
-export const MAX_LOGS = 50;
+// MAX_LOGS removed - use LIMITS.MAX_LOG_ENTRIES from config.ts instead
 
 // ============================================================================
 // ELEMENTAL ADVANTAGE CYCLE

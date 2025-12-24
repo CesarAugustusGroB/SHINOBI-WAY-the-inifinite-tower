@@ -14,6 +14,7 @@
 
 import { DIFFICULTY } from '../config';
 import { randomInt } from '../utils/rng';
+import { LaunchProperties } from '../../config/featureFlags';
 
 // ============================================================================
 // DANGER TO FLOOR CONVERSION
@@ -91,7 +92,8 @@ export function applyWealthToRyo(baseRyo: number, wealthLevel: number): number {
  */
 export function calculateXP(dangerLevel: number, baseDifficulty: number): number {
   const effectiveFloor = dangerToFloor(dangerLevel, baseDifficulty);
-  return 25 + (effectiveFloor * 5);
+  const baseXP = 25 + (effectiveFloor * 5);
+  return Math.floor(baseXP * LaunchProperties.XP_MULTIPLIER);
 }
 
 /**
@@ -104,7 +106,8 @@ export function calculateXP(dangerLevel: number, baseDifficulty: number): number
  */
 export function calculateBaseRyo(dangerLevel: number, baseDifficulty: number): number {
   const effectiveFloor = dangerToFloor(dangerLevel, baseDifficulty);
-  return (effectiveFloor * 10) + randomInt(0, 16);
+  const baseRyo = (effectiveFloor * 10) + randomInt(0, 16);
+  return Math.floor(baseRyo * LaunchProperties.RYO_MULTIPLIER);
 }
 
 /**

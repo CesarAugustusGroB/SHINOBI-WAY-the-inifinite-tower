@@ -3,6 +3,8 @@
 // New Stat System: The Shinobi Triad (Body, Mind, Technique)
 // ============================================================================
 
+import { LaunchProperties } from '../config/featureFlags';
+
 export enum GameState {
   MENU,
   CHAR_SELECT,
@@ -333,8 +335,8 @@ export interface PassiveEffect {
   triggerCondition?: 'on_hit' | 'on_kill' | 'on_crit' | 'combat_start' | 'turn_start' | 'below_half_hp';
 }
 
-// Synthesis system constants
-export const MAX_BAG_SLOTS = 12;  // Increased from 8 for new crafting system
+// Synthesis system constants - controlled by LaunchProperties
+export const MAX_BAG_SLOTS = LaunchProperties.MAX_BAG_SIZE;
 export const DISASSEMBLE_RETURN_RATE = 0.5; // 50% value return when breaking artifacts
 
 // Merchant slot system constants

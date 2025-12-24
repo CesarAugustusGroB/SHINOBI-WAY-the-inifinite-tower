@@ -1,6 +1,7 @@
 import { Player, Clan, EquipmentSlot, TreasureQuality, DEFAULT_MERCHANT_SLOTS, MAX_BAG_SLOTS } from '../types';
 import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS, getClanStartingSkills } from '../constants';
 import { calculateDerivedStats, getPlayerFullStats } from '../systems/StatSystem';
+import { LaunchProperties } from '../../config/featureFlags';
 
 /**
  * Create a new player with starting stats for the given clan
@@ -23,7 +24,7 @@ export const createPlayer = (clan: Clan): Player => {
     currentHp: derived.maxHp,
     currentChakra: derived.maxChakra,
     element: clan === Clan.UCHIHA ? 'Fire' : clan === Clan.UZUMAKI ? 'Wind' : 'Physical' as any,
-    ryo: 100,
+    ryo: LaunchProperties.STARTING_RYO,
     equipment: {
       [EquipmentSlot.SLOT_1]: null,
       [EquipmentSlot.SLOT_2]: null,

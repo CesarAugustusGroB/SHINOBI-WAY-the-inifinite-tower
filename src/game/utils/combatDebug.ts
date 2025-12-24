@@ -2,11 +2,13 @@
  * Combat Debug Utility
  * Provides structured logging for tracking combat flow
  *
- * Enable/disable debug logging by setting COMBAT_DEBUG to true/false
+ * Enable/disable via FeatureFlags.DEBUG_COMBAT_LOG in src/config/featureFlags.ts
  */
 
-// Toggle this to enable/disable all combat debug logs
-export const COMBAT_DEBUG = false;
+import { FeatureFlags } from '../../config/featureFlags';
+
+// Alias for backward compatibility - controlled by FeatureFlags
+export const COMBAT_DEBUG = FeatureFlags.DEBUG_COMBAT_LOG;
 
 // Color codes for console styling
 const COLORS = {

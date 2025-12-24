@@ -84,6 +84,7 @@ import { COMPONENT_DEFINITIONS, COMPONENT_DROP_WEIGHTS } from '../constants/comp
 import { findRecipe, SYNTHESIS_RECIPES } from '../constants/synthesis';
 import { DIFFICULTY, CRAFTING_COSTS, BALANCE, LOOT_BALANCE } from '../config';
 import { generateId as rngGenerateId, pick, weightedPick, random, chance } from '../utils/rng';
+import { FeatureFlags, LaunchProperties } from '../../config/featureFlags';
 
 /** Generates a random 7-character ID for item tracking */
 const generateId = () => rngGenerateId();
@@ -241,7 +242,8 @@ export const generateBrokenComponent = (currentFloor: number, _difficulty: numbe
   // Broken items have reduced stats (40-60% of normal)
   const floorScaling = 1 + (currentFloor * DIFFICULTY.FLOOR_SCALING);
   const qualityRoll = LOOT_BALANCE.COMMON_QUALITY_BASE + (random() * LOOT_BALANCE.COMMON_QUALITY_RANGE);
-  const statValue = Math.floor(def.baseValue * floorScaling * qualityRoll);
+  const baseStatValue = Math.floor(def.baseValue * floorScaling * qualityRoll);
+  const statValue = Math.floor(baseStatValue * LaunchProperties.LOOT_MULTIPLIER);
 
   return {
     id: generateId(),
@@ -267,7 +269,8 @@ export const generateComponent = (currentFloor: number, difficulty: number): Ite
   // Scale value based on floor (similar to regular item scaling)
   const floorScaling = 1 + (currentFloor * DIFFICULTY.FLOOR_SCALING);
   const qualityRoll = LOOT_BALANCE.RARE_QUALITY_BASE + (random() * LOOT_BALANCE.RARE_QUALITY_RANGE);
-  const statValue = Math.floor(def.baseValue * floorScaling * qualityRoll);
+  const baseStatValue = Math.floor(def.baseValue * floorScaling * qualityRoll);
+  const statValue = Math.floor(baseStatValue * LaunchProperties.LOOT_MULTIPLIER);
 
   return {
     id: generateId(),
@@ -440,6 +443,11 @@ export const synthesize = (
   componentB: Item,
   floor: number
 ): CraftResult => {
+  // Check feature flag first
+  if (!FeatureFlags.ENABLE_SYNTHESIS) {
+    return { success: false, cost: 0, reason: 'Synthesis is disabled' };
+  }
+
   // Both items must be components
   if (!componentA.isComponent || !componentB.isComponent) {
     return { success: false, cost: 0, reason: 'Both items must be components' };

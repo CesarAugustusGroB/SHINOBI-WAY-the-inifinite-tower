@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Enemy } from '../game/types';
 import { generateEnemyImage } from '../game/systems/EnemySystem';
+import { FeatureFlags } from '../config/featureFlags';
 
 // Extend Window interface for AI Studio integration
 declare global {
@@ -28,6 +29,12 @@ export const useGenAI = ({ onSuccess, onError }: UseGenAIProps) => {
   const generateImage = useCallback(
     async (enemy: Enemy, imageSize: '1K' | '2K' | '4K') => {
       if (!enemy) return;
+
+      // Check if AI image generation is enabled
+      if (!FeatureFlags.ENABLE_AI_IMAGES) {
+        onError("AI image generation is disabled");
+        return;
+      }
 
       // Check for API key availability through window.aistudio
       if (window.aistudio) {

@@ -70,6 +70,7 @@ import {
 } from '../constants/roomTypes';
 import { EVENTS } from '../constants';
 import { calculateXP, calculateRyo } from './ScalingSystem';
+import { FeatureFlags } from '../../config/featureFlags';
 
 // Re-export scaling functions for backward compatibility
 export { dangerToFloor, getWealthMultiplier, applyWealthToRyo } from './ScalingSystem';
@@ -317,6 +318,8 @@ function generateEventActivity(
   config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType],
   arc: string
 ): RoomActivities['event'] | undefined {
+  // Check feature flag first
+  if (!FeatureFlags.ENABLE_STORY_EVENTS) return undefined;
   if (!config.hasEvent) return undefined;
 
   const arcEvents = EVENTS.filter(e => !e.allowedArcs || e.allowedArcs.includes(arc));
@@ -359,6 +362,9 @@ function generateEliteChallengeActivity(
   arc: string,
   player?: Player
 ): RoomActivities['eliteChallenge'] | undefined {
+  // Check feature flag first
+  if (!FeatureFlags.ENABLE_ELITE_CHALLENGES) return undefined;
+
   const isValidRoom = room.type === BranchingRoomType.SHRINE || room.type === BranchingRoomType.RUINS;
   if (!isValidRoom || Math.random() >= 0.15) return undefined;
 
@@ -395,6 +401,8 @@ function generateTrainingActivity(
   config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType],
   floor: number
 ): RoomActivities['training'] | undefined {
+  // Check feature flag first
+  if (!FeatureFlags.ENABLE_TRAINING) return undefined;
   if (!config.hasTraining) return undefined;
 
   const allStats: PrimaryStat[] = [

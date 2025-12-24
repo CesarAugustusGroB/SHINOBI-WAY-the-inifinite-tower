@@ -51,6 +51,7 @@ import {
 } from './EquipmentPassiveSystem';
 import { chance } from '../utils/rng';
 import type { CombatState, EnemyTurnResult } from './combat-types';
+import { LaunchProperties } from '../../config/featureFlags';
 
 // ============================================================================
 // INTERNAL TYPES
@@ -399,8 +400,11 @@ export function executeEnemyAction(
   } else if (damageResult.isEvaded) {
     logs.push(`${enemy.name} uses ${selectedSkill.name} but you EVADE!`);
   } else {
+    // Apply enemy damage multiplier from launch properties
+    const modifiedDamage = Math.floor(damageResult.finalDamage * LaunchProperties.ENEMY_DAMAGE_MULTIPLIER);
+
     // Apply mitigation
-    const mitigation = applyMitigation(player.activeBuffs, damageResult.finalDamage, 'You');
+    const mitigation = applyMitigation(player.activeBuffs, modifiedDamage, 'You');
     updatedPlayer.activeBuffs = mitigation.updatedBuffs;
 
     // Check lethal damage

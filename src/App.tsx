@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
   GameState, Player, Clan, Skill, Enemy, Item, Rarity, DamageType,
   ApproachType, BranchingRoom, PrimaryStat, TrainingActivity, TrainingIntensity, LogEntry,
@@ -120,6 +120,7 @@ import {
   logPathChoice, logPathRandom, logInitialCardDraw,
   logIntelGain, logIntelReset
 } from './game/utils/explorationDebug';
+import { FeatureFlags, LaunchProperties } from './config/featureFlags';
 
 // Import the parchment background styles
 import './App.css';
@@ -502,7 +503,7 @@ const App: React.FC = () => {
       currentHp: derived.maxHp,
       currentChakra: derived.maxChakra,
       element: clan === Clan.UCHIHA ? 'Fire' : clan === Clan.UZUMAKI ? 'Wind' : 'Physical' as any,
-      ryo: 100,
+      ryo: LaunchProperties.STARTING_RYO,
       equipment: {
         [EquipmentSlot.SLOT_1]: null,
         [EquipmentSlot.SLOT_2]: null,
@@ -553,6 +554,13 @@ const App: React.FC = () => {
 
     setGameState(GameState.REGION_MAP);
   };
+
+  // Auto-skip character selection if feature flag is enabled
+  useEffect(() => {
+    if (FeatureFlags.SKIP_CHAR_SELECT && gameState === GameState.CHAR_SELECT) {
+      startGame(LaunchProperties.DEFAULT_CLAN as Clan);
+    }
+  }, [gameState]);
 
   // Cancel approach selection
   const handleApproachCancel = () => {

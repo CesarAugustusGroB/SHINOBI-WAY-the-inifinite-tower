@@ -9,6 +9,8 @@ interface SkillCardProps {
   onClick: () => void;
   /** Whether to show simplified passive display (non-interactive) */
   showAsPassive?: boolean;
+  /** Keyboard shortcut key to display (e.g., "1", "2", "3", "4") */
+  shortcutKey?: string;
 }
 
 export const SkillCard: React.FC<SkillCardProps> = ({
@@ -17,7 +19,8 @@ export const SkillCard: React.FC<SkillCardProps> = ({
   isEffective,
   canUse,
   onClick,
-  showAsPassive = false
+  showAsPassive = false,
+  shortcutKey
 }) => {
   const actionType = skill.actionType || ActionType.MAIN;
   const isPassive = actionType === ActionType.PASSIVE || showAsPassive;
@@ -91,6 +94,13 @@ export const SkillCard: React.FC<SkillCardProps> = ({
         ${isEffective && effectivelyUsable ? 'ring-1 ring-yellow-500/50' : ''}
       `}
     >
+      {/* Keyboard Shortcut Badge */}
+      {shortcutKey && (
+        <div className="absolute top-1 left-1 z-30 bg-black/80 border border-zinc-600 text-zinc-200 text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded">
+          {shortcutKey}
+        </div>
+      )}
+
       {/* LAYER 1: BACKGROUND IMAGE */}
       <img
         src={bgImage}

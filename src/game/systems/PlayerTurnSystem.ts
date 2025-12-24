@@ -44,6 +44,7 @@ import {
 } from './StatSystem';
 import { CombatModifiers } from './ApproachSystem';
 import { logFlowCheckpoint, logDamage } from '../utils/combatDebug';
+import { LaunchProperties } from '../../config/featureFlags';
 import {
   generateId,
   applyMitigation,
@@ -325,6 +326,9 @@ export function useSkill(
         modifiedDamage = Math.floor(modifiedDamage * terrainAmp);
       }
     }
+
+    // Apply player damage multiplier from launch properties
+    modifiedDamage = Math.floor(modifiedDamage * LaunchProperties.PLAYER_DAMAGE_MULTIPLIER);
 
     // Apply Mitigation Logic
     const mitigation = applyMitigation(enemy.activeBuffs, modifiedDamage, enemy.name);

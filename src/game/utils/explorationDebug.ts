@@ -1,9 +1,13 @@
 // ============================================================================
 // EXPLORATION DEBUG UTILITY
 // Mirrors combatDebug.ts pattern for tracking navigation flow
+// Enable/disable via FeatureFlags.DEBUG_STATE_TRANSITIONS in src/config/featureFlags.ts
 // ============================================================================
 
-export const EXPLORATION_DEBUG = true;
+import { FeatureFlags } from '../../config/featureFlags';
+
+// Alias for backward compatibility - controlled by FeatureFlags
+export const EXPLORATION_DEBUG = FeatureFlags.DEBUG_STATE_TRANSITIONS;
 
 type DebugCategory = 'room' | 'activity' | 'modal' | 'state' | 'flow' | 'sync' | 'info';
 

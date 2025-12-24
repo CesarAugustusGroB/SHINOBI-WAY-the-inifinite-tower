@@ -11,6 +11,7 @@ import {
   drawLocationCards,
   evaluateIntel,
 } from '../game/systems/RegionSystem';
+import { isFloorComplete } from '../game/systems/LocationSystem';
 import {
   logLocationSelect, logLocationEnter, logLocationLeave,
   logPathChoice, logIntelReset
@@ -22,6 +23,7 @@ import {
 export interface LocationCardState {
   region: Region | null;
   locationDeck: LocationDeck | null;
+  locationFloor: BranchingFloor | null;
   intelPool: IntelPool;
   drawnCards: LocationCard[];
   selectedCardIndex: number | null;
@@ -64,6 +66,7 @@ export function useLocationCards(
   const {
     region,
     locationDeck,
+    locationFloor,
     intelPool,
     drawnCards,
     selectedCardIndex,
@@ -152,11 +155,11 @@ export function useLocationCards(
    * Leave the current location and return to region map
    */
   const handleLeaveLocation = useCallback(() => {
-    if (!region || !locationDeck) return;
+    if (!region || !locationDeck || !locationFloor) return;
     const location = getCurrentLocation(region);
 
-    if (location?.isCompleted) {
-      logLocationLeave(location.id, location.name, 'completed');
+    if (isFloorComplete(locationFloor)) {
+      logLocationLeave(location?.id ?? 'unknown', location?.name ?? 'Unknown', 'completed');
 
       const { cardCount, revealedCount } = evaluateIntel(currentIntel);
 
@@ -174,7 +177,7 @@ export function useLocationCards(
       addLog('Complete the location before leaving.', 'danger');
     }
   }, [
-    region, locationDeck, intelPool, currentIntel,
+    region, locationDeck, locationFloor, intelPool, currentIntel,
     setDrawnCards, setSelectedCardIndex, addLog, setGameState
   ]);
 

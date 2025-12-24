@@ -75,6 +75,7 @@ import { BOSS_NAMES, SKILLS, AMBUSH_ENEMIES, ENEMY_PREFIXES } from '../constants
 import { calculateDerivedStats } from './StatSystem';
 import { DIFFICULTY, ENEMY_BALANCE } from '../config';
 import { pick, chance } from '../utils/rng';
+import { LaunchProperties } from '../../config/featureFlags';
 
 /**
  * Enemy archetype determines base stat distribution and combat style.
@@ -151,8 +152,8 @@ export const generateEnemy = (
   const progressionMult = 1 + (locationsCleared * DIFFICULTY.PROGRESSION_PER_LOCATION);
   // Difficulty scaling: 50% to 100% based on difficulty value
   const diffMult = DIFFICULTY.DIFFICULTY_BASE + (diff / DIFFICULTY.DIFFICULTY_DIVISOR);
-  // Apply global ease factor (0.85 = 15% easier)
-  const totalScaling = dangerMult * progressionMult * diffMult * DIFFICULTY.ENEMY_EASE_FACTOR;
+  // Apply global ease factor (0.85 = 15% easier) and launch property multiplier
+  const totalScaling = dangerMult * progressionMult * diffMult * DIFFICULTY.ENEMY_EASE_FACTOR * LaunchProperties.ENEMY_SCALING_MULTIPLIER;
 
   if (type === 'BOSS') {
     const bossData = BOSS_NAMES[dangerLevel as keyof typeof BOSS_NAMES] || { name: 'Edo Tensei Legend', element: ElementType.FIRE, skill: SKILLS.RASENGAN };

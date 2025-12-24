@@ -4,8 +4,7 @@ import {
   Location, Item, GameEvent, Skill, Enemy, LogEntry,
   TrainingActivity, ScrollDiscoveryActivity
 } from '../game/types';
-import { getCurrentActivity, getCurrentRoom } from '../game/systems/LocationSystem';
-import { getCurrentLocation } from '../game/systems/RegionSystem';
+import { getCurrentActivity, getCurrentRoom, isFloorComplete } from '../game/systems/LocationSystem';
 import { logRoomExit, logStateChange } from '../game/utils/explorationDebug';
 import { CombatExplorationState } from './useCombatExplorationState';
 import { useActivityHandler, ActivitySceneSetters } from './useActivityHandler';
@@ -130,6 +129,7 @@ export function useExploration(
     {
       region,
       locationDeck,
+      locationFloor,
       intelPool,
       drawnCards,
       selectedCardIndex,
@@ -197,9 +197,8 @@ export function useExploration(
         }
       }
 
-      // Check if location is completed
-      const location = getCurrentLocation(region);
-      if (location?.isCompleted) {
+      // Check if location is completed (exit room cleared)
+      if (isFloorComplete(locationFloor)) {
         setSelectedBranchingRoom(null);
         setTimeout(() => handleLeaveLocationRef(), 100);
         return;

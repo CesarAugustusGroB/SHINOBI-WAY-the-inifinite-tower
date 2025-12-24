@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useCallback, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import {
   Player,
   Enemy,
@@ -17,6 +17,7 @@ import { SkillCard } from '../components/combat/SkillCard';
 import { CinematicViewscreen } from '../components/layout/CinematicViewscreen';
 import PlayerHUD from '../components/character/PlayerHUD';
 import FloatingText, { FloatingTextItem, FloatingTextType } from '../components/combat/FloatingText';
+import { FeatureFlags } from '../config/featureFlags';
 import { Hourglass, Zap, ZapOff } from 'lucide-react';
 import { calculateDamage, formatPercent } from '../game/systems/StatSystem';
 import { getElementEffectiveness } from '../game/constants';
@@ -107,6 +108,53 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
   useImperativeHandle(ref, () => ({
     spawnFloatingText
   }), [spawnFloatingText]);
+
+  // Group skills by ActionType
+  const mainSkills = player.skills.filter(s => s.actionType === ActionType.MAIN || !s.actionType);
+  const sideSkills = player.skills.filter(s => s.actionType === ActionType.SIDE);
+  const toggleSkills = player.skills.filter(s => s.actionType === ActionType.TOGGLE);
+
+  // Keyboard shortcuts for MAIN skills (keys 1-4) and pass turn (Space)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (turnState !== 'PLAYER') return;
+
+      // Space to pass turn
+      if (e.code === 'Space') {
+        e.preventDefault();
+        onPassTurn();
+        return;
+      }
+
+      // Number keys for skills
+      const keyMap: Record<string, number> = {
+        'Digit1': 0, '1': 0,
+        'Digit2': 1, '2': 1,
+        'Digit3': 2, '3': 2,
+        'Digit4': 3, '4': 3,
+      };
+
+      const index = keyMap[e.code] ?? keyMap[e.key];
+      if (index === undefined) return;
+
+      const skill = mainSkills[index];
+      if (!skill) return;
+
+      const canUse = player.currentChakra >= skill.chakraCost
+                  && player.currentHp > skill.hpCost
+                  && skill.currentCooldown === 0;
+      const isStunned = player.activeBuffs.some(b => b?.effect?.type === EffectType.STUN);
+
+      if (canUse && !isStunned) {
+        e.preventDefault();
+        onUseSkill(skill);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [turnState, player, mainSkills, onUseSkill, onPassTurn]);
 
   return (
     <div className="w-full max-w-6xl z-10 flex flex-col h-full mx-auto">
@@ -350,12 +398,7 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
 
         {/* Skills Row - Grouped by ActionType */}
         {(() => {
-          // Group skills by ActionType (exclude passives from main grid)
-          const mainSkills = player.skills.filter(s => s.actionType === ActionType.MAIN || !s.actionType);
-          const sideSkills = player.skills.filter(s => s.actionType === ActionType.SIDE);
-          const toggleSkills = player.skills.filter(s => s.actionType === ActionType.TOGGLE);
-
-          const renderSkillCard = (skill: Skill) => {
+          const renderSkillCard = (skill: Skill, mainIndex?: number) => {
             const canUse = player.currentChakra >= skill.chakraCost && player.currentHp > skill.hpCost && skill.currentCooldown === 0;
             const isStunned = player.activeBuffs.some(b => b?.effect?.type === EffectType.STUN);
             const isEnemyTurn = turnState === 'ENEMY_TURN';
@@ -520,6 +563,7 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
                   isEffective={isSuperEffective}
                   canUse={usable || false}
                   onClick={() => onUseSkill(skill)}
+                  shortcutKey={mainIndex !== undefined && mainIndex < 4 ? String(mainIndex + 1) : undefined}
                 />
               </Tooltip>
             );
@@ -557,7 +601,7 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
                   Main Actions (Ends Turn)
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 lg:gap-6">
-                  {mainSkills.map(renderSkillCard)}
+                  {mainSkills.map((skill, index) => renderSkillCard(skill, index))}
                 </div>
               </div>
             </div>
@@ -615,7 +659,7 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
       />
 
       {/* FLOATING TEXT OVERLAY */}
-      {floatingTexts.map(ft => (
+      {FeatureFlags.SHOW_FLOATING_TEXT && floatingTexts.map(ft => (
         <FloatingText
           key={ft.id}
           id={ft.id}
