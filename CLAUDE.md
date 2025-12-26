@@ -418,3 +418,4 @@ The project has specialized skills in `.claude/skills/` for common tasks:
 - **Main branch:** `main`
 - **Development:** `develop`
 - Commit style: `feat:`, `fix:`, `refactor:`, `docs:`
+- **Before committing:** Update `CHANGELOG.md` with a summary of changes under the `[Unreleased]` section
