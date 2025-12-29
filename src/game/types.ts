@@ -18,9 +18,13 @@ export enum GameState {
   SCROLL_DISCOVERY, // Finding jutsu scrolls in exploration
   GAME_OVER,
   GUIDE,
+  IMAGE_TEST,       // AI image generation test page
   // Region exploration system states
   REGION_MAP,       // Region overview showing all locations
-  LOCATION_EXPLORE  // Inside a location (10-room diamond exploration)
+  LOCATION_EXPLORE, // Inside a location (10-room diamond exploration)
+  // Treasure system states
+  TREASURE,              // Treasure choice screen (locked chests OR treasure hunter)
+  TREASURE_HUNT_REWARD   // Map completion reward screen
 }
 
 export enum ElementType {
@@ -1048,10 +1052,38 @@ export interface TrainingActivity {
   selectedIntensity?: TrainingIntensity;
 }
 
+// ============================================================================
+// TREASURE SYSTEM TYPES
+// ============================================================================
+
+export enum TreasureType {
+  LOCKED_CHEST = 'LockedChest',      // Pick blind or reveal with chakra
+  TREASURE_HUNTER = 'TreasureHunter' // Combat/dice roll for map pieces
+}
+
+export interface TreasureChoice {
+  item: Item;
+  isArtifact: boolean;
+}
+
 export interface TreasureActivity {
-  items: Item[];
-  ryo: number;
+  type: TreasureType;
+  choices: TreasureChoice[];       // 2-3 item choices
+  ryoBonus: number;                // Ryo gained alongside item
+  revealCost: number;              // Chakra cost to reveal (locked chest)
+  isRevealed: boolean;             // Has player revealed choices?
+  selectedIndex: number | null;    // Track selection
   collected: boolean;
+  // Treasure hunter specific
+  isHuntRoom: boolean;             // Is this a treasure hunt room?
+  mapPieceAvailable: boolean;      // Can player get a map piece here?
+}
+
+export interface TreasureHunt {
+  isActive: boolean;
+  requiredPieces: number;          // 2-4 based on danger level
+  collectedPieces: number;
+  mapId: string;                   // Unique per location
 }
 
 export interface InfoGatheringActivity {
@@ -1167,6 +1199,11 @@ export interface BranchingFloor {
   targetRoomCount: number;
   minRoomsBeforeExit: number;
   dangerLevel: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+  // Treasure hunt system
+  treasureHunt: TreasureHunt | null;
+  treasureProbabilityBoost: number;  // Extra chance for treasure rooms during hunt (0-1)
+  huntDeclined: boolean;  // If true, all treasures become locked chests
 }
 
 // Room type configuration for generation

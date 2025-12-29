@@ -7,7 +7,9 @@ import {
   TreasureQuality, DEFAULT_MERCHANT_SLOTS, MAX_MERCHANT_SLOTS,
   Region, Location, LocationPath,
   // Card-based location selection types
-  IntelPool, LocationDeck, LocationCard, IntelRevealLevel
+  IntelPool, LocationDeck, LocationCard, IntelRevealLevel,
+  // Treasure system types
+  TreasureActivity, TreasureHunt, TreasureType
 } from './game/types';
 import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS } from './game/constants';
 import {
@@ -42,7 +44,7 @@ import {
   moveToRoom,
   getCurrentActivity,
   completeActivity,
-  getCurrentRoom
+  getCurrentRoom,
 } from './game/systems/LocationSystem';
 import {
   generateRegion,
@@ -78,6 +80,7 @@ import { resolveEventChoice } from './game/systems/EventSystem';
 import { useCombat } from './hooks/useCombat';
 import { useCombatExplorationState } from './hooks/useCombatExplorationState';
 import { useExploration, ActivitySceneSetters } from './hooks/useExploration';
+import { useTreasureHandlers, TreasureHuntRewardData } from './hooks/useTreasureHandlers';
 import { GameProvider, GameContextValue } from './contexts/GameContext';
 import { LIMITS, MERCHANT } from './game/config';
 import MainMenu from './scenes/MainMenu';
@@ -89,8 +92,11 @@ import Loot from './scenes/Loot';
 import Merchant from './scenes/Merchant';
 import Training from './scenes/Training';
 import ScrollDiscovery from './scenes/ScrollDiscovery';
+import TreasureChoice from './scenes/TreasureChoice';
+import TreasureHuntRewardScene from './scenes/TreasureHuntReward';
 import GameOver from './scenes/GameOver';
 import GameGuide from './scenes/GameGuide';
+import ImageTest from './scenes/ImageTest';
 import { attemptEliteEscape } from './game/systems/EliteChallengeSystem';
 // Shared components
 import ErrorBoundary from './components/shared/ErrorBoundary';
@@ -151,6 +157,10 @@ const App: React.FC = () => {
     artifact: Item;
     room: BranchingRoom;
   } | null>(null);
+  // Treasure system state
+  const [currentTreasure, setCurrentTreasure] = useState<TreasureActivity | null>(null);
+  const [currentTreasureHunt, setCurrentTreasureHunt] = useState<TreasureHunt | null>(null);
+  const [treasureHuntReward, setTreasureHuntReward] = useState<TreasureHuntRewardData | null>(null);
   const [combatReward, setCombatReward] = useState<{
     expGain: number;
     ryoGain: number;
@@ -403,6 +413,9 @@ const App: React.FC = () => {
     setDroppedItems,
     setDroppedSkill,
     setActiveEvent,
+    // Treasure system
+    setCurrentTreasure,
+    setCurrentTreasureHunt,
   };
 
   // Exploration hook - manages navigation and activity handling
@@ -428,6 +441,53 @@ const App: React.FC = () => {
     activitySetters,
     setEnemy,
   });
+
+  // Treasure system handlers
+  const {
+    handleTreasureReveal,
+    handleTreasureSelectItem,
+    handleTreasureSelectRyo,
+    handleTreasureFightGuardian,
+    handleTreasureRollDice,
+    handleTreasureStartHunt,
+    handleTreasureDeclineHunt,
+    handleTreasureHuntRewardClaim,
+  } = useTreasureHandlers(
+    {
+      currentTreasure,
+      currentTreasureHunt,
+      player,
+      playerStats,
+      selectedBranchingRoom,
+      locationFloor,
+      branchingFloor,
+      currentDangerLevel,
+      difficulty,
+      region,
+      currentLocation,
+      treasureHuntReward,
+    },
+    {
+      setPlayer,
+      setCurrentTreasure,
+      setCurrentTreasureHunt,
+      setLocationFloor,
+      setBranchingFloor,
+      setDroppedItems,
+      setDroppedSkill,
+      setTreasureHuntReward,
+      setSelectedBranchingRoom,
+      setGameState,
+      setEnemy,
+      setTurnState,
+      setShowApproachSelector,
+      setPendingArtifact,
+    },
+    {
+      addLog,
+      returnToMap,
+    }
+  );
 
   interface LevelUpResult {
     player: Player;
@@ -1639,12 +1699,17 @@ const App: React.FC = () => {
         onDifficultyChange={setDifficulty}
         onEnter={() => setGameState(GameState.CHAR_SELECT)}
         onGuide={() => setGameState(GameState.GUIDE)}
+        onImageTest={FeatureFlags.DEV_MODE ? () => setGameState(GameState.IMAGE_TEST) : undefined}
       />
     );
   }
 
   if (gameState === GameState.GUIDE) {
     return <GameGuide onBack={() => setGameState(GameState.MENU)} />;
+  }
+
+  if (gameState === GameState.IMAGE_TEST && FeatureFlags.DEV_MODE) {
+    return <ImageTest onBack={() => setGameState(GameState.MENU)} />;
   }
 
   if (gameState === GameState.CHAR_SELECT) {
@@ -1780,6 +1845,39 @@ const App: React.FC = () => {
               onLearnScroll={handleLearnScroll}
               onSkip={handleScrollDiscoverySkip}
             />
+          )}
+
+          {/* Treasure Choice Scene */}
+          {gameState === GameState.TREASURE && currentTreasure && player && playerStats && (
+            <ErrorBoundary sceneName="TreasureChoice">
+              <TreasureChoice
+                treasure={currentTreasure}
+                treasureHunt={currentTreasureHunt}
+                player={player}
+                playerStats={playerStats}
+                huntDeclined={locationFloor?.huntDeclined ?? branchingFloor?.huntDeclined ?? false}
+                onReveal={handleTreasureReveal}
+                onSelectItem={handleTreasureSelectItem}
+                onSelectRyo={handleTreasureSelectRyo}
+                onFightGuardian={handleTreasureFightGuardian}
+                onRollDice={handleTreasureRollDice}
+                onStartHunt={handleTreasureStartHunt}
+                onDeclineHunt={handleTreasureDeclineHunt}
+                getRarityColor={getRarityColor}
+              />
+            </ErrorBoundary>
+          )}
+
+          {/* Treasure Hunt Reward Scene */}
+          {gameState === GameState.TREASURE_HUNT_REWARD && treasureHuntReward && (
+            <ErrorBoundary sceneName="TreasureHuntReward">
+              <TreasureHuntRewardScene
+                reward={treasureHuntReward}
+                onClaim={handleTreasureHuntRewardClaim}
+                getRarityColor={getRarityColor}
+                getDamageTypeColor={getDamageTypeColor}
+              />
+            </ErrorBoundary>
           )}
 
           {/* Region Map - Card-based location selection */}

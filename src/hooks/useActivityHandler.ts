@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import {
   GameState, Player, BranchingRoom, BranchingFloor, CharacterStats,
   Location, Item, GameEvent, Skill, Enemy, LogEntry,
-  TrainingActivity, ScrollDiscoveryActivity
+  TrainingActivity, ScrollDiscoveryActivity, TreasureActivity, TreasureHunt, TreasureType
 } from '../game/types';
 import { getCurrentActivity, completeActivity } from '../game/systems/LocationSystem';
 import { getMerchantDiscount, applyWealthToRyo } from '../game/systems/ScalingSystem';
@@ -28,6 +28,9 @@ export interface ActivitySceneSetters {
   setDroppedItems: React.Dispatch<React.SetStateAction<Item[]>>;
   setDroppedSkill: React.Dispatch<React.SetStateAction<Skill | null>>;
   setActiveEvent: React.Dispatch<React.SetStateAction<GameEvent | null>>;
+  // Treasure system
+  setCurrentTreasure: React.Dispatch<React.SetStateAction<TreasureActivity | null>>;
+  setCurrentTreasureHunt: React.Dispatch<React.SetStateAction<TreasureHunt | null>>;
 }
 
 /**
@@ -87,6 +90,8 @@ export function useActivityHandler(deps: ActivityHandlerDeps): UseActivityHandle
     setDroppedItems,
     setDroppedSkill,
     setActiveEvent,
+    setCurrentTreasure,
+    setCurrentTreasureHunt,
   } = activitySetters;
 
   /**
@@ -203,20 +208,18 @@ export function useActivityHandler(deps: ActivityHandlerDeps): UseActivityHandle
       case 'treasure':
         if (currentRoom.activities.treasure) {
           const treasure = currentRoom.activities.treasure;
-          logActivityStart(currentRoom.id, 'treasure', { itemCount: treasure.items.length, ryo: treasure.ryo });
-          logStateChange(exploreState.toString(), 'LOOT', 'treasure activity');
-          setDroppedItems(treasure.items);
-          setDroppedSkill(null);
-          const treasureWealth = currentLocation?.wealthLevel ?? 4;
-          const adjustedTreasureRyo = applyWealthToRyo(treasure.ryo, treasureWealth);
-          if (adjustedTreasureRyo > 0) {
-            setPlayer(p => p ? { ...p, ryo: p.ryo + adjustedTreasureRyo } : null);
-            addLog(`Found treasure! +${adjustedTreasureRyo} Ryō${treasureWealth !== 4 ? ` (${treasureWealth > 4 ? 'wealthy' : 'poor'} area)` : ''}.`, 'loot');
-          }
-          const floorAfterTreasure = completeActivity(updatedFloor, currentRoom.id, 'treasure');
-          setFloor(floorAfterTreasure);
-          logActivityComplete(currentRoom.id, 'treasure');
-          setGameState(GameState.LOOT);
+          logActivityStart(currentRoom.id, 'treasure', { choiceCount: treasure.choices.length, type: treasure.type });
+          logStateChange(exploreState.toString(), 'TREASURE', 'treasure activity');
+
+          // Set treasure data for the TreasureChoice scene
+          setCurrentTreasure(treasure);
+          setCurrentTreasureHunt(updatedFloor.treasureHunt);
+          setSelectedBranchingRoom(currentRoom);
+
+          addLog(`You discovered a ${treasure.type === TreasureType.LOCKED_CHEST ? 'mysterious chest' : 'treasure map fragment'}!`, 'loot');
+
+          // Don't complete activity yet - completed when player makes selection
+          setGameState(GameState.TREASURE);
         }
         break;
 
@@ -238,7 +241,8 @@ export function useActivityHandler(deps: ActivityHandlerDeps): UseActivityHandle
     setSelectedBranchingRoom, setShowApproachSelector,
     setMerchantItems, setMerchantDiscount, setActiveEvent,
     setTrainingData, setScrollDiscoveryData, setEliteChallengeData,
-    setDroppedItems, setDroppedSkill, setCurrentIntel, currentIntel
+    setDroppedItems, setDroppedSkill, setCurrentIntel, currentIntel,
+    setCurrentTreasure, setCurrentTreasureHunt
   ]);
 
   return { executeRoomActivity };

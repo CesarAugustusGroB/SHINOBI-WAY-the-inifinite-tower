@@ -66,6 +66,13 @@ export const FeatureFlags = {
 
   /** Enable new loot preview system */
   EXPERIMENTAL_LOOT_PREVIEW: false,
+
+  // ─────────────────────────────────────────────────────────────
+  // Development Mode
+  // ─────────────────────────────────────────────────────────────
+
+  /** Enable development-only features (ImageTest, etc.) */
+  DEV_MODE: process.env.NODE_ENV !== 'production',
 } as const;
 
 export const LaunchProperties = {
@@ -108,6 +115,9 @@ export const LaunchProperties = {
   // System Limits
   // ─────────────────────────────────────────────────────────────
 
+  /** Maximum activities per room (0 = unlimited) */
+  MAX_ACTIVITIES_PER_ROOM: 3,
+
   /** Maximum bag capacity */
   MAX_BAG_SIZE: 12,
 
@@ -116,6 +126,27 @@ export const LaunchProperties = {
 
   /** Combat log max entries */
   COMBAT_LOG_MAX_ENTRIES: 50,
+
+  // ─────────────────────────────────────────────────────────────
+  // Treasure System Balance
+  // ─────────────────────────────────────────────────────────────
+
+  /** Treasure config by wealth level - choiceCount, artifactChance, ryoMultiplier */
+  TREASURE_CONFIG: {
+    LOW: { choiceCount: 2, artifactChance: 0, ryoMultiplier: 0.5 },      // Wealth 1-2
+    MEDIUM: { choiceCount: 2, artifactChance: 0, ryoMultiplier: 1.0 },   // Wealth 3-4
+    HIGH: { choiceCount: 3, artifactChance: 0.05, ryoMultiplier: 1.5 },  // Wealth 5-6
+    RICH: { choiceCount: 3, artifactChance: 0.10, ryoMultiplier: 2.0 },  // Wealth 7
+  },
+
+  /** Dice roll probabilities for treasure hunter (trap%, nothing%, piece%) */
+  TREASURE_DICE_ODDS: { trap: 30, nothing: 40, piece: 30 },
+
+  /** Trap damage formula: BASE + (dangerLevel * PER_DANGER) as % of max HP */
+  TREASURE_TRAP_DAMAGE: { base: 0.05, perDanger: 0.03 },
+
+  /** Map pieces required by danger level */
+  TREASURE_MAP_PIECES: { lowDanger: 2, midDanger: 3, highDanger: 4 },
 } as const;
 
 // Type exports for type-safe access

@@ -163,7 +163,7 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
       <div ref={enemyRef}>
         <CinematicViewscreen
           image={enemy.image || '/assets/image_3b2b13.jpg'}
-        overlayContent={
+          overlayContent={
           <div className="flex justify-between w-full h-full">
 
             {/* LEFT: Enemy Stats Overlay */}

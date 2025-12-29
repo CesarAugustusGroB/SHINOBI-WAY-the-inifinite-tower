@@ -1,16 +1,17 @@
 import React from 'react';
 import { GameState, Clan } from '../game/types';
 import './MainMenu.css';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Sparkles } from 'lucide-react';
 
 interface MainMenuProps {
   difficulty: number;
   onDifficultyChange: (value: number) => void;
   onEnter: () => void;
   onGuide: () => void;
+  onImageTest?: () => void;
 }
 
-const MainMenu: React.FC<MainMenuProps> = ({ difficulty, onDifficultyChange, onEnter, onGuide }) => {
+const MainMenu: React.FC<MainMenuProps> = ({ difficulty, onDifficultyChange, onEnter, onGuide, onImageTest }) => {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center relative font-sans main-menu-container">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black opacity-80"></div>
@@ -45,6 +46,12 @@ const MainMenu: React.FC<MainMenuProps> = ({ difficulty, onDifficultyChange, onE
         <button type="button" onClick={onGuide} className="w-full py-3 bg-zinc-900/80 border border-zinc-700 text-zinc-400 font-bold uppercase tracking-widest hover:bg-zinc-800 hover:text-white transition-colors text-xs flex items-center justify-center gap-2">
           <BookOpen size={14} /> Shinobi Handbook
         </button>
+
+        {onImageTest && (
+          <button type="button" onClick={onImageTest} className="w-full py-3 bg-amber-900/40 border border-amber-700/50 text-amber-400 font-bold uppercase tracking-widest hover:bg-amber-800/50 hover:text-amber-300 transition-colors text-xs flex items-center justify-center gap-2 mt-2">
+            <Sparkles size={14} /> AI Image Test
+          </button>
+        )}
       </div>
     </div>
   );

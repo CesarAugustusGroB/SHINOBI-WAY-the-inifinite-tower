@@ -4,6 +4,29 @@ All notable changes to SHINOBI WAY: THE INFINITE TOWER will be documented in thi
 
 ## [Unreleased]
 
+## 2025-12-29
+
+### Added
+
+- Dual Treasure System with Locked Chests (reveal-or-blind) and Treasure Hunter (map pieces)
+- TreasureChoice scene for treasure selection UI
+- TreasureHuntReward scene for map completion rewards
+- useTreasureHandlers hook extracting treasure logic from App.tsx
+- Treasure balance constants in featureFlags.ts (config, dice odds, trap damage, map pieces)
+- DEV_MODE feature flag for development-only features
+- ImageTest scene for AI image generation testing (dev-only)
+
+### Changed
+
+- Extract treasure handlers to dedicated hook for better separation of concerns
+- Use TreasureType enum instead of string literals
+- Gate ImageTest behind DEV_MODE flag
+
+### Fixed
+
+- TreasureChoice card sizing (all options now same size)
+- Type safety improvements (removed `any` types in ImageTest and TreasureHuntReward)
+
 ## 2025-12-24
 
 ### Added

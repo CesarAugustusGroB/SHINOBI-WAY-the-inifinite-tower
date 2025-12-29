@@ -57,6 +57,9 @@ import {
   DEFAULT_MERCHANT_SLOTS,
   DEFAULT_TREASURE_QUALITY,
   TreasureQuality,
+  TreasureType,
+  TreasureChoice,
+  TreasureHunt,
 } from '../types';
 import { generateEnemy } from './EnemySystem';
 import { generateLoot, generateRandomArtifact, generateSkillForFloor, generateComponentByQuality } from './LootSystem';
@@ -70,7 +73,7 @@ import {
 } from '../constants/roomTypes';
 import { EVENTS } from '../constants';
 import { calculateXP, calculateRyo } from './ScalingSystem';
-import { FeatureFlags } from '../../config/featureFlags';
+import { FeatureFlags, LaunchProperties } from '../../config/featureFlags';
 
 // Re-export scaling functions for backward compatibility
 export { dangerToFloor, getWealthMultiplier, applyWealthToRyo } from './ScalingSystem';
@@ -96,6 +99,59 @@ function maybeUpgradeQuality(baseQuality: TreasureQuality): TreasureQuality {
   if (baseQuality === TreasureQuality.BROKEN) return TreasureQuality.COMMON;
   if (baseQuality === TreasureQuality.COMMON) return TreasureQuality.RARE;
   return baseQuality; // Already RARE, no upgrade
+}
+
+// ============================================================================
+// ACTIVITY LIMITING
+// ============================================================================
+
+/**
+ * Activity priority for limiting (lower index = higher priority, kept first).
+ * Combat is handled separately and always preserved.
+ */
+const ACTIVITY_PRIORITY: (keyof RoomActivities)[] = [
+  'eliteChallenge',  // Rare, high-value artifacts
+  'merchant',        // Player agency
+  'event',           // Story content
+  'treasure',        // Rewards
+  'scrollDiscovery', // Progression
+  'rest',            // Recovery
+  'training',        // Optional growth
+  'infoGathering',   // Intel system
+];
+
+/**
+ * Limit activities to maxCount, preserving combat and highest priority.
+ * Returns activities unchanged if maxCount is 0 (unlimited).
+ */
+function limitActivities(
+  activities: RoomActivities,
+  maxCount: number
+): RoomActivities {
+  if (maxCount <= 0) return activities;
+
+  const keys = Object.keys(activities) as (keyof RoomActivities)[];
+  if (keys.length <= maxCount) return activities;
+
+  const result: RoomActivities = {};
+  let count = 0;
+
+  // Always keep combat first
+  if (activities.combat) {
+    result.combat = activities.combat;
+    count++;
+  }
+
+  // Add remaining by priority until limit reached
+  for (const key of ACTIVITY_PRIORITY) {
+    if (count >= maxCount) break;
+    if (key !== 'combat' && activities[key]) {
+      (result as Record<keyof RoomActivities, unknown>)[key] = activities[key];
+      count++;
+    }
+  }
+
+  return result;
 }
 
 // ============================================================================
@@ -431,24 +487,235 @@ function generateTrainingActivity(
   };
 }
 
+// ============================================================================
+// TREASURE SYSTEM HELPERS
+// ============================================================================
+
+/**
+ * Get treasure configuration based on wealth level.
+ * Higher wealth = more choices, artifact chance, and ryo multiplier.
+ */
+function getTreasureConfig(wealthLevel: number): {
+  choiceCount: number;
+  artifactChance: number;
+  ryoMultiplier: number;
+} {
+  const config = LaunchProperties.TREASURE_CONFIG;
+  if (wealthLevel <= 2) return config.LOW;
+  if (wealthLevel <= 4) return config.MEDIUM;
+  if (wealthLevel <= 6) return config.HIGH;
+  return config.RICH;
+}
+
+/**
+ * Calculate chakra cost to reveal treasure choices.
+ * Formula: 10 + (floor * 2) + (choiceCount * 5)
+ */
+function calculateRevealCost(floor: number, choiceCount: number): number {
+  return 10 + (floor * 2) + (choiceCount * 5);
+}
+
+/**
+ * Get required map pieces for treasure hunt based on danger level.
+ */
+export function getRequiredMapPieces(dangerLevel: number): number {
+  const pieces = LaunchProperties.TREASURE_MAP_PIECES;
+  if (dangerLevel <= 2) return pieces.lowDanger;
+  if (dangerLevel <= 4) return pieces.midDanger;
+  return pieces.highDanger;
+}
+
 /**
  * Generate treasure activity for a room.
+ * Randomly assigns either LOCKED_CHEST or TREASURE_HUNTER type.
+ * If huntDeclined is true, always generates LOCKED_CHEST.
  */
 function generateTreasureActivity(
   config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType],
   floor: number,
   difficulty: number,
-  player?: Player
+  wealthLevel: number = 4,
+  player?: Player,
+  treasureHunt?: TreasureHunt | null,
+  huntDeclined?: boolean
 ): RoomActivities['treasure'] | undefined {
   if (!config.hasTreasure) return undefined;
 
   const quality = maybeUpgradeQuality(player?.treasureQuality ?? DEFAULT_TREASURE_QUALITY);
+  const { choiceCount, artifactChance, ryoMultiplier } = getTreasureConfig(wealthLevel);
+
+  // Generate item choices
+  const choices: TreasureChoice[] = [];
+  for (let i = 0; i < choiceCount; i++) {
+    // Check for artifact (only in high-wealth, 5-10% chance)
+    if (artifactChance > 0 && Math.random() < artifactChance) {
+      choices.push({
+        item: generateRandomArtifact(floor, difficulty),
+        isArtifact: true,
+      });
+    } else {
+      choices.push({
+        item: generateComponentByQuality(floor, difficulty + 5, quality),
+        isArtifact: false,
+      });
+    }
+  }
+
+  const baseRyo = 50 + floor * 10 + Math.floor(Math.random() * 67);
+  const revealCost = calculateRevealCost(floor, choiceCount);
+
+  // If hunt was declined, all treasures become locked chests
+  if (huntDeclined) {
+    return {
+      type: TreasureType.LOCKED_CHEST,
+      choices,
+      ryoBonus: Math.floor(baseRyo * ryoMultiplier),
+      revealCost,
+      isRevealed: false,
+      selectedIndex: null,
+      collected: false,
+      isHuntRoom: false,
+      mapPieceAvailable: false,
+    };
+  }
+
+  // Determine treasure type: first treasure in location starts hunt, rest are locked chests
+  // Unless hunt is already active, then this is a hunt room
+  const isFirstTreasure = !treasureHunt;
+  const isHuntRoom = treasureHunt?.isActive ?? false;
+
+  // 50% chance for first treasure to be a hunt initiator, otherwise locked chest
+  const type = isFirstTreasure && Math.random() < 0.5
+    ? TreasureType.TREASURE_HUNTER
+    : (isHuntRoom ? TreasureType.TREASURE_HUNTER : TreasureType.LOCKED_CHEST);
 
   return {
-    items: [generateComponentByQuality(floor, difficulty + 5, quality)],
-    ryo: 50 + floor * 10 + Math.floor(Math.random() * 67),
+    type,
+    choices,
+    ryoBonus: Math.floor(baseRyo * ryoMultiplier),
+    revealCost,
+    isRevealed: false,
+    selectedIndex: null,
     collected: false,
+    isHuntRoom: type === TreasureType.TREASURE_HUNTER,
+    mapPieceAvailable: type === TreasureType.TREASURE_HUNTER,
   };
+}
+
+/**
+ * Initialize a treasure hunt for a location.
+ * Called when first treasure room is encountered and player chooses to start hunt.
+ */
+export function initializeTreasureHunt(
+  floor: BranchingFloor
+): BranchingFloor {
+  const treasureHunt: TreasureHunt = {
+    isActive: true,
+    requiredPieces: getRequiredMapPieces(floor.dangerLevel),
+    collectedPieces: 0,
+    mapId: `map-${floor.id}-${Date.now()}`,
+  };
+
+  return {
+    ...floor,
+    treasureHunt,
+    treasureProbabilityBoost: 0.25, // +25% treasure room chance during hunt
+  };
+}
+
+/**
+ * Add a map piece to the treasure hunt.
+ * Returns updated floor and whether the map is now complete.
+ */
+export function addMapPiece(
+  floor: BranchingFloor
+): { floor: BranchingFloor; isComplete: boolean } {
+  if (!floor.treasureHunt) {
+    return { floor, isComplete: false };
+  }
+
+  const newPieces = floor.treasureHunt.collectedPieces + 1;
+  const isComplete = newPieces >= floor.treasureHunt.requiredPieces;
+
+  return {
+    floor: {
+      ...floor,
+      treasureHunt: {
+        ...floor.treasureHunt,
+        collectedPieces: newPieces,
+        isActive: !isComplete, // Deactivate when complete
+      },
+    },
+    isComplete,
+  };
+}
+
+/**
+ * Calculate trap damage for failed dice roll.
+ * Formula: 5% + (dangerLevel * 3)% of max HP
+ */
+export function calculateTrapDamage(dangerLevel: number, maxHp: number): number {
+  const { base, perDanger } = LaunchProperties.TREASURE_TRAP_DAMAGE;
+  const damagePercent = base + (dangerLevel * perDanger);
+  return Math.floor(maxHp * damagePercent);
+}
+
+/**
+ * Get treasure hunt completion reward based on pieces collected and wealth level.
+ */
+export function getTreasureHuntReward(
+  pieces: number,
+  wealthLevel: number,
+  floor: number,
+  difficulty: number
+): { items: Item[]; skills: import('../types').Skill[]; ryo: number } {
+  const items: Item[] = [];
+  const skills: import('../types').Skill[] = [];
+  let ryo = 0;
+
+  // Reward matrix based on pieces and wealth
+  if (pieces === 2) {
+    if (wealthLevel <= 2) {
+      items.push(generateComponentByQuality(floor, difficulty, TreasureQuality.COMMON));
+      ryo = 100;
+    } else if (wealthLevel <= 4) {
+      items.push(generateComponentByQuality(floor, difficulty, TreasureQuality.RARE));
+      ryo = 150;
+    } else if (wealthLevel <= 6) {
+      skills.push(generateSkillForFloor(floor));
+    } else {
+      items.push(generateRandomArtifact(floor, difficulty));
+    }
+  } else if (pieces === 3) {
+    if (wealthLevel <= 2) {
+      items.push(generateComponentByQuality(floor, difficulty, TreasureQuality.RARE));
+      ryo = 150;
+    } else if (wealthLevel <= 4) {
+      skills.push(generateSkillForFloor(floor));
+      ryo = 200;
+    } else if (wealthLevel <= 6) {
+      items.push(generateRandomArtifact(floor, difficulty));
+    } else {
+      items.push(generateRandomArtifact(floor, difficulty));
+      skills.push(generateSkillForFloor(floor));
+    }
+  } else if (pieces >= 4) {
+    if (wealthLevel <= 2) {
+      skills.push(generateSkillForFloor(floor));
+      ryo = 200;
+    } else if (wealthLevel <= 4) {
+      items.push(generateRandomArtifact(floor, difficulty));
+    } else if (wealthLevel <= 6) {
+      items.push(generateRandomArtifact(floor, difficulty));
+      ryo = 300;
+    } else {
+      items.push(generateRandomArtifact(floor, difficulty));
+      skills.push(generateSkillForFloor(floor));
+      ryo = 500;
+    }
+  }
+
+  return { items, skills, ryo };
 }
 
 /**
@@ -488,7 +755,10 @@ function generateActivities(
   floor: number,
   difficulty: number,
   arc: string,
-  player?: Player
+  player?: Player,
+  wealthLevel: number = 4,
+  treasureHunt?: TreasureHunt | null,
+  huntDeclined?: boolean
 ): RoomActivities {
   const activities: RoomActivities = {};
 
@@ -513,13 +783,13 @@ function generateActivities(
   const training = generateTrainingActivity(config, floor);
   if (training) activities.training = training;
 
-  const treasure = generateTreasureActivity(config, floor, difficulty, player);
+  const treasure = generateTreasureActivity(config, floor, difficulty, wealthLevel, player, treasureHunt, huntDeclined);
   if (treasure) activities.treasure = treasure;
 
   const infoGathering = generateInfoGatheringActivity(config);
   if (infoGathering) activities.infoGathering = infoGathering;
 
-  return activities;
+  return limitActivities(activities, LaunchProperties.MAX_ACTIVITIES_PER_ROOM);
 }
 
 /**
@@ -648,9 +918,27 @@ function configureAsExitRoom(
   floor: number,
   difficulty: number,
   arc: string,
-  player?: Player
+  player?: Player,
+  wealthLevel: number = 4
 ): BranchingRoom {
   const quality = maybeUpgradeQuality(player?.treasureQuality ?? DEFAULT_TREASURE_QUALITY);
+  const { choiceCount, artifactChance, ryoMultiplier } = getTreasureConfig(wealthLevel);
+
+  // Generate enhanced choices for exit room
+  const choices: TreasureChoice[] = [];
+  for (let i = 0; i < choiceCount; i++) {
+    if (artifactChance > 0 && Math.random() < artifactChance * 1.5) { // 1.5x artifact chance for boss
+      choices.push({
+        item: generateRandomArtifact(floor, difficulty + 15),
+        isArtifact: true,
+      });
+    } else {
+      choices.push({
+        item: generateComponentByQuality(floor, difficulty + 15, quality),
+        isArtifact: false,
+      });
+    }
+  }
 
   return {
     ...room,
@@ -665,9 +953,15 @@ function configureAsExitRoom(
         completed: false,
       },
       treasure: {
-        items: [generateComponentByQuality(floor, difficulty + 15, quality)],
-        ryo: 67 + floor * 10,
+        type: TreasureType.LOCKED_CHEST,
+        choices,
+        ryoBonus: Math.floor((67 + floor * 10) * ryoMultiplier),
+        revealCost: 0, // Free reveal for boss treasure
+        isRevealed: true, // Always revealed for boss
+        selectedIndex: null,
         collected: false,
+        isHuntRoom: false,
+        mapPieceAvailable: false,
       },
     },
   };
@@ -895,6 +1189,9 @@ export function generateBranchingFloorFromConfig(config: FloorGenerationConfig):
     targetRoomCount,
     minRoomsBeforeExit: getMinRoomsBeforeExit(floor),
     dangerLevel,
+    treasureHunt: null,
+    treasureProbabilityBoost: 0,
+    huntDeclined: false,
   };
 
   if (!isFirstFloor) {
