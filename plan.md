@@ -1,282 +1,206 @@
-# LocationCard Redesign Plan
+# Feature Plan: Dual Treasure System
 
-## Overview
+## Features Overview
 
-Redesign the LocationCard component with three new systems:
+| Feature | Description |
+|---------|-------------|
+| **Locked Treasure** | Choice-based treasure - pick blind (random) OR spend chakra to reveal all options then choose |
+| **Treasure Hunter** | Multi-part map collection across treasure rooms in a location, combat/dice rolls for pieces, scaled rewards |
 
-1. **Intel System** - Location-scoped intel determines card count + reveal status
-2. **Wealth System** - Per-location gold multiplier (auto-generated from LocationType)
-3. **Activity Icons** - Visual indicators for room activities (with special variants)
+**Key Design:** Both systems share the same treasure icon. Player doesn't know which type until entering the activity (surprise element).
 
 ---
 
-## 1. Intel System
+## Feature 1: Locked Treasure Chests
 
-### How It Works
+### Mechanics
 
-Intel is gathered WITHIN a location and evaluated at completion to determine next card draw.
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    TREASURE FOUND                           │
+├─────────────────────────────────────────────────────────────┤
+│   [?]  [?]  [?]     ← 3 hidden choices                     │
+│                                                             │
+│   [A] Pick Randomly (Free)     → Get random item           │
+│   [B] Reveal All (15 Chakra)   → See all, then choose      │
+└─────────────────────────────────────────────────────────────┘
+```
 
 **Flow:**
-1. Player enters location (intel starts at 0%, except first location = 50%)
-2. Intel gathered during exploration
-3. At location END, intel evaluated
-4. Result determines card count + reveal status for NEXT location choice
+1. Generate 2-3 item choices (based on wealth level)
+2. Display as hidden cards by default
+3. Player can:
+   - **Pick blind** → Random selection from choices (free)
+   - **Spend chakra** → Reveal all items, then freely choose one
 
-### Intel Thresholds
-
-| Intel Level | Cards | Revealed |
-|-------------|-------|----------|
-| 0-25%       | 1     | 0 (hidden) |
-| 25-50%      | 2     | 1 |
-| 50-75%      | 3     | 2 |
-| 75-100%     | 3     | 3 (all) |
-
-### Intel Sources
-
-| Source | Gain |
-|--------|------|
-| Combat victory | +5% |
-| Event completion | varies (~15% avg) |
-| Info Gathering activity | +25% |
-
-### Storage
-
-- `currentIntel: number` (0-100) stored in App.tsx state
-- Resets to 0 when entering new location
-- First location in region starts at 50%
-
----
-
-## 2. Wealth System
-
-### How It Works
-
-Wealth is a 1-7 scale property auto-generated from LocationType.
-
-### Scale & Multiplier
-
-| Level | Mult | Description |
-|-------|------|-------------|
-| 1 | 0.5x | Destitute |
-| 2 | 0.67x | Poor |
-| 3 | 0.83x | Modest |
-| 4 | 1.0x | Average |
-| 5 | 1.17x | Prosperous |
-| 6 | 1.33x | Wealthy |
-| 7 | 1.5x | Rich |
-
-**Formula:** `multiplier = 0.33 + (wealthLevel * 0.167)`
-
-### Wealth by LocationType
-
-| Type | Wealth | Rationale |
-|------|--------|-----------|
-| SETTLEMENT | 5-6 | Trade hub |
-| WILDERNESS | 2-3 | Sparse |
-| STRONGHOLD | 3-4 | Military |
-| LANDMARK | 4-5 | Historical |
-| SECRET | 5-6 | Hidden treasures |
-| BOSS | 6-7 | Hoarded wealth |
-
-### What Wealth Affects
-
-1. **Combat Ryo** - `calculateLocationRyo()` * multiplier
-2. **Treasure Ryo** - treasure gold * multiplier
-3. **Event Ryo** - event rewards * multiplier
-4. **Merchant Discount** - `(wealthLevel - 1) * 5%` (0-30%)
-
----
-
-## 3. Activity Icons
-
-### Icon Mapping
-
-| Activity | Icon | Special | Color |
-|----------|------|---------|-------|
-| Combat | ⚔️ | ⚔️✨ | orange |
-| Merchant | 🛒 | 🛒✨ | yellow |
-| Rest | 💤 | 💤✨ | green |
-| Training | 🎯 | 🎯✨ | cyan |
-| Event | 🎪 | 🎪✨ | purple |
-| Scroll | 📜 | 📜✨ | blue |
-| Treasure | 💎 | 💎✨ | amber |
-| Elite | 👹 | 👹✨ | red |
-| Boss | 💀 | 💀✨ | red |
-| Info Gathering | 🔍 | 🔍✨ | teal |
-
-**Special activities** (✨) have enhanced rewards/outcomes - logic TBD.
-
----
-
-## 4. UI Mockups
-
-### Revealed Card
-
+**Chakra Cost Formula:**
 ```
-┌───────────────────────────────────────┐
-│ [1]  Misty Harbor          [REVISIT] │
-│      Settlement                      │
-├───────────────────────────────────────┤
-│              🏘️                      │
-├───────────────────────────────────────┤
-│ ⚠️ DANGER   ████████░░░░  4/7        │
-│ 💰 WEALTH   ██████░░░░░░  3/7        │
-├───────────────────────────────────────┤
-│ 📋  ⚔️ 🛒 💤 🎯 📜                    │
-└───────────────────────────────────────┘
+revealCost = 10 + (floor * 2) + (choiceCount * 5)
 ```
 
-### Hidden Card
-
-```
-┌───────────────────────────────────────┐
-│ [2]  ? ? ?                           │
-│      Unknown                         │
-├───────────────────────────────────────┤
-│              ❓                       │
-├───────────────────────────────────────┤
-│ ⚠️ DANGER   ░░░░░░░░░░░░  ?/?        │
-│ 💰 WEALTH   ░░░░░░░░░░░░  ?/?        │
-├───────────────────────────────────────┤
-│ 📋  ? ? ? ? ?                        │
-└───────────────────────────────────────┘
-```
-
----
-
-## 5. Type Changes
-
-### CardDisplayInfo (update)
+### Types
 
 ```typescript
-interface CardDisplayInfo {
-  // Existing
-  name: string;
-  subtitle: string;
-  dangerLevel: number;
-  locationType: LocationType;
-  revisitBadge: boolean;
-
-  // NEW
-  wealthLevel: number;
-  activities: {
-    combat: false | 'normal' | 'special';
-    merchant: false | 'normal' | 'special';
-    rest: false | 'normal' | 'special';
-    training: false | 'normal' | 'special';
-    event: false | 'normal' | 'special';
-    scrollDiscovery: false | 'normal' | 'special';
-    treasure: false | 'normal' | 'special';
-    eliteChallenge: false | 'normal' | 'special';
-    infoGathering: false | 'normal' | 'special';
-  };
-  isBoss: boolean;
-  isSecret: boolean;
+interface TreasureActivity {
+  choices: TreasureChoice[];
+  ryoBonus: number;
+  revealCost: number;        // Chakra cost to reveal
+  isRevealed: boolean;       // Has player revealed?
+  selectedIndex: number | null;
+  collected: boolean;
 }
-```
 
-### Location (update)
-
-```typescript
-export interface Location {
-  // ... existing fields
-  wealthLevel: number;  // Auto-generated from LocationType
-}
-```
-
-### RegionLootTheme (update)
-
-```typescript
-export interface RegionLootTheme {
-  primaryElement: ElementType;
-  equipmentFocus: string[];
-  // REMOVED: goldMultiplier (now per-location)
+interface TreasureChoice {
+  item: Item;
+  isArtifact: boolean;
 }
 ```
 
 ---
 
-## 6. Implementation Steps
+## Feature 2: Treasure Hunter Maps
 
-### Phase 1: Types & Constants
+### Mechanics
 
-**types.ts:**
-- Add `wealthLevel: number` to Location interface
-- Add `currentIntel: number` to track during exploration
-- Update CardDisplayInfo with new fields
-- Remove `goldMultiplier` from RegionLootTheme
+**Trigger:** First treasure room in a location starts the Treasure Hunt
 
-**roomTypes.ts:**
-- Add `infoGathering` to ACTIVITY_ORDER
+```
+┌─────────────────────────────────────────────────────────────┐
+│          🗺️ TREASURE HUNTER INITIATED                       │
+├─────────────────────────────────────────────────────────────┤
+│   An ancient map fragment glows before you...               │
+│                                                             │
+│   Map Progress: [■□□□] 1/4 pieces                          │
+│                                                             │
+│   [A] Fight Guardian → Guaranteed piece + normal treasure   │
+│   [B] Roll the Dice  → 70% piece, 30% trap/nothing         │
+└─────────────────────────────────────────────────────────────┘
+```
 
-### Phase 2: RegionSystem.ts
+**System Flow:**
+1. First treasure room → Initialize map hunt (2-4 pieces required based on danger)
+2. Activating hunt → Increases treasure room probability for this location
+3. Each treasure room offers: Combat OR Dice Roll for map piece
+4. Complete map → Bonus reward screen based on pieces + wealth
 
-**Wealth functions:**
-- `getWealthMultiplier(wealthLevel): number`
-- `getDefaultWealthForLocationType(type): number`
-- `applyWealthToRyo(baseRyo, wealthLevel): number`
-- `getMerchantDiscount(wealthLevel): number`
+### Map Piece Requirements
 
-**Intel functions:**
-- `evaluateIntel(intel): { cardCount, revealedCount }`
-- `getLocationActivities(location): ActivityState`
+| Danger Level | Required Pieces |
+|--------------|-----------------|
+| 1-2 | 2 pieces |
+| 3-4 | 3 pieces |
+| 5-7 | 4 pieces |
 
-**Updates:**
-- `generateLocation()` - auto-assign wealth from LocationType
-- `getCardDisplayInfo()` - include wealth, activities
-- `drawLocationCards()` - use intel-based count/reveal
+### Treasure Probability Boost
 
-### Phase 3: App.tsx
+```typescript
+// When treasure hunt active
+baseTreasureChance = 0.25;  // 25% normally
+huntBoostChance = 0.25;     // +25% during hunt = 50% total
+```
 
-**Intel tracking:**
-- Add `currentIntel` state
-- Reset on location enter
-- Increment on combat (+5%), events (var), info gathering (+25%)
-- Evaluate on location complete
+### Combat vs Dice Roll
 
-**Wealth application:**
-- `handleCombatVictory`: ryo * wealthMultiplier
-- Treasure collection: ryo * wealthMultiplier
-- Event rewards: ryo * wealthMultiplier
-- Merchant scene: apply discount
+| Choice | Outcome |
+|--------|---------|
+| **Combat** | Fight scaled mini-boss → Guaranteed piece + normal treasure |
+| **Dice Roll** | Roll 1-100: 1-30 = trap (damage), 31-70 = nothing, 71-100 = piece |
 
-### Phase 4: UI Components
+**Trap Damage Formula:** `5% + (dangerLevel * 3)%` of max HP
 
-**RegionMap.tsx:**
-- Redesign LocationCardDisplay
-- Handle 1-3 cards dynamically
-- Hidden vs revealed card states
-- Grid layout adjustments
+| Danger | Trap Damage |
+|--------|-------------|
+| 1 | 8% max HP |
+| 4 | 17% max HP |
+| 7 | 26% max HP |
 
-**LocationCard.tsx:**
-- Danger bar (existing)
-- Wealth bar (new, gold/yellow theme)
-- Activity icons row
+### Map Completion Rewards
+
+| Pieces | Wealth 1-2 | Wealth 3-4 | Wealth 5-6 | Wealth 7 |
+|--------|------------|------------|------------|----------|
+| 2 | Component + 100 ryo | RARE Component + 150 ryo | Skill Scroll | Artifact |
+| 3 | RARE Component + 150 ryo | Skill Scroll + 200 ryo | Artifact | Artifact + Scroll |
+| 4 | Skill Scroll + 200 ryo | Artifact | Artifact + 300 ryo | Artifact + Scroll + 500 ryo |
+
+### Types
+
+```typescript
+interface TreasureHunt {
+  isActive: boolean;
+  requiredPieces: number;
+  collectedPieces: number;
+  mapId: string;  // Unique per location
+}
+
+// Add to BranchingFloor
+interface BranchingFloor {
+  // ... existing
+  treasureHunt: TreasureHunt | null;
+  treasureProbabilityBoost: number;
+}
+```
 
 ---
 
-## 7. Files to Modify
+## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/game/types.ts` | Location, CardDisplayInfo, RegionLootTheme |
-| `src/game/systems/RegionSystem.ts` | Wealth + intel functions |
-| `src/game/constants/roomTypes.ts` | Add infoGathering activity |
-| `src/App.tsx` | Intel state, wealth multipliers |
-| `src/components/exploration/RegionMap.tsx` | Card display, grid, hidden/revealed |
-| `src/components/exploration/LocationCard.tsx` | Wealth bar, activity icons |
+| `src/game/types.ts` | TreasureActivity, TreasureChoice, TreasureHunt, BranchingFloor |
+| `src/game/systems/LocationSystem.ts` | generateTreasureActivity, treasure hunt logic |
+| `src/hooks/useActivityHandler.ts` | Handle reveal/blind pick, map piece collection |
+| `src/scenes/TreasureChoice.tsx` | **CREATE** - New scene for treasure UI |
+| `src/scenes/TreasureHuntReward.tsx` | **CREATE** - Map completion reward screen |
+| `src/App.tsx` | GameState.TREASURE, treasure handlers |
+| `src/game/constants/roomTypes.ts` | Treasure probability config |
 
 ---
 
-## 8. Questions Resolved
+## Implementation Steps
 
-- ✅ Intel gathered within location, evaluated at location end
-- ✅ Intel affects BOTH card count (1-3) AND reveal status
-- ✅ First location starts at 50% intel
-- ✅ Intel stored in App.tsx state (resets each location)
-- ✅ Intel sources: combat (+5%), events (varies), info gathering (+25%)
-- ✅ Show wealth/activities on revealed cards only
-- ✅ Hidden cards show mystery placeholder
-- ✅ Wealth auto-generated from LocationType
-- ✅ Merchant discount (not price change) based on wealth
-- ✅ Special activities marked with ✨ icon (logic TBD)
+### Phase 1: Types & Data
+
+1. Add `TreasureChoice` interface
+2. Update `TreasureActivity` interface
+3. Add `TreasureHunt` interface
+4. Add `treasureHunt` to `BranchingFloor`
+5. Add `GameState.TREASURE` and `GameState.TREASURE_HUNT_REWARD`
+
+### Phase 2: Generation Logic
+
+1. Rewrite `generateTreasureActivity()` for choice-based system
+2. Add `initializeTreasureHunt()` function
+3. Add `getTreasureHuntReward()` function
+4. Modify room generation to boost treasure probability when hunt active
+
+### Phase 3: UI Components
+
+**Use `/frontend-design` skill for all UI work**
+
+1. Create `TreasureChoice.tsx` scene (blind/reveal mechanics)
+2. Create `TreasureHuntReward.tsx` scene (map completion)
+3. Add map progress indicator component
+
+### Phase 4: Activity Handler
+
+1. Handle treasure reveal (chakra cost)
+2. Handle blind selection (random)
+3. Handle map piece combat/dice roll
+4. Handle map completion trigger
+
+---
+
+## Legacy Code Removal
+
+**Code to Remove:**
+- `src/game/systems/LocationSystem.ts`: Old `generateTreasureActivity()` (lines 490-505)
+- `src/game/types.ts`: Old `TreasureActivity` interface (replace entirely)
+
+**Code to Update:**
+- `src/hooks/useActivityHandler.ts`: Replace treasure case handler
+- Any direct references to `treasure.items` array (now `treasure.choices`)
+
+**Migration Notes:**
+- Old treasure format: `{ items: Item[], ryo: number, collected: boolean }`
+- New treasure format: `{ choices: TreasureChoice[], ryoBonus: number, revealCost: number, ... }`
+- Existing saves will need migration or fresh start
