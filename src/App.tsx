@@ -9,7 +9,7 @@ import {
   // Card-based location selection types
   IntelPool, LocationDeck, LocationCard, IntelRevealLevel,
   // Treasure system types
-  TreasureActivity, TreasureHunt, TreasureType
+  TreasureActivity, TreasureHunt, TreasureType, DiceRollResult
 } from './game/types';
 import { CLAN_STATS, CLAN_START_SKILL, CLAN_GROWTH, SKILLS } from './game/constants';
 import {
@@ -45,6 +45,8 @@ import {
   getCurrentActivity,
   completeActivity,
   getCurrentRoom,
+  addMapPiece,
+  getTreasureHuntReward,
 } from './game/systems/LocationSystem';
 import {
   generateRegion,
@@ -94,6 +96,7 @@ import Training from './scenes/Training';
 import ScrollDiscovery from './scenes/ScrollDiscovery';
 import TreasureChoice from './scenes/TreasureChoice';
 import TreasureHuntRewardScene from './scenes/TreasureHuntReward';
+import DiceRollResultModal from './components/modals/DiceRollResultModal';
 import GameOver from './scenes/GameOver';
 import GameGuide from './scenes/GameGuide';
 import ImageTest from './scenes/ImageTest';
@@ -161,6 +164,7 @@ const App: React.FC = () => {
   const [currentTreasure, setCurrentTreasure] = useState<TreasureActivity | null>(null);
   const [currentTreasureHunt, setCurrentTreasureHunt] = useState<TreasureHunt | null>(null);
   const [treasureHuntReward, setTreasureHuntReward] = useState<TreasureHuntRewardData | null>(null);
+  const [diceRollResult, setDiceRollResult] = useState<DiceRollResult | null>(null);
   const [combatReward, setCombatReward] = useState<{
     expGain: number;
     ryoGain: number;
@@ -240,6 +244,9 @@ const App: React.FC = () => {
     });
 
     addLog("Enemy Defeated!", 'gain');
+
+    // Check if this was a Treasure Guardian fight
+    const wasTreasureGuardian = defeatedEnemy.name === 'Treasure Guardian' && currentTreasureHunt;
 
     // Determine if this was an elite challenge (check pendingArtifact)
     const wasEliteChallenge = pendingArtifact !== null;
@@ -356,6 +363,63 @@ const App: React.FC = () => {
       levelUp: !!levelUpInfo
     });
 
+    // Handle Treasure Guardian victory - award guaranteed map piece
+    if (wasTreasureGuardian && locationFloor) {
+      const { floor: updatedFloorWithPiece, isComplete } = addMapPiece(locationFloor);
+      const newHunt = updatedFloorWithPiece.treasureHunt;
+
+      // Complete the treasure activity
+      const combatRoom = selectedBranchingRoom || getCurrentRoom(updatedFloorWithPiece);
+      let finalFloor = updatedFloorWithPiece;
+      if (combatRoom) {
+        finalFloor = completeActivity(updatedFloorWithPiece, combatRoom.id, 'treasure');
+      }
+
+      if (newHunt) {
+        setDiceRollResult({
+          type: 'piece',
+          piecesCollected: newHunt.collectedPieces,
+          piecesRequired: newHunt.requiredPieces,
+        });
+        addLog(`Guardian defeated! Found a map piece! (${newHunt.collectedPieces}/${newHunt.requiredPieces})`, 'loot');
+      }
+
+      // Check if map is complete
+      if (isComplete && newHunt) {
+        const wealthLevel = currentLocation?.wealthLevel ?? 4;
+        const reward = getTreasureHuntReward(newHunt.collectedPieces, wealthLevel, currentDangerLevel, difficulty);
+        setTreasureHuntReward({
+          items: reward.items,
+          skills: reward.skills,
+          ryo: reward.ryo,
+          piecesCollected: newHunt.collectedPieces,
+          wealthLevel,
+        });
+        setLocationFloor({ ...finalFloor, treasureHunt: null, treasureProbabilityBoost: 0 });
+      } else {
+        setLocationFloor(finalFloor);
+      }
+
+      setCurrentTreasureHunt(newHunt);
+      setCurrentTreasure(null);
+
+      // Show combat reward modal first, then dice result modal will show after
+      setCombatReward({
+        expGain,
+        ryoGain,
+        levelUp: levelUpInfo
+      });
+
+      setTimeout(() => {
+        if (region && region.currentLocationId) {
+          setGameState(GameState.LOCATION_EXPLORE);
+        } else {
+          setGameState(GameState.EXPLORE);
+        }
+      }, 100);
+      return;
+    }
+
     // Show reward modal instead of returning to map immediately
     logRewardModal('show', { xpGain: expGain, ryoGain: ryoGain, levelUp: !!levelUpInfo });
     setCombatReward({
@@ -374,7 +438,9 @@ const App: React.FC = () => {
         setGameState(GameState.EXPLORE);
       }
     }, 100);
-  }, [branchingFloor, region, currentDangerLevel, currentBaseDifficulty, addLog, pendingArtifact]);
+  }, [branchingFloor, region, currentDangerLevel, currentBaseDifficulty, addLog, pendingArtifact,
+      currentTreasureHunt, locationFloor, selectedBranchingRoom, currentLocation, difficulty,
+      setDiceRollResult, setTreasureHuntReward, setCurrentTreasureHunt, setCurrentTreasure]);
 
   // Combat hook - manages enemy, turns, and combat logic
   const {
@@ -446,12 +512,12 @@ const App: React.FC = () => {
   const {
     handleTreasureReveal,
     handleTreasureSelectItem,
-    handleTreasureSelectRyo,
     handleTreasureFightGuardian,
     handleTreasureRollDice,
     handleTreasureStartHunt,
     handleTreasureDeclineHunt,
     handleTreasureHuntRewardClaim,
+    handleDiceResultContinue,
   } = useTreasureHandlers(
     {
       currentTreasure,
@@ -482,6 +548,7 @@ const App: React.FC = () => {
       setTurnState,
       setShowApproachSelector,
       setPendingArtifact,
+      setDiceRollResult,
     },
     {
       addLog,
@@ -1848,17 +1915,15 @@ const App: React.FC = () => {
           )}
 
           {/* Treasure Choice Scene */}
-          {gameState === GameState.TREASURE && currentTreasure && player && playerStats && (
+          {gameState === GameState.TREASURE && currentTreasure && player && (
             <ErrorBoundary sceneName="TreasureChoice">
               <TreasureChoice
                 treasure={currentTreasure}
                 treasureHunt={currentTreasureHunt}
                 player={player}
-                playerStats={playerStats}
                 huntDeclined={locationFloor?.huntDeclined ?? branchingFloor?.huntDeclined ?? false}
                 onReveal={handleTreasureReveal}
                 onSelectItem={handleTreasureSelectItem}
-                onSelectRyo={handleTreasureSelectRyo}
                 onFightGuardian={handleTreasureFightGuardian}
                 onRollDice={handleTreasureRollDice}
                 onStartHunt={handleTreasureStartHunt}
@@ -1965,6 +2030,7 @@ const App: React.FC = () => {
             onDragBagToEquip={dragBagToEquip}
             onDragEquipToBag={dragEquipToBag}
             onSwapEquipment={swapEquipment}
+            treasureHunt={locationFloor?.treasureHunt || currentTreasureHunt}
           />
         </div>
       )}
@@ -1994,6 +2060,14 @@ const App: React.FC = () => {
           />
         );
       })()}
+
+      {/* Dice Roll Result Modal */}
+      {diceRollResult && (
+        <DiceRollResultModal
+          result={diceRollResult}
+          onContinue={handleDiceResultContinue}
+        />
+      )}
     </div>
     </GameProvider>
   );

@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import {
   GameState, Player, BranchingRoom, BranchingFloor, CharacterStats,
   Location, Region, Item, Skill, LogEntry,
-  TreasureActivity, TreasureHunt, Enemy,
+  TreasureActivity, TreasureHunt, Enemy, DiceRollResult,
 } from '../game/types';
 import {
   completeActivity,
@@ -51,6 +51,7 @@ export interface TreasureHandlerSetters {
   setTurnState: React.Dispatch<React.SetStateAction<TurnState>>;
   setShowApproachSelector: React.Dispatch<React.SetStateAction<boolean>>;
   setPendingArtifact: React.Dispatch<React.SetStateAction<Item | null>>;
+  setDiceRollResult: React.Dispatch<React.SetStateAction<DiceRollResult | null>>;
 }
 
 /**
@@ -78,12 +79,12 @@ export interface TreasureHuntRewardData {
 export interface UseTreasureHandlersReturn {
   handleTreasureReveal: () => void;
   handleTreasureSelectItem: (index: number) => void;
-  handleTreasureSelectRyo: () => void;
   handleTreasureFightGuardian: () => void;
   handleTreasureRollDice: () => void;
   handleTreasureStartHunt: () => void;
   handleTreasureDeclineHunt: () => void;
   handleTreasureHuntRewardClaim: () => void;
+  handleDiceResultContinue: () => void;
 }
 
 /**
@@ -125,6 +126,7 @@ export function useTreasureHandlers(
     setTurnState,
     setShowApproachSelector,
     setPendingArtifact,
+    setDiceRollResult,
   } = setters;
 
   const { addLog, returnToMap } = deps;
@@ -180,33 +182,6 @@ export function useTreasureHandlers(
       setPlayer, setLocationFloor, setBranchingFloor, setDroppedItems, setDroppedSkill,
       setCurrentTreasure, setCurrentTreasureHunt, setSelectedBranchingRoom, setGameState]);
 
-  // Select ryo option instead of item
-  const handleTreasureSelectRyo = useCallback(() => {
-    if (!currentTreasure || !player || !selectedBranchingRoom) return;
-
-    // Add the ryo bonus (the ryoBonus is the "take ryo instead" value)
-    setPlayer(p => p ? { ...p, ryo: p.ryo + currentTreasure.ryoBonus } : null);
-    addLog(`Took ${currentTreasure.ryoBonus} Ryo from the treasure.`, 'loot');
-
-    // Complete treasure activity
-    if (locationFloor) {
-      const updatedFloor = completeActivity(locationFloor, selectedBranchingRoom.id, 'treasure');
-      setLocationFloor(updatedFloor);
-    }
-    if (branchingFloor) {
-      const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'treasure');
-      setBranchingFloor(updatedFloor);
-    }
-
-    // Clean up and return to map
-    setCurrentTreasure(null);
-    setCurrentTreasureHunt(null);
-    setSelectedBranchingRoom(null);
-    returnToMap();
-  }, [currentTreasure, player, selectedBranchingRoom, locationFloor, branchingFloor, addLog,
-      returnToMap, setPlayer, setLocationFloor, setBranchingFloor, setCurrentTreasure,
-      setCurrentTreasureHunt, setSelectedBranchingRoom]);
-
   // Fight guardian for guaranteed map piece (treasure hunter)
   const handleTreasureFightGuardian = useCallback(() => {
     if (!currentTreasure || !currentTreasureHunt || !player || !selectedBranchingRoom || !locationFloor) return;
@@ -242,29 +217,40 @@ export function useTreasureHandlers(
     const { trap, nothing } = LaunchProperties.TREASURE_DICE_ODDS;
     const roll = Math.random() * 100;
 
+    // Track which floor to use for completing the activity
+    let floorForCompletion = locationFloor;
+
     if (roll < trap) {
       // Trap!
       const trapDamage = calculateTrapDamage(currentDangerLevel, playerStats.derived.maxHp);
       setPlayer(p => p ? { ...p, currentHp: Math.max(1, p.currentHp - trapDamage) } : null);
+      setDiceRollResult({ type: 'trap', damage: trapDamage });
       addLog(`Trap triggered! You take ${trapDamage} damage.`, 'danger');
     } else if (roll < trap + nothing) {
       // Nothing
+      setDiceRollResult({ type: 'nothing' });
       addLog('The chest was empty... no map piece found.', 'info');
     } else {
       // Map piece!
       const { floor: updatedFloorWithPiece, isComplete } = addMapPiece(locationFloor);
       const newHunt = updatedFloorWithPiece.treasureHunt;
 
-      setLocationFloor(updatedFloorWithPiece);
+      // Use the updated floor for completion
+      floorForCompletion = updatedFloorWithPiece;
       setCurrentTreasureHunt(newHunt);
 
       if (newHunt) {
+        setDiceRollResult({
+          type: 'piece',
+          piecesCollected: newHunt.collectedPieces,
+          piecesRequired: newHunt.requiredPieces,
+        });
         addLog(`Found a map piece! (${newHunt.collectedPieces}/${newHunt.requiredPieces})`, 'loot');
       }
 
-      // Check if map is complete
+      // Check if map is complete - will transition to reward after modal dismissed
       if (isComplete && newHunt) {
-        // Generate reward based on pieces and wealth
+        // Generate reward and store it, but don't transition yet
         const wealthLevel = currentLocation?.wealthLevel ?? 4;
         const reward = getTreasureHuntReward(newHunt.collectedPieces, wealthLevel, currentDangerLevel, difficulty);
         setTreasureHuntReward({
@@ -274,29 +260,40 @@ export function useTreasureHandlers(
           piecesCollected: newHunt.collectedPieces,
           wealthLevel,
         });
-
-        // Complete treasure activity and show reward
+        // Complete treasure activity and clear hunt
         const updatedFloor = completeActivity(updatedFloorWithPiece, selectedBranchingRoom.id, 'treasure');
         setLocationFloor({ ...updatedFloor, treasureHunt: null, treasureProbabilityBoost: 0 });
-        setCurrentTreasure(null);
-        setCurrentTreasureHunt(null);
-        setSelectedBranchingRoom(null);
-        setGameState(GameState.TREASURE_HUNT_REWARD);
         return;
       }
     }
 
-    // Complete treasure activity and return to map
-    const updatedFloor = completeActivity(locationFloor, selectedBranchingRoom.id, 'treasure');
+    // Complete treasure activity (modal will handle return to map)
+    const updatedFloor = completeActivity(floorForCompletion, selectedBranchingRoom.id, 'treasure');
     setLocationFloor(updatedFloor);
-    setCurrentTreasure(null);
-    setCurrentTreasureHunt(null);
-    setSelectedBranchingRoom(null);
-    returnToMap();
   }, [currentTreasure, currentTreasureHunt, player, playerStats, selectedBranchingRoom,
-      locationFloor, currentDangerLevel, difficulty, currentLocation, addLog, returnToMap,
+      locationFloor, currentDangerLevel, difficulty, currentLocation, addLog,
       setPlayer, setLocationFloor, setCurrentTreasureHunt, setTreasureHuntReward,
-      setCurrentTreasure, setSelectedBranchingRoom, setGameState]);
+      setDiceRollResult]);
+
+  // Continue after dice roll result modal
+  const handleDiceResultContinue = useCallback(() => {
+    // Check if we have a pending treasure hunt reward (map complete)
+    if (treasureHuntReward) {
+      setDiceRollResult(null);
+      setCurrentTreasure(null);
+      setCurrentTreasureHunt(null);
+      setSelectedBranchingRoom(null);
+      setGameState(GameState.TREASURE_HUNT_REWARD);
+    } else {
+      // Normal flow - return to map
+      setDiceRollResult(null);
+      setCurrentTreasure(null);
+      setCurrentTreasureHunt(null);
+      setSelectedBranchingRoom(null);
+      returnToMap();
+    }
+  }, [treasureHuntReward, returnToMap, setDiceRollResult, setCurrentTreasure,
+      setCurrentTreasureHunt, setSelectedBranchingRoom, setGameState]);
 
   // Start treasure hunt (called when first treasure room is encountered)
   const handleTreasureStartHunt = useCallback(() => {
@@ -354,11 +351,11 @@ export function useTreasureHandlers(
   return {
     handleTreasureReveal,
     handleTreasureSelectItem,
-    handleTreasureSelectRyo,
     handleTreasureFightGuardian,
     handleTreasureRollDice,
     handleTreasureStartHunt,
     handleTreasureDeclineHunt,
     handleTreasureHuntRewardClaim,
+    handleDiceResultContinue,
   };
 }

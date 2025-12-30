@@ -10,10 +10,10 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { useGame } from '../../contexts/GameContext';
-import { Item, EquipmentSlot, DragData, Rarity } from '../../game/types';
+import { Item, EquipmentSlot, DragData, Rarity, TreasureHunt } from '../../game/types';
 import EquipmentPanel from '../inventory/EquipmentPanel';
 import Bag from '../inventory/Bag';
-import { Coins } from 'lucide-react';
+import { Coins, Map } from 'lucide-react';
 import { getRarityDragPreviewColor } from '../../utils/colorHelpers';
 
 interface RightSidebarPanelProps {
@@ -33,6 +33,8 @@ interface RightSidebarPanelProps {
   onDragBagToEquip?: (item: Item, bagIndex: number, targetSlot: EquipmentSlot) => void;
   onDragEquipToBag?: (item: Item, slot: EquipmentSlot, targetBagIndex?: number) => void;
   onSwapEquipment?: (fromSlot: EquipmentSlot, toSlot: EquipmentSlot) => void;
+  // Treasure hunt tracking
+  treasureHunt?: TreasureHunt | null;
 }
 
 // Drag preview component - icon only
@@ -60,6 +62,7 @@ const RightSidebarPanel: React.FC<RightSidebarPanelProps> = ({
   onDragBagToEquip,
   onDragEquipToBag,
   onSwapEquipment,
+  treasureHunt,
 }) => {
   const { player } = useGame();
   const [activeDrag, setActiveDrag] = useState<DragData | null>(null);
@@ -151,13 +154,41 @@ const RightSidebarPanel: React.FC<RightSidebarPanelProps> = ({
         {/* Wallet Display */}
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
           <div className="text-zinc-400 text-xs mb-1">Wallet</div>
-        {/* Ryo */}
-        <div className="flex items-center gap-2 flex-shrink-0 px-3 py-1 bg-zinc-800/50 rounded border border-zinc-700">
-          <Coins className="w-4 h-4 text-yellow-500" />
-          <span className="text-yellow-400 font-bold text-sm">{player.ryo.toLocaleString()}</span>
+          {/* Ryo */}
+          <div className="flex items-center gap-2 flex-shrink-0 px-3 py-1 bg-zinc-800/50 rounded border border-zinc-700">
+            <Coins className="w-4 h-4 text-yellow-500" />
+            <span className="text-yellow-400 font-bold text-sm">{player.ryo.toLocaleString()}</span>
+          </div>
         </div>
-        </div>
-        
+
+        {/* Treasure Hunt Progress - only show when active */}
+        {treasureHunt && treasureHunt.isActive && (
+          <div className="bg-zinc-900/50 border border-amber-800/50 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Map className="w-4 h-4 text-amber-400" />
+              <span className="text-amber-400 text-xs font-medium">Treasure Hunt</span>
+            </div>
+            {/* Map pieces progress */}
+            <div className="flex items-center gap-2 px-2 py-1.5 bg-zinc-800/50 rounded border border-zinc-700">
+              <div className="flex gap-1 flex-1">
+                {Array.from({ length: treasureHunt.requiredPieces }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`h-2.5 flex-1 rounded-sm transition-colors ${
+                      i < treasureHunt.collectedPieces
+                        ? 'bg-amber-500'
+                        : 'bg-zinc-700'
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className="text-amber-300 text-xs font-medium ml-1">
+                {treasureHunt.collectedPieces}/{treasureHunt.requiredPieces}
+              </span>
+            </div>
+          </div>
+        )}
+
       </div>
 
       {/* Drag overlay - shows item preview while dragging */}

@@ -4,9 +4,7 @@ import {
   TreasureHunt,
   TreasureType,
   Player,
-  CharacterStats,
   Rarity,
-  Item,
 } from '../game/types';
 import { Lock, Eye, Swords, Dices, Sparkles, MapPin, Coins, Map, X } from 'lucide-react';
 import Tooltip from '../components/shared/Tooltip';
@@ -16,11 +14,9 @@ interface TreasureChoiceProps {
   treasure: TreasureActivity;
   treasureHunt: TreasureHunt | null;
   player: Player;
-  playerStats: CharacterStats;
   huntDeclined: boolean;
   onReveal: () => void;
   onSelectItem: (index: number) => void;
-  onSelectRyo: () => void;
   onFightGuardian: () => void;
   onRollDice: () => void;
   onStartHunt: () => void;
@@ -32,18 +28,15 @@ const TreasureChoice: React.FC<TreasureChoiceProps> = ({
   treasure,
   treasureHunt,
   player,
-  playerStats,
   huntDeclined,
   onReveal,
   onSelectItem,
-  onSelectRyo,
   onFightGuardian,
   onRollDice,
   onStartHunt,
   onDeclineHunt,
   getRarityColor,
 }) => {
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [isHovering, setIsHovering] = useState<number | null>(null);
 
   const canAffordReveal = player.currentChakra >= treasure.revealCost;
@@ -79,9 +72,6 @@ const TreasureChoice: React.FC<TreasureChoiceProps> = ({
         const idx = parseInt(e.key) - 1;
         if (treasure.isRevealed && idx < treasure.choices.length) {
           onSelectItem(idx);
-        } else if (idx === treasure.choices.length) {
-          // Last number = ryo option
-          onSelectRyo();
         }
       }
 
@@ -112,7 +102,7 @@ const TreasureChoice: React.FC<TreasureChoiceProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [treasure, canAffordReveal, onReveal, onSelectItem, onSelectRyo, onFightGuardian, onRollDice, isLockedChest, isTreasureHunter, showHuntPrompt, onStartHunt, onDeclineHunt]);
+  }, [treasure, canAffordReveal, onReveal, onSelectItem, onFightGuardian, onRollDice, isLockedChest, isTreasureHunter, showHuntPrompt, onStartHunt, onDeclineHunt]);
 
   const handlePickRandom = useCallback(() => {
     const randomIdx = Math.floor(Math.random() * treasure.choices.length);
@@ -143,7 +133,6 @@ const TreasureChoice: React.FC<TreasureChoiceProps> = ({
   const renderItemCard = (index: number) => {
     const choice = treasure.choices[index];
     const isRevealed = treasure.isRevealed;
-    const isSelected = selectedIndex === index;
     const isHovered = isHovering === index;
 
     if (!isRevealed) {
@@ -218,8 +207,7 @@ const TreasureChoice: React.FC<TreasureChoiceProps> = ({
           onMouseLeave={() => setIsHovering(null)}
           className={`
             ${cardBaseClass}
-            ${isSelected ? 'border-amber-400 ring-2 ring-amber-400/30 scale-[1.03]' : ''}
-            ${isHovered && !isSelected ? cardHoverClass : ''}
+            ${isHovered ? cardHoverClass : ''}
             ${choice.isArtifact ? 'ring-1 ring-purple-500/20' : ''}
           `}
         >
@@ -277,62 +265,6 @@ const TreasureChoice: React.FC<TreasureChoiceProps> = ({
           )}
         </button>
       </Tooltip>
-    );
-  };
-
-  // Render ryo option card - unified with item cards
-  const renderRyoCard = () => {
-    const isHovered = isHovering === 99;
-
-    return (
-      <button
-        type="button"
-        onClick={onSelectRyo}
-        onMouseEnter={() => setIsHovering(99)}
-        onMouseLeave={() => setIsHovering(null)}
-        className={`${cardBaseClass} ${isHovered ? cardHoverClass : ''}`}
-      >
-        {/* Decorative corner accents */}
-        <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-amber-600/30 rounded-tl-xl" />
-        <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-amber-600/30 rounded-tr-xl" />
-        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-amber-600/30 rounded-bl-xl" />
-        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-amber-600/30 rounded-br-xl" />
-
-        {/* Card number */}
-        <div className={cardNumberClass}>{treasure.choices.length + 1}</div>
-
-        {/* Card content */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-          {/* Coin icon with glow */}
-          <div className="relative">
-            <div className="absolute inset-0 blur-xl bg-yellow-500/20 rounded-full scale-150" />
-            <Coins className="relative w-12 h-12 text-yellow-500" />
-          </div>
-
-          {/* Amount */}
-          <div className="text-yellow-400 text-3xl font-bold tracking-tight">
-            {treasure.ryoBonus}
-          </div>
-
-          {/* Label */}
-          <div className="text-yellow-600/80 text-xs uppercase tracking-[0.15em] font-medium">
-            Ryō
-          </div>
-
-          {/* Divider */}
-          <div className="w-12 h-px bg-gradient-to-r from-transparent via-yellow-600/40 to-transparent my-1" />
-
-          {/* Subtitle */}
-          <div className="text-zinc-500 text-[10px]">
-            Take gold instead
-          </div>
-        </div>
-
-        {/* Bottom glow on hover */}
-        {isHovered && (
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-yellow-500/50 to-transparent" />
-        )}
-      </button>
     );
   };
 
@@ -541,7 +473,6 @@ const TreasureChoice: React.FC<TreasureChoiceProps> = ({
         <>
           <div className="flex flex-row justify-center items-stretch gap-5 mb-10">
             {treasure.choices.map((_, index) => renderItemCard(index))}
-            {treasure.isRevealed && renderRyoCard()}
           </div>
 
           {/* Action Buttons for Locked Chest */}
@@ -622,7 +553,7 @@ const TreasureChoice: React.FC<TreasureChoiceProps> = ({
       {/* Keyboard hints */}
       <div className="mt-8 text-center text-zinc-700 text-[10px] uppercase tracking-wider">
         {isLockedChest && treasure.isRevealed && (
-          <span>[1-{treasure.choices.length}] Select item • [{treasure.choices.length + 1}] Take Ryō</span>
+          <span>[1-{treasure.choices.length}] Select item</span>
         )}
       </div>
     </div>

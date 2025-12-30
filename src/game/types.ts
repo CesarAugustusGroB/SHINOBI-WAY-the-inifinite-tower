@@ -1086,6 +1086,13 @@ export interface TreasureHunt {
   mapId: string;                   // Unique per location
 }
 
+export interface DiceRollResult {
+  type: 'trap' | 'nothing' | 'piece';
+  damage?: number;           // Only for trap
+  piecesCollected?: number;  // Only for piece
+  piecesRequired?: number;   // Only for piece
+}
+
 export interface InfoGatheringActivity {
   intelGain: number;        // Intel percentage gained (default 25)
   flavorText: string;       // Description of how intel is gathered

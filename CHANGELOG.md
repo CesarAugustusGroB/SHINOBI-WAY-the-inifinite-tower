@@ -4,6 +4,10 @@ All notable changes to SHINOBI WAY: THE INFINITE TOWER will be documented in thi
 
 ## [Unreleased]
 
+### Changed
+
+- Remove Ryo option from revealed treasure choices (players now pick only from items)
+
 ## 2025-12-29
 
 ### Added
