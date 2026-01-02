@@ -360,6 +360,37 @@ Each region has its own `baseDifficulty` that scales with progression.
 - Clan stats: `src/game/constants/index.ts` (CLAN_STATS, CLAN_GROWTH)
 - Enemy scaling: `src/game/systems/EnemySystem.ts`
 
+### Adding a Custom Art Style
+
+Custom art styles for the Asset Companion are stored in `src/config/artStyles/`.
+
+1. Create a style file in `src/config/artStyles/`:
+
+```typescript
+// src/config/artStyles/dark-fantasy.ts
+import type { StylePreset } from '../assetCompanionConfig';
+
+export const darkFantasyStyle: StylePreset = {
+  id: 'dark-fantasy',
+  name: 'Dark Fantasy',
+  description: 'Gritty medieval fantasy with muted colors',
+  category: 'anime',  // 'anime' | 'pixel' | 'stylized' | 'icon' | 'portrait' | 'ui'
+  promptTemplate: `Dark fantasy style with muted earth tones...`,
+};
+```
+
+1. Add to `src/config/artStyles/index.ts`:
+
+```typescript
+import { darkFantasyStyle } from './dark-fantasy';
+
+export const CUSTOM_STYLES: StylePreset[] = [
+  darkFantasyStyle,
+];
+```
+
+The style will automatically appear in the Asset Companion since `STYLE_PRESETS` merges built-in + custom styles.
+
 ## Important Patterns
 
 ### Do This
@@ -411,6 +442,10 @@ The project has specialized skills in `.claude/skills/` for common tasks:
 | `combat-system-creator` | Modifying combat mechanics (CombatCalculationSystem + CombatWorkflowSystem) |
 | `combat-ui-pattern-a` | Implementing Split-Panel Combat UI components |
 | `exploration-creator` | Adding regions, locations, rooms, or intel missions |
+| `art-style-creator` | Creating art style definitions for Asset Companion |
+| `frontend-design` | Building distinctive, production-grade frontend interfaces |
+| `nano-banana-builder` | Building web apps with Google Gemini image generation APIs |
+| `threejs-builder` | Creating Three.js 3D web applications and scenes |
 | `skill-creator` | Creating new Claude Code skills |
 
 ## Git Workflow

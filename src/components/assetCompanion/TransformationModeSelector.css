@@ -1,0 +1,138 @@
+/**
+ * TransformationModeSelector Styles
+ * Radio-style buttons for selecting transformation mode
+ */
+
+.transformation-mode-selector {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.transformation-mode-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 100px;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #1a1a1d 0%, #151517 100%);
+  border: 1px solid #2a2a2e;
+  border-radius: 0.5rem;
+  color: #a0a0a5;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.transformation-mode-option:hover:not(:disabled) {
+  background: linear-gradient(135deg, #222225 0%, #1a1a1d 100%);
+  color: #f0f0f0;
+  border-color: #3a3a40;
+  transform: translateY(-1px);
+}
+
+.transformation-mode-option:focus-visible {
+  outline: 2px solid #f59e0b;
+  outline-offset: 2px;
+}
+
+.transformation-mode-option.selected {
+  background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+  border-color: #f59e0b;
+  color: #fcd34d;
+  box-shadow:
+    0 0 16px rgba(245, 158, 11, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+.transformation-mode-option:disabled {
+  cursor: not-allowed;
+  background: linear-gradient(135deg, #141416 0%, #101012 100%);
+  border-color: #222225;
+  color: #505055;
+}
+
+/* Icon base styles */
+.transformation-mode-option__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+/* Icon color overrides for states */
+.transformation-mode-option.selected .transformation-mode-option__icon {
+  color: #fcd34d;
+}
+
+.transformation-mode-option:disabled .transformation-mode-option__icon {
+  color: #454548;
+}
+
+.transformation-mode-option__label {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Vertical layout variant */
+.transformation-mode-selector--vertical {
+  flex-direction: column;
+}
+
+.transformation-mode-selector--vertical .transformation-mode-option {
+  min-width: unset;
+  flex: none;
+}
+
+/* Compact variant */
+.transformation-mode-selector--compact .transformation-mode-option {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  min-width: 80px;
+}
+
+.transformation-mode-selector--compact .transformation-mode-option__icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Radio style variant (circles instead of full highlight) */
+.transformation-mode-selector--radio .transformation-mode-option {
+  position: relative;
+  padding-left: 2.25rem;
+  background: transparent;
+  border: none;
+}
+
+.transformation-mode-selector--radio .transformation-mode-option::before {
+  content: '';
+  position: absolute;
+  left: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  border: 2px solid #555;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.transformation-mode-selector--radio .transformation-mode-option.selected::before {
+  border-color: #f59e0b;
+  background: #f59e0b;
+  box-shadow: inset 0 0 0 3px #1a1a1a;
+}
+
+.transformation-mode-selector--radio .transformation-mode-option:hover:not(:disabled)::before {
+  border-color: #888;
+}
+
+.transformation-mode-selector--radio .transformation-mode-option:disabled::before {
+  border-color: #333;
+}

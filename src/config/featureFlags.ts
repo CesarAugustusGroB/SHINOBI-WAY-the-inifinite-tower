@@ -73,6 +73,9 @@ export const FeatureFlags = {
 
   /** Enable development-only features (ImageTest, etc.) */
   DEV_MODE: process.env.NODE_ENV !== 'production',
+
+  /** Enable Asset Companion tool for generating game assets */
+  ENABLE_ASSET_COMPANION: true,
 } as const;
 
 export const LaunchProperties = {

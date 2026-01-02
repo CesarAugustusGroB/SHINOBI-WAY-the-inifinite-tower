@@ -18,7 +18,7 @@ export enum GameState {
   SCROLL_DISCOVERY, // Finding jutsu scrolls in exploration
   GAME_OVER,
   GUIDE,
-  IMAGE_TEST,       // AI image generation test page
+  ASSET_COMPANION,  // AI asset generation companion tool
   // Region exploration system states
   REGION_MAP,       // Region overview showing all locations
   LOCATION_EXPLORE, // Inside a location (10-room diamond exploration)

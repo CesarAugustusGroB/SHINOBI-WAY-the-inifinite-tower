@@ -99,7 +99,7 @@ import TreasureHuntRewardScene from './scenes/TreasureHuntReward';
 import DiceRollResultModal from './components/modals/DiceRollResultModal';
 import GameOver from './scenes/GameOver';
 import GameGuide from './scenes/GameGuide';
-import ImageTest from './scenes/ImageTest';
+import AssetCompanion from './scenes/AssetCompanion';
 import { attemptEliteEscape } from './game/systems/EliteChallengeSystem';
 // Shared components
 import ErrorBoundary from './components/shared/ErrorBoundary';
@@ -1766,7 +1766,7 @@ const App: React.FC = () => {
         onDifficultyChange={setDifficulty}
         onEnter={() => setGameState(GameState.CHAR_SELECT)}
         onGuide={() => setGameState(GameState.GUIDE)}
-        onImageTest={FeatureFlags.DEV_MODE ? () => setGameState(GameState.IMAGE_TEST) : undefined}
+        onAssetCompanion={FeatureFlags.ENABLE_ASSET_COMPANION ? () => setGameState(GameState.ASSET_COMPANION) : undefined}
       />
     );
   }
@@ -1775,8 +1775,8 @@ const App: React.FC = () => {
     return <GameGuide onBack={() => setGameState(GameState.MENU)} />;
   }
 
-  if (gameState === GameState.IMAGE_TEST && FeatureFlags.DEV_MODE) {
-    return <ImageTest onBack={() => setGameState(GameState.MENU)} />;
+  if (gameState === GameState.ASSET_COMPANION && FeatureFlags.ENABLE_ASSET_COMPANION) {
+    return <AssetCompanion onBack={() => setGameState(GameState.MENU)} />;
   }
 
   if (gameState === GameState.CHAR_SELECT) {

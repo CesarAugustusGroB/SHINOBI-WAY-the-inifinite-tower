@@ -1,206 +1,219 @@
-# Feature Plan: Dual Treasure System
+# Feature Plan: AI Asset Companion Tool
 
-## Features Overview
+> Converting the AI Image Generator Test into a full companion tool for building game assets
 
-| Feature | Description |
-|---------|-------------|
-| **Locked Treasure** | Choice-based treasure - pick blind (random) OR spend chakra to reveal all options then choose |
-| **Treasure Hunter** | Multi-part map collection across treasure rooms in a location, combat/dice rolls for pieces, scaled rewards |
+## Requirements Summary
 
-**Key Design:** Both systems share the same treasure icon. Player doesn't know which type until entering the activity (surprise element).
+- **Location:** Separate standalone scene from main menu
+- **Editing:** AI-only transformations (no manual canvas editing)
+- **Art Styles:** Both presets + custom prompts
+- **Transparency:** AI background removal using Gemini
+- **Export:** Multiple formats (PNG, WebP, JPG, base64)
+- **Integration:** Direct save to game asset folders
+- **Categories:** All game assets (characters, items, UI, backgrounds, icons)
 
 ---
 
-## Feature 1: Locked Treasure Chests
-
-### Mechanics
+## UI Layout
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    TREASURE FOUND                           │
-├─────────────────────────────────────────────────────────────┤
-│   [?]  [?]  [?]     ← 3 hidden choices                     │
-│                                                             │
-│   [A] Pick Randomly (Free)     → Get random item           │
-│   [B] Reveal All (15 Chakra)   → See all, then choose      │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Flow:**
-1. Generate 2-3 item choices (based on wealth level)
-2. Display as hidden cards by default
-3. Player can:
-   - **Pick blind** → Random selection from choices (free)
-   - **Spend chakra** → Reveal all items, then freely choose one
-
-**Chakra Cost Formula:**
-```
-revealCost = 10 + (floor * 2) + (choiceCount * 5)
-```
-
-### Types
-
-```typescript
-interface TreasureActivity {
-  choices: TreasureChoice[];
-  ryoBonus: number;
-  revealCost: number;        // Chakra cost to reveal
-  isRevealed: boolean;       // Has player revealed?
-  selectedIndex: number | null;
-  collected: boolean;
-}
-
-interface TreasureChoice {
-  item: Item;
-  isArtifact: boolean;
-}
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        ASSET COMPANION TOOL                    [Back to Menu]│
+├─────────────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────┐    ┌─────────────────────────────────────────────┐ │
+│  │   INPUT SOURCE      │    │              PREVIEW                        │ │
+│  │ ○ Generate New      │    │  ┌─────────────┐    ┌─────────────┐        │ │
+│  │ ○ Upload Image      │    │  │   SOURCE    │ → │   OUTPUT    │        │ │
+│  │ ○ Paste Clipboard   │    │  │  (drag &    │    │ (generated) │        │ │
+│  │ [📁 Upload] [📋 Paste]│    │  │   drop)     │    │             │        │ │
+│  └─────────────────────┘    │  └─────────────┘    └─────────────┘        │ │
+│                             └─────────────────────────────────────────────┘ │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │   TRANSFORMATION                                                        ││
+│  │ ○ Generate from Prompt   ○ Style Transfer   ○ Remove Background        ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │   STYLE PRESETS                                                         ││
+│  │  [Naruto Anime] [Pixel 16] [Pixel 32] [Chibi] [Cel-Shade] [Icon Flat]  ││
+│  │  [Portrait] [UI Element] [+ Custom Prompt]                              ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │   PROMPT: [                                                           ] ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│  ┌───────────────────┐ ┌───────────────────┐ ┌───────────────────────────┐ │
+│  │  SIZE: ○1K ●2K ○4K│ │ CATEGORY: ▼Enemies│ │ FORMAT: PNG ▼  Name: [  ]│ │
+│  └───────────────────┘ └───────────────────┘ └───────────────────────────┘ │
+│  [  🎨 GENERATE  ]              [  💾 DOWNLOAD  ]       [ 📋 COPY BASE64 ] │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │   RECENT: [🖼️] [🖼️] [🖼️] [🖼️] [🖼️]  (click to re-use)                  ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Feature 2: Treasure Hunter Maps
+## Files to Create
 
-### Mechanics
-
-**Trigger:** First treasure room in a location starts the Treasure Hunt
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│          🗺️ TREASURE HUNTER INITIATED                       │
-├─────────────────────────────────────────────────────────────┤
-│   An ancient map fragment glows before you...               │
-│                                                             │
-│   Map Progress: [■□□□] 1/4 pieces                          │
-│                                                             │
-│   [A] Fight Guardian → Guaranteed piece + normal treasure   │
-│   [B] Roll the Dice  → 70% piece, 30% trap/nothing         │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**System Flow:**
-1. First treasure room → Initialize map hunt (2-4 pieces required based on danger)
-2. Activating hunt → Increases treasure room probability for this location
-3. Each treasure room offers: Combat OR Dice Roll for map piece
-4. Complete map → Bonus reward screen based on pieces + wealth
-
-### Map Piece Requirements
-
-| Danger Level | Required Pieces |
-|--------------|-----------------|
-| 1-2 | 2 pieces |
-| 3-4 | 3 pieces |
-| 5-7 | 4 pieces |
-
-### Treasure Probability Boost
-
-```typescript
-// When treasure hunt active
-baseTreasureChance = 0.25;  // 25% normally
-huntBoostChance = 0.25;     // +25% during hunt = 50% total
-```
-
-### Combat vs Dice Roll
-
-| Choice | Outcome |
-|--------|---------|
-| **Combat** | Fight scaled mini-boss → Guaranteed piece + normal treasure |
-| **Dice Roll** | Roll 1-100: 1-30 = trap (damage), 31-70 = nothing, 71-100 = piece |
-
-**Trap Damage Formula:** `5% + (dangerLevel * 3)%` of max HP
-
-| Danger | Trap Damage |
-|--------|-------------|
-| 1 | 8% max HP |
-| 4 | 17% max HP |
-| 7 | 26% max HP |
-
-### Map Completion Rewards
-
-| Pieces | Wealth 1-2 | Wealth 3-4 | Wealth 5-6 | Wealth 7 |
-|--------|------------|------------|------------|----------|
-| 2 | Component + 100 ryo | RARE Component + 150 ryo | Skill Scroll | Artifact |
-| 3 | RARE Component + 150 ryo | Skill Scroll + 200 ryo | Artifact | Artifact + Scroll |
-| 4 | Skill Scroll + 200 ryo | Artifact | Artifact + 300 ryo | Artifact + Scroll + 500 ryo |
-
-### Types
-
-```typescript
-interface TreasureHunt {
-  isActive: boolean;
-  requiredPieces: number;
-  collectedPieces: number;
-  mapId: string;  // Unique per location
-}
-
-// Add to BranchingFloor
-interface BranchingFloor {
-  // ... existing
-  treasureHunt: TreasureHunt | null;
-  treasureProbabilityBoost: number;
-}
-```
-
----
+| File | Purpose |
+|------|---------|
+| `src/scenes/AssetCompanion/AssetCompanion.tsx` | Main scene orchestrator |
+| `src/scenes/AssetCompanion/AssetCompanion.css` | Scene styling |
+| `src/components/assetCompanion/ImageInputPanel.tsx` | Upload, drag-drop, paste |
+| `src/components/assetCompanion/StylePresetSelector.tsx` | Style preset grid |
+| `src/components/assetCompanion/ExportPanel.tsx` | Export format & download |
+| `src/components/assetCompanion/ImagePreview.tsx` | Before/after display |
+| `src/hooks/useAssetGeneration.ts` | Enhanced generation hook |
+| `src/config/assetCompanionConfig.ts` | Presets & categories |
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/game/types.ts` | TreasureActivity, TreasureChoice, TreasureHunt, BranchingFloor |
-| `src/game/systems/LocationSystem.ts` | generateTreasureActivity, treasure hunt logic |
-| `src/hooks/useActivityHandler.ts` | Handle reveal/blind pick, map piece collection |
-| `src/scenes/TreasureChoice.tsx` | **CREATE** - New scene for treasure UI |
-| `src/scenes/TreasureHuntReward.tsx` | **CREATE** - Map completion reward screen |
-| `src/App.tsx` | GameState.TREASURE, treasure handlers |
-| `src/game/constants/roomTypes.ts` | Treasure probability config |
+| `src/game/types.ts` | Add `ASSET_COMPANION` to GameState enum |
+| `src/config/featureFlags.ts` | Add `ENABLE_ASSET_COMPANION` flag |
+| `src/scenes/MainMenu.tsx` | Add Asset Companion button (dev mode) |
+| `src/App.tsx` | Add routing for ASSET_COMPANION state |
+
+## Files to Delete
+
+| File | Reason |
+|------|--------|
+| `src/scenes/ImageTest.tsx` | Replaced by AssetCompanion |
 
 ---
 
-## Implementation Steps
+## Implementation Phases
 
-### Phase 1: Types & Data
+### Phase 1: Foundation
 
-1. Add `TreasureChoice` interface
-2. Update `TreasureActivity` interface
-3. Add `TreasureHunt` interface
-4. Add `treasureHunt` to `BranchingFloor`
-5. Add `GameState.TREASURE` and `GameState.TREASURE_HUNT_REWARD`
+1. Add `ASSET_COMPANION` to GameState enum in `types.ts`
+2. Add `ENABLE_ASSET_COMPANION` feature flag
+3. Create `assetCompanionConfig.ts` with style presets:
+   - Naruto Anime Style
+   - Pixel Art (16x16, 32x32, 64x64)
+   - Chibi/SD Style
+   - Cel-Shaded
+   - Icon Flat Style
+   - Portrait Frame
+   - UI Element Style
+4. Create empty `AssetCompanion.tsx` scaffold
+5. Wire routing in `App.tsx` and button in `MainMenu.tsx`
 
-### Phase 2: Generation Logic
+### Phase 2: Generation Hook
 
-1. Rewrite `generateTreasureActivity()` for choice-based system
-2. Add `initializeTreasureHunt()` function
-3. Add `getTreasureHuntReward()` function
-4. Modify room generation to boost treasure probability when hunt active
+1. Create `useAssetGeneration.ts` hook with methods:
+   - `generateFromPrompt(prompt, options)` - Text-to-image
+   - `transformWithStyle(sourceImage, stylePreset)` - Style transfer
+   - `removeBackground(sourceImage)` - AI background removal
+2. Support image-to-image via Gemini contents array:
+   ```typescript
+   contents: { parts: [{ text: prompt }, { inlineData: { data, mimeType } }] }
+   ```
 
-### Phase 3: UI Components
+### Phase 3: Input System
 
-**Use `/frontend-design` skill for all UI work**
+1. Create `ImageInputPanel.tsx` with:
+   - File input (`<input type="file" accept="image/*">`)
+   - Drag-and-drop zone with `onDragOver`/`onDrop`
+   - Clipboard paste via `navigator.clipboard.read()`
+2. Convert uploaded images to base64 for API
 
-1. Create `TreasureChoice.tsx` scene (blind/reveal mechanics)
-2. Create `TreasureHuntReward.tsx` scene (map completion)
-3. Add map progress indicator component
+### Phase 4: Style & Transformation UI
 
-### Phase 4: Activity Handler
+1. Create `StylePresetSelector.tsx` - clickable preset cards
+2. Add transformation mode radio buttons:
+   - Generate from Prompt
+   - Style Transfer
+   - Remove Background
+3. Wire style selection to prompt templates
 
-1. Handle treasure reveal (chakra cost)
-2. Handle blind selection (random)
-3. Handle map piece combat/dice roll
-4. Handle map completion trigger
+### Phase 5: Export System
+
+1. Create `ExportPanel.tsx` with:
+   - Format selector (PNG, WebP, JPG, base64)
+   - Auto-generated filename based on category
+   - Download via `<a download>` element
+   - Copy base64 to clipboard
+2. Asset categories for organization:
+   - Enemies & Bosses
+   - Characters & NPCs
+   - Items & Equipment
+   - UI Elements
+   - Backgrounds
+   - Icons
+
+### Phase 6: Polish
+
+1. Create `ImagePreview.tsx` with source/output comparison
+2. Add generation history (max 10 items, clickable to re-use)
+3. Loading states and error handling
+4. Match existing game theme styling
+5. Delete `ImageTest.tsx`
+
+---
+
+## Style Preset Prompts
+
+```typescript
+const PRESETS = {
+  'naruto-anime': `Dark fantasy, gritty anime style. High contrast,
+    detailed, atmospheric lighting. Naruto-inspired aesthetic.`,
+
+  'pixel-16': `16x16 pixel art with limited color palette.
+    Clean pixel edges, no anti-aliasing, retro game aesthetic.`,
+
+  'chibi-sd': `Chibi/super-deformed style with large head, small body,
+    cute proportions. Expressive eyes, simplified details.`,
+
+  'cel-shaded': `Cel-shaded 3D render style. Bold outlines,
+    flat color regions, anime-influenced shading.`,
+
+  'icon-flat': `Flat design icon style. Minimal, clean lines,
+    limited colors, no gradients, vector-like.`,
+
+  'portrait-frame': `Character portrait for game UI. Close-up face/bust,
+    dramatic lighting, dark background.`,
+
+  'background-removal': `Remove the background completely, making it
+    transparent. Keep only the main subject with clean edges.`
+};
+```
+
+---
+
+## Technical Notes
+
+**Gemini Image-to-Image:**
+- Same model (`gemini-3-pro-image-preview`) supports both modes
+- Send image as `inlineData` part alongside text prompt
+
+**Background Removal Limitation:**
+- Gemini doesn't produce true transparent PNGs
+- Outputs image with solid/clean background for easy manual cleanup
+- Document this limitation in UI
+
+**Memory Management:**
+- Limit history to 10 items
+- Clear old base64 data when not needed
 
 ---
 
 ## Legacy Code Removal
 
-**Code to Remove:**
-- `src/game/systems/LocationSystem.ts`: Old `generateTreasureActivity()` (lines 490-505)
-- `src/game/types.ts`: Old `TreasureActivity` interface (replace entirely)
+**Delete entirely:**
 
-**Code to Update:**
-- `src/hooks/useActivityHandler.ts`: Replace treasure case handler
-- Any direct references to `treasure.items` array (now `treasure.choices`)
+- `src/scenes/ImageTest.tsx` - All functionality migrated to AssetCompanion
 
-**Migration Notes:**
-- Old treasure format: `{ items: Item[], ryo: number, collected: boolean }`
-- New treasure format: `{ choices: TreasureChoice[], ryoBonus: number, revealCost: number, ... }`
-- Existing saves will need migration or fresh start
+**Remove from App.tsx:**
+
+- `GameState.IMAGE_TEST` case (lines ~1779)
+- `onImageTest` callback to MainMenu
+
+**Remove from MainMenu.tsx:**
+
+- "AI Image Generator Test" button
+- `onImageTest` prop
+
+**Update types.ts:**
+
+- Remove `IMAGE_TEST` from GameState enum (replaced by `ASSET_COMPANION`)
