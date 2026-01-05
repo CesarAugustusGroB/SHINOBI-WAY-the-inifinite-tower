@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HELP_TEXT } from '../game/constants/helpText';
+import { HELP_TEXT } from '../../game/constants/helpText';
 import { ArrowLeft, Flame, Wind, Zap, Mountain, Droplet, Sword, Brain, Sparkles, Shield, Map, MapPin, Box, Hammer, Target, TreePine } from 'lucide-react';
 
 interface GameGuideProps {

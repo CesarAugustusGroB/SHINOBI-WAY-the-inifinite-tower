@@ -1,25 +1,59 @@
 /**
  * Asset Companion Tool Configuration
  *
- * Style presets, asset categories, and prompt templates for AI image generation.
+ * Configuration for AI image generation tool.
+ * - Asset presets (WHAT to create) are loaded from ./assetPresets/
+ * - Art styles (HOW it looks) are loaded from ./artStyles/
+ * - Prompt pipeline: [User Prompt] + [Asset Preset] + [Art Style] + [Output Hints]
  */
 
 import { CUSTOM_STYLES } from './artStyles';
+import { ASSET_PRESETS } from './assetPresets';
+
+// Re-export for consumers
+export { ASSET_PRESETS };
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export type StyleCategory = 'anime' | 'pixel' | 'stylized' | 'icon' | 'portrait' | 'ui';
+/** Supported aspect ratios for generated images */
+export type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '2:3' | '3:2' | '3:1';
 
-export interface StylePreset {
+/** Art style categories (no pixel art) */
+export type ArtStyleCategory = 'anime' | 'stylized' | 'icon' | 'portrait' | 'ui';
+
+/**
+ * Asset Preset - Defines WHAT to create (compositional, format-focused)
+ * Style-agnostic: only describes framing, aspect ratio, and output requirements
+ */
+export interface AssetPreset {
   id: string;
   name: string;
   description: string;
-  category: StyleCategory;
+  /** Aspect ratio for the generated image */
+  aspectRatio: AspectRatio;
+  /** Recommended minimum resolution (e.g., "512x512", "1024x576") */
+  recommendedResolution: string;
+  /** Whether the asset typically needs transparency */
+  requiresTransparency: boolean;
+  /** Compositional prompt - describes framing, layout, NOT visual style */
   promptTemplate: string;
-  /** Optional size override for pixel art styles */
-  sizeOverride?: { width: number; height: number };
+  /** Optional output hints appended at the end */
+  outputHints?: string;
+}
+
+/**
+ * Art Style - Defines HOW it looks (purely aesthetic)
+ * Describes visual treatment: colors, rendering technique, mood
+ */
+export interface ArtStyle {
+  id: string;
+  name: string;
+  description: string;
+  category: ArtStyleCategory;
+  /** Visual style prompt - colors, rendering technique, mood */
+  promptTemplate: string;
 }
 
 export type AssetCategoryId = 'enemies' | 'characters' | 'items' | 'ui' | 'backgrounds' | 'icons';
@@ -40,105 +74,11 @@ export type ImageSize = '1K' | '2K' | '4K';
 export type ExportFormat = 'png' | 'webp' | 'jpg' | 'base64';
 
 // ============================================================================
-// STYLE PRESETS
+// ART STYLES (HOW it looks - purely aesthetic)
 // ============================================================================
 
-const BUILT_IN_STYLES: StylePreset[] = [
-  // Anime Styles
-  {
-    id: 'naruto-anime',
-    name: 'Naruto Anime',
-    description: 'Dark fantasy, gritty anime style matching game aesthetics',
-    category: 'anime',
-    promptTemplate: `A dark fantasy, gritty anime style. High contrast, detailed,
-atmospheric lighting. Naruto-inspired aesthetic with dramatic shadows and
-intense expressions. Professional anime quality.`
-  },
-  {
-    id: 'chibi-sd',
-    name: 'Chibi/SD',
-    description: 'Super-deformed cute style with big heads',
-    category: 'stylized',
-    promptTemplate: `Chibi/super-deformed style with large head, small body,
-cute proportions. Expressive oversized eyes, simplified details,
-kawaii aesthetic. Clean lines and vibrant colors.`
-  },
-  {
-    id: 'cel-shaded',
-    name: 'Cel-Shaded',
-    description: '3D cel-shaded anime render look',
-    category: 'stylized',
-    promptTemplate: `Cel-shaded 3D render style. Bold black outlines,
-flat color regions with sharp shadow cutoffs, anime-influenced shading.
-Similar to Guilty Gear or Dragon Ball FighterZ visuals.`
-  },
-
-  // Pixel Art Styles
-  {
-    id: 'pixel-16',
-    name: 'Pixel 16x16',
-    description: 'Retro 16x16 pixel art icons',
-    category: 'pixel',
-    promptTemplate: `16x16 pixel art style with extremely limited color palette (max 8 colors).
-Clean pixel edges, absolutely no anti-aliasing, retro 8-bit game aesthetic.
-Each pixel must be clearly defined. NES/Game Boy style.`,
-    sizeOverride: { width: 16, height: 16 }
-  },
-  {
-    id: 'pixel-32',
-    name: 'Pixel 32x32',
-    description: 'Detailed 32x32 pixel art sprites',
-    category: 'pixel',
-    promptTemplate: `32x32 pixel art with moderate detail and limited palette (max 16 colors).
-Clean pixels, SNES/GBA game sprite aesthetic. No smoothing or gradients.
-Sharp pixel edges, suitable for game icons and small sprites.`,
-    sizeOverride: { width: 32, height: 32 }
-  },
-  {
-    id: 'pixel-64',
-    name: 'Pixel 64x64',
-    description: 'High-detail 64x64 pixel art',
-    category: 'pixel',
-    promptTemplate: `64x64 pixel art with high detail. Clean pixel aesthetic,
-expanded palette (max 32 colors). Suitable for detailed game icons,
-character portraits, and item sprites. Modern indie pixel art style.`,
-    sizeOverride: { width: 64, height: 64 }
-  },
-
-  // Icon & UI Styles
-  {
-    id: 'icon-flat',
-    name: 'Flat Icon',
-    description: 'Minimal flat design game icons',
-    category: 'icon',
-    promptTemplate: `Flat design icon style. Minimal, clean geometric lines,
-very limited color palette (2-4 colors), no gradients, no shadows,
-vector-like appearance. Suitable for mobile game UI icons.`
-  },
-  {
-    id: 'ui-element',
-    name: 'UI Element',
-    description: 'Dark fantasy game UI components',
-    category: 'ui',
-    promptTemplate: `Game UI element style. Dark fantasy aesthetic with subtle depth,
-metallic or stone textures, subtle glow effects. Consistent with
-ninja/shinobi theme. Clean edges for easy integration.`
-  },
-
-  // Character Styles
-  {
-    id: 'portrait-frame',
-    name: 'Portrait',
-    description: 'Character portraits for game UI',
-    category: 'portrait',
-    promptTemplate: `Character portrait suitable for game UI. Close-up face or bust shot,
-dramatic lighting from the side, dark or neutral background for easy cutout.
-Anime style with detailed eyes and expression. High quality character art.`
-  },
-];
-
-/** All style presets: built-in + custom styles from artStyles/ */
-export const STYLE_PRESETS: StylePreset[] = [...BUILT_IN_STYLES, ...CUSTOM_STYLES];
+/** Art styles only from custom styles in artStyles/ */
+export const ART_STYLES: ArtStyle[] = CUSTOM_STYLES;
 
 // ============================================================================
 // ASSET CATEGORIES
@@ -186,17 +126,24 @@ export const DEFAULT_CONFIG = {
 // ============================================================================
 
 /**
- * Get a style preset by ID
+ * Get an art style by ID
  */
-export function getStylePreset(id: string): StylePreset | undefined {
-  return STYLE_PRESETS.find(preset => preset.id === id);
+export function getArtStyle(id: string): ArtStyle | undefined {
+  return ART_STYLES.find(style => style.id === id);
 }
 
 /**
- * Get all presets for a specific category
+ * Get all art styles for a specific category
  */
-export function getPresetsByCategory(category: StyleCategory): StylePreset[] {
-  return STYLE_PRESETS.filter(preset => preset.category === category);
+export function getArtStylesByCategory(category: ArtStyleCategory): ArtStyle[] {
+  return ART_STYLES.filter(style => style.category === category);
+}
+
+/**
+ * Get an asset preset by ID
+ */
+export function getAssetPreset(id: string): AssetPreset | undefined {
+  return ASSET_PRESETS.find(preset => preset.id === id);
 }
 
 /**

@@ -1,0 +1,224 @@
+/**
+ * ArtStyleSelector Styles
+ * Custom art style selection with preview
+ */
+
+.art-style-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Header */
+.art-style-selector__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #888;
+}
+
+.art-style-selector__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.art-style-selector__hint {
+  font-size: 0.625rem;
+  color: #555;
+  font-style: italic;
+}
+
+.art-style-selector__count {
+  margin-left: auto;
+  padding: 0.125rem 0.375rem;
+  background: #333;
+  border-radius: 0.25rem;
+  font-size: 0.625rem;
+  color: #888;
+}
+
+/* Style List */
+.art-style-selector__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+/* Style Cards */
+.art-style-card {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  background: #2a2a2a;
+  border: 1px solid #404040;
+  border-radius: 0.5rem;
+  color: #a0a0a0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.art-style-card:hover {
+  background: #333;
+  color: #fff;
+  border-color: #555;
+}
+
+.art-style-card:focus-visible {
+  outline: 2px solid #f59e0b;
+  outline-offset: 2px;
+}
+
+.art-style-card.selected {
+  background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+  border-color: #f59e0b;
+  color: #fcd34d;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+}
+
+.art-style-card__icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.375rem;
+}
+
+.art-style-card.selected .art-style-card__icon {
+  background: rgba(252, 211, 77, 0.2);
+}
+
+.art-style-card__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.art-style-card__name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.art-style-card__category {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.6;
+}
+
+.art-style-card__check {
+  flex-shrink: 0;
+  color: #fcd34d;
+}
+
+/* Preview Panel */
+.art-style-selector__preview {
+  padding: 0.75rem;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 0.375rem;
+}
+
+.art-style-selector__preview-header {
+  margin-bottom: 0.5rem;
+}
+
+.art-style-selector__preview-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #f59e0b;
+}
+
+.art-style-selector__preview-description {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.75rem;
+  color: #999;
+  line-height: 1.4;
+}
+
+.art-style-selector__preview-details {
+  cursor: pointer;
+}
+
+.art-style-selector__preview-details summary {
+  font-size: 0.6875rem;
+  color: #666;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.art-style-selector__preview-details summary:hover {
+  color: #888;
+}
+
+.art-style-selector__preview-prompt {
+  margin: 0.5rem 0 0 0;
+  padding: 0.5rem;
+  background: #1a1a1a;
+  border-radius: 0.25rem;
+  font-size: 0.625rem;
+  font-family: 'SF Mono', Monaco, monospace;
+  color: #888;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Clear Button */
+.art-style-selector__clear {
+  align-self: flex-start;
+  padding: 0.375rem 0.75rem;
+  background: transparent;
+  border: 1px solid #555;
+  border-radius: 0.25rem;
+  color: #888;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.art-style-selector__clear:hover {
+  background: rgba(220, 38, 38, 0.2);
+  border-color: #dc2626;
+  color: #fca5a5;
+}
+
+/* Empty State */
+.art-style-selector--empty {
+  opacity: 0.7;
+}
+
+.art-style-selector__empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  background: #1a1a1a;
+  border: 1px dashed #333;
+  border-radius: 0.5rem;
+  color: #555;
+  text-align: center;
+}
+
+.art-style-selector__empty-state p {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.art-style-selector__empty-state span {
+  font-size: 0.6875rem;
+  font-family: 'SF Mono', Monaco, monospace;
+}

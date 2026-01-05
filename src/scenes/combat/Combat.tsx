@@ -10,17 +10,17 @@ import {
   Rarity,
   ActionType,
   TurnPhaseState,
-} from '../game/types';
-import StatBar from '../components/shared/StatBar';
-import Tooltip from '../components/shared/Tooltip';
-import { SkillCard } from '../components/combat/SkillCard';
-import { CinematicViewscreen } from '../components/layout/CinematicViewscreen';
-import PlayerHUD from '../components/character/PlayerHUD';
-import FloatingText, { FloatingTextItem, FloatingTextType } from '../components/combat/FloatingText';
-import { FeatureFlags } from '../config/featureFlags';
+} from '../../game/types';
+import StatBar from '../../components/shared/StatBar';
+import Tooltip from '../../components/shared/Tooltip';
+import { SkillCard } from '../../components/combat/SkillCard';
+import { CinematicViewscreen } from '../../components/layout/CinematicViewscreen';
+import PlayerHUD from '../../components/character/PlayerHUD';
+import FloatingText, { FloatingTextItem, FloatingTextType } from '../../components/combat/FloatingText';
+import { FeatureFlags } from '../../config/featureFlags';
 import { Hourglass, Zap, ZapOff } from 'lucide-react';
-import { calculateDamage, formatPercent } from '../game/systems/StatSystem';
-import { getElementEffectiveness } from '../game/constants';
+import { calculateDamage, formatPercent } from '../../game/systems/StatSystem';
+import { getElementEffectiveness } from '../../game/constants';
 import {
   formatScalingStat,
   getStatColor,
@@ -39,7 +39,7 @@ import {
   getAttackMethodDescription,
   getDamagePropertyDescription,
   getDamageTypeDescription,
-} from '../game/utils/tooltipFormatters';
+} from '../../game/utils/tooltipFormatters';
 
 export interface CombatRef {
   spawnFloatingText: (target: 'enemy' | 'player', text: string, type: FloatingTextType) => void;

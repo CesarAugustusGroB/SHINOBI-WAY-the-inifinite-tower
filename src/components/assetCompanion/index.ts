@@ -2,9 +2,13 @@
 export { default as ImageInputPanel } from './ImageInputPanel';
 export type { ImageInputPanelProps, InputMode } from './ImageInputPanel';
 
-// Style Preset Selector
-export { default as StylePresetSelector } from './StylePresetSelector';
-export type { StylePresetSelectorProps } from './StylePresetSelector';
+// Asset Preset Selector (WHAT to create)
+export { default as AssetPresetSelector } from './AssetPresetSelector';
+export type { AssetPresetSelectorProps } from './AssetPresetSelector';
+
+// Art Style Selector (HOW it looks)
+export { default as ArtStyleSelector } from './ArtStyleSelector';
+export type { ArtStyleSelectorProps } from './ArtStyleSelector';
 
 // Transformation Mode Selector
 export { default as TransformationModeSelector } from './TransformationModeSelector';

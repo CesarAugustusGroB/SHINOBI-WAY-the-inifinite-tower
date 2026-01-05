@@ -21,7 +21,7 @@ import {
   processUpkeep,
 } from '../game/systems/CombatWorkflowSystem';
 import { ApproachResult, getCombatModifiers } from '../game/systems/ApproachSystem';
-import { CombatRef } from '../scenes/Combat';
+import { CombatRef } from '../scenes/combat';
 import { TIMING } from '../game/config';
 import {
   logSceneEnter,

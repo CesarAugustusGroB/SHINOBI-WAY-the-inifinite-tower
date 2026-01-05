@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react';
 import {
-  type StylePreset,
+  type AssetPreset,
+  type ArtStyle,
+  type AspectRatio,
   type ImageSize,
   TRANSFORMATION_PROMPTS,
 } from '../config/assetCompanionConfig';
@@ -29,14 +31,15 @@ export interface UseAssetGenerationOptions {
 
 export interface GenerateFromPromptOptions {
   prompt: string;
-  stylePreset?: StylePreset | null;
+  assetPreset?: AssetPreset | null;
+  artStyle?: ArtStyle | null;
   imageSize?: ImageSize;
-  aspectRatio?: '1:1' | '16:9' | '9:16' | '4:3';
+  aspectRatio?: AspectRatio;
 }
 
 export interface TransformWithStyleOptions {
   sourceImage: string;
-  stylePreset: StylePreset;
+  artStyle: ArtStyle;
   additionalPrompt?: string;
   imageSize?: ImageSize;
 }
@@ -96,16 +99,42 @@ function extractImageUrl(response: unknown): string | null {
 }
 
 /**
- * Build the effective prompt combining style template and user prompt
+ * Input for the prompt pipeline
  */
-function buildEffectivePrompt(
-  userPrompt: string,
-  stylePreset: StylePreset | null | undefined
-): string {
-  if (stylePreset) {
-    return `${stylePreset.promptTemplate}\n\n${userPrompt}`.trim();
+interface PromptPipelineInput {
+  assetPreset: AssetPreset | null | undefined;
+  artStyle: ArtStyle | null | undefined;
+  userPrompt: string;
+}
+
+/**
+ * Build the effective prompt using the sequential pipeline:
+ * [User Prompt] + [Asset Preset] + [Art Style] + [Output Hints]
+ */
+function buildPromptPipeline(input: PromptPipelineInput): string {
+  const segments: string[] = [];
+
+  // Layer 1: User prompt (specific subject/content to generate)
+  if (input.userPrompt.trim()) {
+    segments.push(input.userPrompt.trim());
   }
-  return userPrompt.trim();
+
+  // Layer 2: Asset preset (compositional structure - framing, format)
+  if (input.assetPreset) {
+    segments.push(input.assetPreset.promptTemplate);
+  }
+
+  // Layer 3: Art style (visual treatment - colors, rendering)
+  if (input.artStyle) {
+    segments.push(input.artStyle.promptTemplate);
+  }
+
+  // Layer 4: Output hints (technical requirements)
+  if (input.assetPreset?.outputHints) {
+    segments.push(input.assetPreset.outputHints);
+  }
+
+  return segments.join('\n\n');
 }
 
 // ============================================================================
@@ -155,18 +184,27 @@ export function useAssetGeneration(options: UseAssetGenerationOptions = {}) {
    */
   const generateFromPrompt = useCallback(async ({
     prompt,
-    stylePreset,
+    assetPreset,
+    artStyle,
     imageSize = DEFAULT_IMAGE_SIZE,
-    aspectRatio = '1:1',
+    aspectRatio,
   }: GenerateFromPromptOptions): Promise<GenerationResult | null> => {
-    const effectivePrompt = buildEffectivePrompt(prompt, stylePreset);
+    // Build effective prompt using the pipeline
+    const effectivePrompt = buildPromptPipeline({
+      assetPreset,
+      artStyle,
+      userPrompt: prompt,
+    });
 
     if (!effectivePrompt) {
-      const message = 'Please enter a prompt or select a style preset';
+      const message = 'Please enter a prompt, select an asset preset, or choose an art style';
       setError(message);
       onError?.(message);
       return null;
     }
+
+    // Use aspect ratio from asset preset if available, otherwise default to 1:1
+    const effectiveAspectRatio = aspectRatio || assetPreset?.aspectRatio || '1:1';
 
     setIsGenerating(true);
     setError(null);
@@ -181,7 +219,7 @@ export function useAssetGeneration(options: UseAssetGenerationOptions = {}) {
         config: {
           imageConfig: {
             imageSize,
-            aspectRatio,
+            aspectRatio: effectiveAspectRatio,
           },
         },
       });
@@ -216,11 +254,11 @@ export function useAssetGeneration(options: UseAssetGenerationOptions = {}) {
   }, [getAIClient, handleError, onSuccess, onError]);
 
   /**
-   * Transform an image with a style preset
+   * Transform an image with an art style
    */
   const transformWithStyle = useCallback(async ({
     sourceImage,
-    stylePreset,
+    artStyle,
     additionalPrompt = '',
     imageSize = DEFAULT_IMAGE_SIZE,
   }: TransformWithStyleOptions): Promise<GenerationResult | null> => {
@@ -240,8 +278,8 @@ export function useAssetGeneration(options: UseAssetGenerationOptions = {}) {
 
       // Build the transformation prompt
       const transformPrompt = TRANSFORMATION_PROMPTS.styleTransfer(
-        stylePreset.name,
-        stylePreset.promptTemplate,
+        artStyle.name,
+        artStyle.promptTemplate,
         additionalPrompt
       );
 

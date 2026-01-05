@@ -6,9 +6,9 @@ import {
   DamageType,
   ScrollDiscoveryActivity,
   CharacterStats,
-} from '../game/types';
+} from '../../game/types';
 import { Scroll, Zap, Brain, Sparkles } from 'lucide-react';
-import Tooltip from '../components/shared/Tooltip';
+import Tooltip from '../../components/shared/Tooltip';
 import {
   formatScalingStat,
   getStatColor,
@@ -16,7 +16,7 @@ import {
   getEffectColor,
   getEffectIcon,
   formatEffectDescription,
-} from '../game/utils/tooltipFormatters';
+} from '../../game/utils/tooltipFormatters';
 
 interface ScrollDiscoveryProps {
   scrollDiscovery: ScrollDiscoveryActivity;

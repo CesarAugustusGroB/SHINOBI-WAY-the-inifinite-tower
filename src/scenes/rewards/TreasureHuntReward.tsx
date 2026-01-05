@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Item, Skill, Rarity, SkillTier, DamageType } from '../game/types';
+import { Item, Skill, Rarity, SkillTier, DamageType } from '../../game/types';
 import { Scroll, MapPin, Coins, Sparkles, Award } from 'lucide-react';
-import Tooltip from '../components/shared/Tooltip';
-import { formatStatName, getStatColor, formatScalingStat, getEffectColor, getEffectIcon, formatEffectDescription } from '../game/utils/tooltipFormatters';
+import Tooltip from '../../components/shared/Tooltip';
+import { formatStatName, getStatColor, formatScalingStat, getEffectColor, getEffectIcon, formatEffectDescription } from '../../game/utils/tooltipFormatters';
 
 interface TreasureHuntReward {
   items: Item[];

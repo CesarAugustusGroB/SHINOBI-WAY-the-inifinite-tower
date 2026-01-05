@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
-import { Item, Skill, Player, SkillTier, Rarity, EquipmentSlot, DamageType, MAX_BAG_SLOTS, SLOT_MAPPING } from '../game/types';
+import { Item, Skill, Player, SkillTier, Rarity, EquipmentSlot, DamageType, MAX_BAG_SLOTS, SLOT_MAPPING } from '../../game/types';
 import { Scroll, Package } from 'lucide-react';
-import Tooltip from '../components/shared/Tooltip';
+import Tooltip from '../../components/shared/Tooltip';
 import {
   formatStatName,
   formatScalingStat,
@@ -10,8 +10,8 @@ import {
   getEffectColor,
   getEffectIcon,
   formatEffectDescription,
-} from '../game/utils/tooltipFormatters';
-import { getRecipesUsingComponent } from '../game/constants/synthesis';
+} from '../../game/utils/tooltipFormatters';
+import { getRecipesUsingComponent } from '../../game/constants/synthesis';
 
 interface LootProps {
   droppedItems: Item[];

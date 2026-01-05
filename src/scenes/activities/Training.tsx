@@ -5,7 +5,7 @@ import {
   PrimaryStat,
   Player,
   DerivedStats
-} from '../game/types';
+} from '../../game/types';
 import { Heart, Zap, Dumbbell } from 'lucide-react';
 
 interface TrainingProps {

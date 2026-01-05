@@ -2,8 +2,11 @@ import React, { useState, useCallback } from 'react';
 import { ArrowLeft, Wand2, Loader2 } from 'lucide-react';
 import {
   DEFAULT_CONFIG,
-  STYLE_PRESETS,
-  type StylePreset,
+  ART_STYLES,
+  getAssetPreset,
+  getArtStyle,
+  type AssetPreset,
+  type ArtStyle,
   type AssetCategoryId,
   type ImageSize,
   type ExportFormat,
@@ -12,7 +15,8 @@ import {
 import { useAssetGeneration, type GenerationResult } from '../../hooks/useAssetGeneration';
 import {
   ImageInputPanel,
-  StylePresetSelector,
+  AssetPresetSelector,
+  ArtStyleSelector,
   TransformationModeSelector,
   ExportPanel,
   ImagePreview,
@@ -29,7 +33,8 @@ interface GenerationHistoryItem {
   timestamp: number;
   prompt: string;
   outputImage: string;
-  style: string | null;
+  assetPresetId: string | null;
+  artStyleId: string | null;
 }
 
 const AssetCompanion: React.FC<AssetCompanionProps> = ({ onBack }) => {
@@ -41,7 +46,8 @@ const AssetCompanion: React.FC<AssetCompanionProps> = ({ onBack }) => {
 
   // Transformation state
   const [transformationType, setTransformationType] = useState<TransformationType>('generate');
-  const [selectedStyle, setSelectedStyle] = useState<StylePreset | null>(null);
+  const [selectedAssetPreset, setSelectedAssetPreset] = useState<AssetPreset | null>(null);
+  const [selectedArtStyle, setSelectedArtStyle] = useState<ArtStyle | null>(null);
 
   // Output configuration
   const [imageSize, setImageSize] = useState<ImageSize>(DEFAULT_CONFIG.imageSize);
@@ -64,9 +70,10 @@ const AssetCompanion: React.FC<AssetCompanionProps> = ({ onBack }) => {
       timestamp: Date.now(),
       prompt: result.metadata.prompt,
       outputImage: result.imageUrl,
-      style: selectedStyle?.id || null,
+      assetPresetId: selectedAssetPreset?.id || null,
+      artStyleId: selectedArtStyle?.id || null,
     }, ...prev.slice(0, DEFAULT_CONFIG.maxHistoryItems - 1)]);
-  }, [selectedStyle]);
+  }, [selectedAssetPreset, selectedArtStyle]);
 
   const {
     isGenerating,
@@ -94,16 +101,17 @@ const AssetCompanion: React.FC<AssetCompanionProps> = ({ onBack }) => {
       case 'generate':
         await generateFromPrompt({
           prompt,
-          stylePreset: selectedStyle,
+          assetPreset: selectedAssetPreset,
+          artStyle: selectedArtStyle,
           imageSize,
         });
         break;
 
       case 'styleTransfer':
-        if (sourceImage && selectedStyle) {
+        if (sourceImage && selectedArtStyle) {
           await transformWithStyle({
             sourceImage,
-            stylePreset: selectedStyle,
+            artStyle: selectedArtStyle,
             additionalPrompt: prompt,
             imageSize,
           });
@@ -122,7 +130,8 @@ const AssetCompanion: React.FC<AssetCompanionProps> = ({ onBack }) => {
   }, [
     transformationType,
     prompt,
-    selectedStyle,
+    selectedAssetPreset,
+    selectedArtStyle,
     sourceImage,
     imageSize,
     generateFromPrompt,
@@ -135,19 +144,19 @@ const AssetCompanion: React.FC<AssetCompanionProps> = ({ onBack }) => {
   const handleHistoryClick = useCallback((item: GenerationHistoryItem) => {
     setGeneratedImage(item.outputImage);
     setPrompt(item.prompt);
-    if (item.style) {
-      const preset = STYLE_PRESETS.find(p => p.id === item.style);
-      if (preset) setSelectedStyle(preset);
-    }
+    // Restore asset preset selection
+    setSelectedAssetPreset(item.assetPresetId ? getAssetPreset(item.assetPresetId) || null : null);
+    // Restore art style selection
+    setSelectedArtStyle(item.artStyleId ? getArtStyle(item.artStyleId) || null : null);
   }, []);
 
   // Check if generate button should be disabled
   const isGenerateDisabled = isGenerating || (
-    transformationType === 'generate' && !prompt.trim() && !selectedStyle
+    transformationType === 'generate' && !prompt.trim() && !selectedAssetPreset && !selectedArtStyle
   ) || (
     (transformationType === 'styleTransfer' || transformationType === 'backgroundRemoval') && !sourceImage
   ) || (
-    transformationType === 'styleTransfer' && !selectedStyle
+    transformationType === 'styleTransfer' && !selectedArtStyle
   );
 
   return (
@@ -192,13 +201,19 @@ const AssetCompanion: React.FC<AssetCompanionProps> = ({ onBack }) => {
             />
           </section>
 
-          {/* Style Presets */}
+          {/* Asset Type Preset (WHAT to create) */}
           <section className="asset-companion__section">
-            <h2 className="asset-companion__section-title">Style Presets</h2>
-            <StylePresetSelector
-              selectedStyle={selectedStyle}
-              onStyleChange={setSelectedStyle}
-              groupByCategory={true}
+            <AssetPresetSelector
+              selectedPreset={selectedAssetPreset}
+              onPresetChange={setSelectedAssetPreset}
+            />
+          </section>
+
+          {/* Art Style (HOW it looks) */}
+          <section className="asset-companion__section">
+            <ArtStyleSelector
+              selectedStyle={selectedArtStyle}
+              onStyleChange={setSelectedArtStyle}
             />
           </section>
 
@@ -270,7 +285,7 @@ const AssetCompanion: React.FC<AssetCompanionProps> = ({ onBack }) => {
               <h3>Export</h3>
               <ExportPanel
                 imageData={generatedImage}
-                styleId={selectedStyle?.id || null}
+                styleId={selectedArtStyle?.id || null}
                 category={assetCategory}
                 onCategoryChange={setAssetCategory}
                 format={exportFormat}

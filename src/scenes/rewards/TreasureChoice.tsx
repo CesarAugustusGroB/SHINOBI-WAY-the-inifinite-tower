@@ -5,10 +5,10 @@ import {
   TreasureType,
   Player,
   Rarity,
-} from '../game/types';
+} from '../../game/types';
 import { Lock, Eye, Swords, Dices, Sparkles, MapPin, Coins, Map, X } from 'lucide-react';
-import Tooltip from '../components/shared/Tooltip';
-import { formatStatName } from '../game/utils/tooltipFormatters';
+import Tooltip from '../../components/shared/Tooltip';
+import { formatStatName } from '../../game/utils/tooltipFormatters';
 
 interface TreasureChoiceProps {
   treasure: TreasureActivity;

@@ -1,8 +1,8 @@
 import React from 'react';
-import { Enemy, Item, Player, CharacterStats, Rarity } from '../game/types';
+import { Enemy, Item, Player, CharacterStats, Rarity } from '../../game/types';
 import { Shield, Zap, Swords, Wind } from 'lucide-react';
-import { getEscapeChanceDescription } from '../game/systems/EliteChallengeSystem';
-import { getEnemyFullStats } from '../game/systems/StatSystem';
+import { getEscapeChanceDescription } from '../../game/systems/EliteChallengeSystem';
+import { getEnemyFullStats } from '../../game/systems/StatSystem';
 
 interface EliteChallengeProps {
   enemy: Enemy;
