@@ -1,7 +1,28 @@
-import React from 'react';
-import { GameEvent, Player, EventChoice, CharacterStats } from '../../game/types';
-import { MapIcon } from 'lucide-react';
-import EventChoicePanel from '../../components/events/EventChoicePanel';
+import React, { useState, useCallback } from 'react';
+import {
+  GameEvent,
+  Player,
+  EventChoice,
+  EventOutcome,
+  CharacterStats,
+  RiskLevel,
+  PrimaryStat,
+} from '../../game/types';
+import {
+  checkRequirements,
+  checkEventCost,
+  getDisabledReason,
+} from '../../game/systems/EventSystem';
+import {
+  Scroll,
+  CheckCircle,
+  Lock,
+  AlertCircle,
+  Swords,
+  Coins,
+  Sparkles,
+} from 'lucide-react';
+import './Event.css';
 
 interface EventProps {
   activeEvent: GameEvent;
@@ -10,22 +31,361 @@ interface EventProps {
   playerStats?: CharacterStats | null;
 }
 
-const Event: React.FC<EventProps> = ({ activeEvent, onChoice, player, playerStats }) => {
-  return (
-    <div className="w-full max-w-3xl bg-black border border-zinc-800 p-10 shadow-2xl z-10 flex flex-col items-center text-center">
-      <div className="mb-6 text-blue-900 opacity-50"><MapIcon size={56} /></div>
-      <h2 className="text-2xl font-bold text-zinc-200 mb-4 font-serif">{activeEvent.title}</h2>
-      <p className="text-base text-zinc-500 mb-10 leading-relaxed max-w-lg">{activeEvent.description}</p>
+/* ===========================================
+   Helper Functions
+   =========================================== */
 
-      <div className="flex flex-col gap-3 w-full">
+const getRiskClass = (riskLevel: RiskLevel): string => {
+  switch (riskLevel) {
+    case RiskLevel.SAFE:
+      return 'safe';
+    case RiskLevel.LOW:
+      return 'low';
+    case RiskLevel.MEDIUM:
+      return 'medium';
+    case RiskLevel.HIGH:
+      return 'high';
+    case RiskLevel.EXTREME:
+      return 'extreme';
+    default:
+      return 'safe';
+  }
+};
+
+const getStatCategory = (stat: PrimaryStat): 'body' | 'mind' | 'technique' => {
+  switch (stat) {
+    case PrimaryStat.WILLPOWER:
+    case PrimaryStat.CHAKRA:
+    case PrimaryStat.STRENGTH:
+      return 'body';
+    case PrimaryStat.SPIRIT:
+    case PrimaryStat.INTELLIGENCE:
+    case PrimaryStat.CALMNESS:
+      return 'mind';
+    case PrimaryStat.SPEED:
+    case PrimaryStat.ACCURACY:
+    case PrimaryStat.DEXTERITY:
+      return 'technique';
+    default:
+      return 'body';
+  }
+};
+
+const getPlayerStatValue = (
+  player: Player,
+  stat: PrimaryStat
+): number => {
+  const statKey = stat.toLowerCase() as keyof typeof player.primaryStats;
+  return player.primaryStats[statKey] || 0;
+};
+
+const getOutcomeType = (
+  outcome: EventOutcome
+): 'reward' | 'danger' | 'neutral' => {
+  const { effects } = outcome;
+
+  if (effects.triggerCombat) return 'danger';
+  if (effects.hpChange && (
+    (typeof effects.hpChange === 'number' && effects.hpChange < 0) ||
+    (typeof effects.hpChange === 'object' && effects.hpChange.percent < 0)
+  )) return 'danger';
+
+  if (effects.exp || effects.ryo || effects.items?.length || effects.skills?.length ||
+      effects.statChanges || effects.upgradeTreasureQuality || effects.addMerchantSlot) {
+    return 'reward';
+  }
+
+  return 'neutral';
+};
+
+const formatOutcomeText = (outcome: EventOutcome): string => {
+  const { effects } = outcome;
+  const parts: string[] = [];
+
+  if (effects.triggerCombat) {
+    parts.push(`Combat: ${effects.triggerCombat.name || 'Enemy'}`);
+  }
+  if (effects.exp) parts.push(`+${effects.exp} XP`);
+  if (effects.ryo) parts.push(`${effects.ryo > 0 ? '+' : ''}${effects.ryo} Ryo`);
+  if (effects.hpChange) {
+    if (typeof effects.hpChange === 'number') {
+      parts.push(`${effects.hpChange > 0 ? '+' : ''}${effects.hpChange} HP`);
+    } else {
+      parts.push(`${effects.hpChange.percent > 0 ? '+' : ''}${effects.hpChange.percent}% HP`);
+    }
+  }
+  if (effects.statChanges) {
+    Object.entries(effects.statChanges).forEach(([stat, value]) => {
+      if (value) parts.push(`+${value} ${stat.toUpperCase()}`);
+    });
+  }
+  if (effects.upgradeTreasureQuality) parts.push('Treasure Quality ↑');
+  if (effects.addMerchantSlot) parts.push('+1 Merchant Slot');
+  if (effects.intelGain) parts.push(`+${effects.intelGain} Intel`);
+
+  return parts.length > 0 ? parts.join(', ') : effects.logMessage || 'Story continues...';
+};
+
+/* ===========================================
+   Risk Badge Component
+   =========================================== */
+
+interface RiskBadgeProps {
+  riskLevel: RiskLevel;
+}
+
+const RiskBadge: React.FC<RiskBadgeProps> = ({ riskLevel }) => {
+  return (
+    <span className={`risk-badge risk-badge--${getRiskClass(riskLevel)}`}>
+      {riskLevel}
+    </span>
+  );
+};
+
+/* ===========================================
+   Outcome Preview Component
+   =========================================== */
+
+interface OutcomePreviewProps {
+  outcomes: EventOutcome[];
+}
+
+const OutcomePreview: React.FC<OutcomePreviewProps> = ({ outcomes }) => {
+  const totalWeight = outcomes.reduce((sum, o) => sum + o.weight, 0);
+
+  return (
+    <div className="choice-card__outcomes">
+      <div className="choice-card__outcomes-header">Possible Outcomes</div>
+      {outcomes.map((outcome, idx) => {
+        const type = getOutcomeType(outcome);
+        const percent = Math.round((outcome.weight / totalWeight) * 100);
+        const text = formatOutcomeText(outcome);
+
+        return (
+          <div key={idx} className="choice-card__outcome">
+            <span className="choice-card__outcome-percent">{percent}%</span>
+            <span className={`choice-card__outcome-type choice-card__outcome-type--${type}`}>
+              {type}
+            </span>
+            <span className="choice-card__outcome-text">{text}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+/* ===========================================
+   Choice Card Component
+   =========================================== */
+
+interface ChoiceCardProps {
+  choice: EventChoice;
+  player: Player;
+  playerStats: CharacterStats | null;
+  isSelected: boolean;
+  isDimmed: boolean;
+  onSelect: () => void;
+  onConfirm: () => void;
+}
+
+const ChoiceCard: React.FC<ChoiceCardProps> = ({
+  choice,
+  player,
+  playerStats,
+  isSelected,
+  isDimmed,
+  onSelect,
+  onConfirm,
+}) => {
+  const meetsRequirements = checkRequirements(player, choice.requirements, playerStats);
+  const canAffordCost = checkEventCost(player, choice.costs);
+  const isDisabled = !meetsRequirements || !canAffordCost;
+  const disabledReason = isDisabled
+    ? getDisabledReason(player, choice.requirements, choice.costs, playerStats)
+    : '';
+
+  const riskClass = getRiskClass(choice.riskLevel);
+
+  const handleClick = useCallback(() => {
+    if (!isDisabled && !isDimmed) {
+      onSelect();
+    }
+  }, [isDisabled, isDimmed, onSelect]);
+
+  const handleConfirm = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onConfirm();
+    },
+    [onConfirm]
+  );
+
+  // Stat requirement display
+  const statRequirement = choice.requirements?.minStat;
+  const playerStatValue = statRequirement
+    ? getPlayerStatValue(player, statRequirement.stat)
+    : 0;
+  const statCategory = statRequirement
+    ? getStatCategory(statRequirement.stat)
+    : 'body';
+
+  return (
+    <div
+      className={`choice-card choice-card--${riskClass} ${
+        isSelected ? 'choice-card--selected' : ''
+      } ${isDimmed ? 'choice-card--dimmed' : ''} ${
+        isDisabled ? 'choice-card--disabled' : ''
+      }`}
+      onClick={handleClick}
+      role="button"
+      tabIndex={isDisabled || isDimmed ? -1 : 0}
+      onKeyDown={(e) => e.key === 'Enter' && handleClick()}
+    >
+      {/* Header */}
+      <div className="choice-card__header">
+        <div className="choice-card__header-left">
+          <RiskBadge riskLevel={choice.riskLevel} />
+          <span className="choice-card__label">{choice.label}</span>
+        </div>
+        {choice.costs?.ryo && (
+          <span
+            className={`choice-card__cost ${
+              !canAffordCost ? 'choice-card__cost--insufficient' : ''
+            }`}
+          >
+            -{choice.costs.ryo} Ryo
+          </span>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="choice-card__body">
+        <p className="choice-card__description">{choice.description}</p>
+
+        {choice.hintText && (
+          <p className="choice-card__hint">"{choice.hintText}"</p>
+        )}
+
+        {/* Requirements */}
+        {statRequirement && (
+          <div className="choice-card__requirements">
+            <span
+              className={`choice-card__requirement ${
+                meetsRequirements
+                  ? 'choice-card__requirement--met'
+                  : 'choice-card__requirement--unmet'
+              }`}
+            >
+              {meetsRequirements ? <CheckCircle size={12} /> : <Lock size={12} />}
+              <span>REQUIRES: {statRequirement.stat} {statRequirement.value}+</span>
+            </span>
+            <span
+              className={`choice-card__stat-value choice-card__stat-value--${statCategory}`}
+            >
+              YOUR {statRequirement.stat}: {playerStatValue}
+            </span>
+          </div>
+        )}
+
+        {/* Status */}
+        {!isDisabled && (
+          <div className="choice-card__status choice-card__status--available">
+            <CheckCircle size={12} />
+            <span>Available</span>
+          </div>
+        )}
+
+        {isDisabled && disabledReason && (
+          <div className="choice-card__disabled-reason">
+            <AlertCircle size={14} />
+            <span>{disabledReason}</span>
+          </div>
+        )}
+
+        {/* Outcome Preview (when selected) */}
+        {isSelected && !isDisabled && choice.outcomes && (
+          <OutcomePreview outcomes={choice.outcomes} />
+        )}
+
+        {/* Confirm Button (when selected) */}
+        {isSelected && !isDisabled && (
+          <div className="choice-card__confirm">
+            <button
+              type="button"
+              className={`choice-card__confirm-button choice-card__confirm-button--${riskClass}`}
+              onClick={handleConfirm}
+            >
+              {choice.riskLevel === RiskLevel.HIGH ||
+              choice.riskLevel === RiskLevel.EXTREME ? (
+                <Swords size={16} />
+              ) : choice.costs?.ryo ? (
+                <Coins size={16} />
+              ) : (
+                <Sparkles size={16} />
+              )}
+              <span>{choice.label}</span>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ===========================================
+   Main Event Component
+   =========================================== */
+
+const Event: React.FC<EventProps> = ({
+  activeEvent,
+  onChoice,
+  player,
+  playerStats,
+}) => {
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  const handleSelect = useCallback((index: number) => {
+    setSelectedIndex((prev) => (prev === index ? null : index));
+  }, []);
+
+  const handleConfirm = useCallback(
+    (choice: EventChoice) => {
+      onChoice(choice);
+    },
+    [onChoice]
+  );
+
+  if (!player) {
+    return null;
+  }
+
+  return (
+    <div className="event">
+      {/* Header */}
+      <header className="event__header">
+        <div className="event__icon">
+          <Scroll size={40} />
+        </div>
+        <h1 className="event__title">{activeEvent.title}</h1>
+        <p className="event__description">{activeEvent.description}</p>
+      </header>
+
+      {/* Divider */}
+      <div className="event__divider">Choose Your Path</div>
+
+      {/* Choice Cards */}
+      <div className="event__choices">
         {activeEvent.choices.map((choice, idx) => (
-          <EventChoicePanel
+          <ChoiceCard
             key={idx}
             choice={choice}
-            player={player!}
-            playerStats={playerStats}
-            onSelect={() => onChoice(choice)}
-            disabled={!player}
+            player={player}
+            playerStats={playerStats || null}
+            isSelected={selectedIndex === idx}
+            isDimmed={selectedIndex !== null && selectedIndex !== idx}
+            onSelect={() => handleSelect(idx)}
+            onConfirm={() => handleConfirm(choice)}
           />
         ))}
       </div>

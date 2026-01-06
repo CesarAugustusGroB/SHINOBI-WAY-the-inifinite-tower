@@ -17,7 +17,7 @@ export const FeatureFlags = {
   DEBUG_COMBAT_LOG: false,
 
   /** Log state transitions */
-  DEBUG_STATE_TRANSITIONS: false,
+  DEBUG_STATE_TRANSITIONS: true,
 
   /** Skip character selection (use default clan) */
   SKIP_CHAR_SELECT: false,

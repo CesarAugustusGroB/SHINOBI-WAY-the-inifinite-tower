@@ -1,0 +1,950 @@
+/**
+ * Merchant Scene Styles
+ * BEM-style CSS for the Traveling Merchant experience
+ */
+
+/* ===========================================
+   Main Container
+   =========================================== */
+
+.merchant {
+  width: 100%;
+  max-width: 72rem;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  z-index: 10;
+}
+
+/* ===========================================
+   Header
+   =========================================== */
+
+.merchant__header {
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.merchant__icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.merchant__title {
+  font-size: 1.5rem;
+  font-family: serif;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--zinc-500, #71717a);
+  margin-bottom: 0.25rem;
+}
+
+.merchant__subtitle {
+  font-size: 0.75rem;
+  color: var(--zinc-600, #52525b);
+  font-style: italic;
+}
+
+.merchant__discount-badge {
+  display: inline-block;
+  margin-left: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--amber-600, #d97706);
+  color: black;
+  font-size: 0.625rem;
+  font-weight: 700;
+  border-radius: 0.25rem;
+  vertical-align: middle;
+}
+
+/* ===========================================
+   Resources Bar
+   =========================================== */
+
+.merchant__resources {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6));
+  border: 1px solid var(--zinc-800, #27272a);
+  border-radius: 0.5rem;
+}
+
+.ryo-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ryo-display__icon {
+  color: var(--yellow-500, #eab308);
+}
+
+.ryo-display__amount {
+  font-family: monospace;
+  font-size: 1rem;
+  color: var(--yellow-400, #facc15);
+}
+
+.ryo-display__preview {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-family: monospace;
+  font-size: 0.875rem;
+}
+
+.ryo-display__arrow {
+  color: var(--zinc-500, #71717a);
+}
+
+.ryo-display__after {
+  color: var(--amber-400, #fbbf24);
+}
+
+.ryo-display__cost {
+  font-size: 0.75rem;
+  color: var(--red-400, #f87171);
+}
+
+.merchant-status {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--zinc-500, #71717a);
+}
+
+.merchant-status__value {
+  color: var(--zinc-300, #d4d4d8);
+  font-family: monospace;
+}
+
+/* ===========================================
+   Services Panel
+   =========================================== */
+
+.merchant__services {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.service-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  border: 1px solid;
+  border-radius: 0.375rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+}
+
+.service-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.service-button--reroll {
+  border-color: var(--zinc-600, #52525b);
+  color: var(--zinc-300, #d4d4d8);
+}
+
+.service-button--reroll:hover:not(:disabled) {
+  background: rgba(113, 113, 122, 0.2);
+  border-color: var(--zinc-500, #71717a);
+}
+
+.service-button--slot {
+  border-color: var(--blue-700, #1d4ed8);
+  color: var(--blue-300, #93c5fd);
+}
+
+.service-button--slot:hover:not(:disabled) {
+  background: rgba(29, 78, 216, 0.2);
+  border-color: var(--blue-500, #3b82f6);
+}
+
+.service-button--quality {
+  border-color: var(--purple-700, #7e22ce);
+  color: var(--purple-300, #d8b4fe);
+}
+
+.service-button--quality:hover:not(:disabled) {
+  background: rgba(126, 34, 206, 0.2);
+  border-color: var(--purple-500, #a855f7);
+}
+
+.service-button__icon {
+  opacity: 0.8;
+}
+
+.service-button__cost {
+  font-family: monospace;
+  opacity: 0.7;
+}
+
+/* ===========================================
+   Content Area (Grid + Preview)
+   =========================================== */
+
+.merchant__content {
+  display: flex;
+  gap: 1.5rem;
+  min-height: 400px;
+}
+
+.merchant__content--with-preview {
+  /* Grid takes less space when preview is open */
+}
+
+/* ===========================================
+   Item Grid
+   =========================================== */
+
+.item-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  flex: 1;
+}
+
+.item-grid--with-selection .item-card:not(.item-card--selected) {
+  /* Handled by dimmed class */
+}
+
+@media (max-width: 1024px) {
+  .item-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .item-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===========================================
+   Item Card
+   =========================================== */
+
+.item-card {
+  background: rgba(24, 24, 27, 0.6);
+  border: 2px solid var(--zinc-700, #3f3f46);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  position: relative;
+  overflow: hidden;
+  min-height: 280px;
+}
+
+.item-card:hover:not(.item-card--dimmed) {
+  transform: translateY(-6px);
+}
+
+.item-card--selected {
+  transform: translateY(-4px);
+  animation: selectPulse 0.4s ease-out;
+}
+
+.item-card--dimmed {
+  opacity: 0.4;
+  filter: grayscale(30%);
+  cursor: default;
+}
+
+.item-card--unaffordable {
+  /* Additional styling for unaffordable items */
+}
+
+/* Rarity Colors */
+.item-card--broken {
+  border-color: var(--stone-600, #57534e);
+  background: rgba(87, 83, 78, 0.1);
+}
+
+.item-card--broken:hover:not(.item-card--dimmed),
+.item-card--broken.item-card--selected {
+  border-color: var(--stone-500, #78716c);
+  box-shadow: 0 0 15px rgba(120, 113, 108, 0.2);
+}
+
+.item-card--common {
+  border-color: var(--zinc-500, #71717a);
+  background: rgba(113, 113, 122, 0.08);
+}
+
+.item-card--common:hover:not(.item-card--dimmed),
+.item-card--common.item-card--selected {
+  border-color: var(--zinc-400, #a1a1aa);
+  box-shadow: 0 0 15px rgba(161, 161, 170, 0.2);
+}
+
+.item-card--rare {
+  border-color: var(--blue-600, #2563eb);
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.item-card--rare:hover:not(.item-card--dimmed),
+.item-card--rare.item-card--selected {
+  border-color: var(--blue-500, #3b82f6);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+.item-card--epic {
+  border-color: var(--purple-600, #9333ea);
+  background: rgba(147, 51, 234, 0.1);
+}
+
+.item-card--epic:hover:not(.item-card--dimmed),
+.item-card--epic.item-card--selected {
+  border-color: var(--purple-500, #a855f7);
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+}
+
+.item-card--legendary {
+  border-color: var(--orange-500, #f97316);
+  background: rgba(249, 115, 22, 0.12);
+  position: relative;
+}
+
+.item-card--legendary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(249, 115, 22, 0.1),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: legendaryShimmer 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.item-card--legendary:hover:not(.item-card--dimmed),
+.item-card--legendary.item-card--selected {
+  border-color: var(--orange-400, #fb923c);
+  box-shadow: 0 0 25px rgba(249, 115, 22, 0.4);
+}
+
+.item-card--cursed {
+  border-color: var(--red-600, #dc2626);
+  background: rgba(220, 38, 38, 0.12);
+  position: relative;
+}
+
+.item-card--cursed::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(220, 38, 38, 0.15),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: legendaryShimmer 2.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.item-card--cursed:hover:not(.item-card--dimmed),
+.item-card--cursed.item-card--selected {
+  border-color: var(--red-500, #ef4444);
+  box-shadow: 0 0 25px rgba(239, 68, 68, 0.4);
+}
+
+/* Item Card Header */
+.item-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.item-card__rarity-tag {
+  font-size: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-weight: 600;
+}
+
+.item-card__rarity-tag--broken {
+  background: rgba(87, 83, 78, 0.3);
+  color: var(--stone-400, #a8a29e);
+}
+
+.item-card__rarity-tag--common {
+  background: rgba(113, 113, 122, 0.3);
+  color: var(--zinc-300, #d4d4d8);
+}
+
+.item-card__rarity-tag--rare {
+  background: rgba(37, 99, 235, 0.3);
+  color: var(--blue-400, #60a5fa);
+}
+
+.item-card__rarity-tag--epic {
+  background: rgba(147, 51, 234, 0.3);
+  color: var(--purple-400, #c084fc);
+}
+
+.item-card__rarity-tag--legendary {
+  background: rgba(249, 115, 22, 0.3);
+  color: var(--orange-400, #fb923c);
+}
+
+.item-card__rarity-tag--cursed {
+  background: rgba(220, 38, 38, 0.3);
+  color: var(--red-400, #f87171);
+}
+
+.item-card__afford-indicator {
+  font-size: 0.875rem;
+}
+
+/* Item Card Content */
+.item-card__name {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.item-card__name--broken { color: var(--stone-300, #d6d3d1); }
+.item-card__name--common { color: var(--zinc-200, #e4e4e7); }
+.item-card__name--rare { color: var(--blue-300, #93c5fd); }
+.item-card__name--epic { color: var(--purple-300, #d8b4fe); }
+.item-card__name--legendary { color: var(--orange-300, #fdba74); }
+.item-card__name--cursed { color: var(--red-300, #fca5a5); }
+
+.item-card__type {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--zinc-500, #71717a);
+}
+
+/* Item Card Stats */
+.item-card__stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  font-family: monospace;
+  font-size: 0.75rem;
+  max-height: 7rem;
+  overflow-y: auto;
+}
+
+.item-card__stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.item-card__stat-name {
+  color: var(--zinc-500, #71717a);
+  text-transform: uppercase;
+}
+
+.item-card__stat-values {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.item-card__stat-value {
+  color: var(--zinc-200, #e4e4e7);
+}
+
+.item-card__stat-delta {
+  font-size: 0.625rem;
+}
+
+.item-card__stat-delta--increase {
+  color: var(--green-400, #4ade80);
+}
+
+.item-card__stat-delta--decrease {
+  color: var(--red-400, #f87171);
+}
+
+.item-card__stat-delta--new {
+  color: var(--blue-400, #60a5fa);
+}
+
+/* Item Card Footer */
+.item-card__footer {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.item-card__price {
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.item-card__price-current {
+  font-family: monospace;
+  font-size: 0.875rem;
+}
+
+.item-card__price-current--affordable {
+  color: var(--yellow-400, #facc15);
+}
+
+.item-card__price-current--unaffordable {
+  color: var(--red-400, #f87171);
+}
+
+.item-card__price-original {
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: var(--zinc-600, #52525b);
+  text-decoration: line-through;
+  margin-left: 0.5rem;
+}
+
+.item-card__buy-button {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid;
+  border-radius: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+}
+
+.item-card__buy-button--affordable {
+  border-color: var(--amber-700, #b45309);
+  color: var(--amber-300, #fcd34d);
+  background: rgba(180, 83, 9, 0.2);
+}
+
+.item-card__buy-button--affordable:hover {
+  background: rgba(180, 83, 9, 0.4);
+  border-color: var(--amber-500, #f59e0b);
+}
+
+.item-card__buy-button--unaffordable {
+  border-color: var(--zinc-700, #3f3f46);
+  color: var(--zinc-500, #71717a);
+  cursor: not-allowed;
+}
+
+/* ===========================================
+   Preview Panel
+   =========================================== */
+
+.preview-panel {
+  width: 320px;
+  flex-shrink: 0;
+  background: rgba(24, 24, 27, 0.8);
+  border: 1px solid var(--zinc-700, #3f3f46);
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  animation: slideIn 0.3s ease-out;
+}
+
+.preview-panel__header {
+  text-align: center;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--zinc-800, #27272a);
+}
+
+.preview-panel__label {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--zinc-500, #71717a);
+  margin-bottom: 0.75rem;
+}
+
+.preview-panel__rarity {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin-bottom: 0.5rem;
+}
+
+.preview-panel__name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.preview-panel__type {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--zinc-500, #71717a);
+}
+
+.preview-panel__description {
+  font-size: 0.75rem;
+  font-style: italic;
+  color: var(--zinc-400, #a1a1aa);
+  text-align: center;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 0.25rem;
+}
+
+/* Stat Comparison */
+.preview-panel__stats {
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 0.375rem;
+}
+
+.preview-panel__stats-header {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--zinc-500, #71717a);
+  text-align: center;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--zinc-800, #27272a);
+}
+
+.preview-panel__stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.375rem 0;
+  font-family: monospace;
+  font-size: 0.75rem;
+}
+
+.preview-panel__stat-name {
+  color: var(--zinc-400, #a1a1aa);
+  text-transform: uppercase;
+}
+
+.preview-panel__stat-values {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.preview-panel__stat-value {
+  color: var(--zinc-200, #e4e4e7);
+}
+
+.preview-panel__stat-delta {
+  font-size: 0.625rem;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.125rem;
+}
+
+.preview-panel__stat-delta--increase {
+  color: var(--green-400, #4ade80);
+  background: rgba(74, 222, 128, 0.1);
+}
+
+.preview-panel__stat-delta--decrease {
+  color: var(--red-400, #f87171);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.preview-panel__stat-delta--new {
+  color: var(--blue-400, #60a5fa);
+  background: rgba(96, 165, 250, 0.1);
+}
+
+.preview-panel__currently {
+  font-size: 0.625rem;
+  color: var(--zinc-600, #52525b);
+  text-align: center;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--zinc-800, #27272a);
+}
+
+/* Price Section */
+.preview-panel__price {
+  text-align: center;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 0.375rem;
+}
+
+.preview-panel__price-label {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--zinc-500, #71717a);
+  margin-bottom: 0.375rem;
+}
+
+.preview-panel__price-value {
+  font-family: monospace;
+  font-size: 1.125rem;
+}
+
+.preview-panel__price-value--affordable {
+  color: var(--yellow-400, #facc15);
+}
+
+.preview-panel__price-value--unaffordable {
+  color: var(--red-400, #f87171);
+}
+
+.preview-panel__price-original {
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: var(--zinc-600, #52525b);
+  text-decoration: line-through;
+  margin-left: 0.5rem;
+}
+
+.preview-panel__price-discount {
+  font-size: 0.625rem;
+  color: var(--amber-400, #fbbf24);
+  margin-top: 0.25rem;
+}
+
+/* Confirm/Cancel Buttons */
+.preview-panel__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+
+.preview-panel__confirm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid var(--amber-600, #d97706);
+  border-radius: 0.375rem;
+  background: rgba(217, 119, 6, 0.2);
+  color: var(--amber-300, #fcd34d);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.preview-panel__confirm:not(:disabled) {
+  animation: readyPulse 2s ease-in-out infinite;
+}
+
+.preview-panel__confirm:hover:not(:disabled) {
+  background: rgba(217, 119, 6, 0.4);
+  border-color: var(--amber-500, #f59e0b);
+  box-shadow: 0 0 20px rgba(217, 119, 6, 0.3);
+}
+
+.preview-panel__confirm:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: var(--zinc-700, #3f3f46);
+  color: var(--zinc-500, #71717a);
+  background: transparent;
+  animation: none;
+}
+
+.preview-panel__cancel {
+  width: 100%;
+  padding: 0.5rem;
+  background: transparent;
+  border: none;
+  color: var(--zinc-600, #52525b);
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.preview-panel__cancel:hover {
+  color: var(--zinc-400, #a1a1aa);
+}
+
+/* ===========================================
+   Empty State
+   =========================================== */
+
+.merchant__empty {
+  text-align: center;
+  padding: 3rem;
+  color: var(--zinc-600, #52525b);
+  font-style: italic;
+}
+
+/* ===========================================
+   Leave Button
+   =========================================== */
+
+.merchant__leave {
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+.merchant__leave-button {
+  color: var(--zinc-600, #52525b);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  transition: color 0.2s ease;
+}
+
+.merchant__leave-button:hover {
+  color: var(--zinc-400, #a1a1aa);
+}
+
+/* ===========================================
+   Animations
+   =========================================== */
+
+@keyframes selectPulse {
+  0% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-6px);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@keyframes legendaryShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes readyPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 currentColor;
+  }
+  50% {
+    box-shadow: 0 0 15px 2px currentColor;
+  }
+}
+
+@keyframes slideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes purchaseSuccess {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.95);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+}
+
+/* ===========================================
+   Responsive
+   =========================================== */
+
+@media (max-width: 1024px) {
+  .merchant__content {
+    flex-direction: column;
+  }
+
+  .preview-panel {
+    width: 100%;
+    animation: slideDown 0.3s ease-out;
+  }
+
+  @keyframes slideDown {
+    0% {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .merchant {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .merchant__resources {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .merchant__services {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .service-button {
+    justify-content: center;
+  }
+}

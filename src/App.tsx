@@ -243,7 +243,8 @@ const App: React.FC = () => {
     const wasEliteChallenge = pendingArtifact !== null;
 
     // Complete the appropriate activity in branching floor
-    if (branchingFloor) {
+    // Skip for treasure guardian - that's handled separately below
+    if (branchingFloor && !wasTreasureGuardian) {
       setBranchingFloor(prevFloor => {
         if (!prevFloor) return prevFloor;
         const combatRoom = getCurrentRoom(prevFloor);  // Uses currentRoomId set by moveToRoom
@@ -273,7 +274,8 @@ const App: React.FC = () => {
     }
 
     // Complete the appropriate activity in location mode (using locationFloor)
-    if (locationFloor && region) {
+    // Skip for treasure guardian - that's handled separately below
+    if (locationFloor && region && !wasTreasureGuardian) {
       setLocationFloor(prevFloor => {
         if (!prevFloor) return prevFloor;
         const combatRoom = getCurrentRoom(prevFloor);
@@ -694,10 +696,12 @@ const App: React.FC = () => {
     logModalClose('ApproachSelector', `selected: ${approach}`);
 
     // Check for elite challenge first, then regular combat
+    // IMPORTANT: If enemy is already set (e.g., Treasure Guardian), use that instead
     const eliteChallenge = selectedBranchingRoom.activities.eliteChallenge;
     const combat = selectedBranchingRoom.activities.combat;
     const isEliteChallenge = eliteChallenge && !eliteChallenge.completed;
-    const targetEnemy = isEliteChallenge ? eliteChallenge.enemy : combat?.enemy;
+    const targetEnemy = enemy || (isEliteChallenge ? eliteChallenge.enemy : combat?.enemy);
+    const isTreasureGuardian = targetEnemy?.name === 'Treasure Guardian';
 
     if (!targetEnemy) return;
 
@@ -724,17 +728,34 @@ const App: React.FC = () => {
       addLog('You slip past undetected!', 'gain');
       setShowApproachSelector(false);
 
-      // Mark the appropriate activity as completed
-      setBranchingFloor(prevFloor => {
-        if (!prevFloor || !selectedBranchingRoom) return prevFloor;
-        const activityType = isEliteChallenge ? 'eliteChallenge' : 'combat';
-        return completeActivity(prevFloor, selectedBranchingRoom.id, activityType);
-      });
+      // Handle Treasure Guardian bypass - mark treasure activity as complete
+      if (isTreasureGuardian) {
+        setLocationFloor(prevFloor => {
+          if (!prevFloor || !selectedBranchingRoom) return prevFloor;
+          return completeActivity(prevFloor, selectedBranchingRoom.id, 'treasure');
+        });
+        setBranchingFloor(prevFloor => {
+          if (!prevFloor || !selectedBranchingRoom) return prevFloor;
+          return completeActivity(prevFloor, selectedBranchingRoom.id, 'treasure');
+        });
+        // Clear treasure state
+        setCurrentTreasure(null);
+        setCurrentTreasureHunt(null);
+        setEnemy(null);
+        addLog('You slipped past the Treasure Guardian but missed the map piece...', 'info');
+      } else {
+        // Mark the appropriate activity as completed (combat or eliteChallenge)
+        setBranchingFloor(prevFloor => {
+          if (!prevFloor || !selectedBranchingRoom) return prevFloor;
+          const activityType = isEliteChallenge ? 'eliteChallenge' : 'combat';
+          return completeActivity(prevFloor, selectedBranchingRoom.id, activityType);
+        });
 
-      // Clear pending artifact if bypassing elite challenge
-      if (isEliteChallenge) {
-        setPendingArtifact(null);
-        addLog('You bypassed the guardian but left the artifact behind...', 'info');
+        // Clear pending artifact if bypassing elite challenge
+        if (isEliteChallenge) {
+          setPendingArtifact(null);
+          addLog('You bypassed the guardian but left the artifact behind...', 'info');
+        }
       }
 
       // Return to map
@@ -1362,21 +1383,17 @@ const App: React.FC = () => {
       return;
     }
 
-    // Check if equip will succeed before deducting money
+    // Add item to bag instead of auto-equipping
     const afterBuy = { ...player, ryo: player.ryo - price };
-    const result = equipItemFn(afterBuy, item);
-    if (!result.success) {
-      addLog(result.reason || 'Cannot equip item.', 'danger');
+    const result = addToBag(afterBuy, item);
+    if (!result) {
+      addLog('Bag is full! Equip or sell items to make room.', 'danger');
       return;
     }
 
     setIsProcessingLoot(true);
-    setPlayer(result.player);
-    if (result.replacedItem) {
-      addLog(`Bought ${item.name} for ${price} Ryō. ${result.replacedItem.name} moved to bag.`, 'loot');
-    } else {
-      addLog(`Bought and equipped ${item.name} for ${price} Ryō.`, 'loot');
-    }
+    setPlayer(result);
+    addLog(`Bought ${item.name} for ${price} Ryō. Added to bag.`, 'loot');
     setMerchantItems(prev => prev.filter(i => i.id !== item.id));
     setTimeout(() => setIsProcessingLoot(false), 100);
   };
@@ -1870,7 +1887,6 @@ const App: React.FC = () => {
                 merchantItems={merchantItems}
                 discountPercent={merchantDiscount}
                 player={player}
-                playerStats={playerStats}
                 dangerLevel={currentDangerLevel}
                 baseDifficulty={currentBaseDifficulty}
                 onBuyItem={buyItem}
@@ -1878,8 +1894,6 @@ const App: React.FC = () => {
                 onReroll={handleMerchantReroll}
                 onBuySlot={handleBuyMerchantSlot}
                 onUpgradeQuality={handleUpgradeTreasureQuality}
-                getRarityColor={getRarityColor}
-                getDamageTypeColor={getDamageTypeColor}
                 isProcessing={isProcessingLoot}
               />
             </ErrorBoundary>
@@ -2027,11 +2041,11 @@ const App: React.FC = () => {
       )}
 
       {/* Approach Selector Modal */}
-      {showApproachSelector && selectedBranchingRoom && (selectedBranchingRoom.activities.combat || selectedBranchingRoom.activities.eliteChallenge) && player && playerStats && (() => {
-        // Get enemy from elite challenge or combat
+      {showApproachSelector && selectedBranchingRoom && (selectedBranchingRoom.activities.combat || selectedBranchingRoom.activities.eliteChallenge || enemy) && player && playerStats && (() => {
+        // Get enemy from state first (e.g., Treasure Guardian), then from elite challenge or combat
         const eliteChallenge = selectedBranchingRoom.activities.eliteChallenge;
         const combat = selectedBranchingRoom.activities.combat;
-        const targetEnemy = (eliteChallenge && !eliteChallenge.completed) ? eliteChallenge.enemy : combat?.enemy;
+        const targetEnemy = enemy || ((eliteChallenge && !eliteChallenge.completed) ? eliteChallenge.enemy : combat?.enemy);
         if (!targetEnemy) return null;
 
         return (

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   TrainingActivity,
   TrainingIntensity,
@@ -6,7 +6,19 @@ import {
   Player,
   DerivedStats
 } from '../../game/types';
-import { Heart, Zap, Dumbbell } from 'lucide-react';
+import {
+  Heart,
+  Droplet,
+  Sword,
+  Flame,
+  Brain,
+  Eye,
+  Wind,
+  Target,
+  Sparkles,
+  type LucideIcon
+} from 'lucide-react';
+import './Training.css';
 
 interface TrainingProps {
   training: TrainingActivity;
@@ -15,6 +27,82 @@ interface TrainingProps {
   onTrain: (stat: PrimaryStat, intensity: TrainingIntensity) => void;
   onSkip: () => void;
 }
+
+type StatCategory = 'body' | 'mind' | 'technique';
+
+interface StatInfo {
+  category: StatCategory;
+  categoryLabel: string;
+  icon: LucideIcon;
+  description: string;
+  benefits: string[];
+}
+
+const STAT_INFO: Record<PrimaryStat, StatInfo> = {
+  [PrimaryStat.WILLPOWER]: {
+    category: 'body',
+    categoryLabel: 'THE BODY',
+    icon: Heart,
+    description: 'Your vital force and will to survive.',
+    benefits: ['Max HP', 'Guts %', 'HP Regen'],
+  },
+  [PrimaryStat.CHAKRA]: {
+    category: 'body',
+    categoryLabel: 'THE BODY',
+    icon: Droplet,
+    description: 'Your spiritual energy reservoir.',
+    benefits: ['Max Chakra'],
+  },
+  [PrimaryStat.STRENGTH]: {
+    category: 'body',
+    categoryLabel: 'THE BODY',
+    icon: Sword,
+    description: 'Raw physical power.',
+    benefits: ['Physical ATK', 'Physical DEF'],
+  },
+  [PrimaryStat.SPIRIT]: {
+    category: 'mind',
+    categoryLabel: 'THE MIND',
+    icon: Flame,
+    description: 'Elemental affinity and inner flame.',
+    benefits: ['Elemental ATK', 'Elemental DEF'],
+  },
+  [PrimaryStat.INTELLIGENCE]: {
+    category: 'mind',
+    categoryLabel: 'THE MIND',
+    icon: Brain,
+    description: 'Mental acuity for complex jutsu.',
+    benefits: ['Jutsu Req', 'Chakra Regen'],
+  },
+  [PrimaryStat.CALMNESS]: {
+    category: 'mind',
+    categoryLabel: 'THE MIND',
+    icon: Eye,
+    description: 'Fortitude against illusions.',
+    benefits: ['Mental DEF', 'Status Resist'],
+  },
+  [PrimaryStat.SPEED]: {
+    category: 'technique',
+    categoryLabel: 'THE TECHNIQUE',
+    icon: Wind,
+    description: 'Swiftness in combat.',
+    benefits: ['Initiative', 'Evasion', 'Melee Hit'],
+  },
+  [PrimaryStat.ACCURACY]: {
+    category: 'technique',
+    categoryLabel: 'THE TECHNIQUE',
+    icon: Target,
+    description: 'Precision for ranged attacks.',
+    benefits: ['Ranged Hit', 'Ranged Crit DMG'],
+  },
+  [PrimaryStat.DEXTERITY]: {
+    category: 'technique',
+    categoryLabel: 'THE TECHNIQUE',
+    icon: Sparkles,
+    description: 'Finesse for critical strikes.',
+    benefits: ['Crit Chance'],
+  },
+};
 
 const STAT_DISPLAY_NAMES: Record<PrimaryStat, string> = {
   [PrimaryStat.WILLPOWER]: 'Willpower',
@@ -28,38 +116,286 @@ const STAT_DISPLAY_NAMES: Record<PrimaryStat, string> = {
   [PrimaryStat.DEXTERITY]: 'Dexterity',
 };
 
-const STAT_DESCRIPTIONS: Record<PrimaryStat, string> = {
-  [PrimaryStat.WILLPOWER]: 'Max HP, Guts chance, HP Regen',
-  [PrimaryStat.CHAKRA]: 'Max Chakra capacity',
-  [PrimaryStat.STRENGTH]: 'Taijutsu Dmg, Physical Defense',
-  [PrimaryStat.SPIRIT]: 'Elemental Dmg, Elemental Defense',
-  [PrimaryStat.INTELLIGENCE]: 'Jutsu Requirements, Chakra Regen',
-  [PrimaryStat.CALMNESS]: 'Genjutsu Defense, Status Resistance',
-  [PrimaryStat.SPEED]: 'Initiative, Melee Hit, Evasion',
-  [PrimaryStat.ACCURACY]: 'Ranged Hit, Ranged Crit Multiplier',
-  [PrimaryStat.DEXTERITY]: 'Critical Hit Chance',
+const INTENSITY_ORDER: TrainingIntensity[] = ['light', 'medium', 'intense'];
+
+/* ===========================================
+   Resource Panel Component
+   =========================================== */
+
+interface ResourcePanelProps {
+  currentHp: number;
+  maxHp: number;
+  currentChakra: number;
+  maxChakra: number;
+  previewCost: { hp: number; chakra: number } | null;
+}
+
+const ResourcePanel: React.FC<ResourcePanelProps> = ({
+  currentHp,
+  maxHp,
+  currentChakra,
+  maxChakra,
+  previewCost,
+}) => {
+  const hpPercent = (currentHp / maxHp) * 100;
+  const chakraPercent = (currentChakra / maxChakra) * 100;
+
+  const previewHp = previewCost ? currentHp - previewCost.hp : currentHp;
+  const previewChakra = previewCost ? currentChakra - previewCost.chakra : currentChakra;
+  const previewHpPercent = previewCost ? (previewHp / maxHp) * 100 : hpPercent;
+  const previewChakraPercent = previewCost ? (previewChakra / maxChakra) * 100 : chakraPercent;
+
+  return (
+    <div className="resource-panel">
+      <div className="resource-panel__content">
+        {/* HP */}
+        <div className="resource-panel__item">
+          <div className="resource-panel__label">
+            <Heart size={12} />
+            <span>Vitality</span>
+          </div>
+          <div className="resource-panel__bar">
+            <div
+              className="resource-panel__bar-fill resource-panel__bar-fill--hp"
+              style={{ width: `${hpPercent}%` }}
+            />
+            {previewCost && previewHpPercent < hpPercent && (
+              <div
+                className="resource-panel__bar-preview"
+                style={{
+                  left: `${previewHpPercent}%`,
+                  width: `${hpPercent - previewHpPercent}%`,
+                }}
+              />
+            )}
+          </div>
+          <div className="resource-panel__values">
+            <span className="resource-panel__current">{currentHp}/{maxHp}</span>
+            {previewCost && (
+              <>
+                <span className="resource-panel__arrow">→</span>
+                <span className="resource-panel__preview">{previewHp}</span>
+                <span className="resource-panel__cost">(-{previewCost.hp})</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Chakra */}
+        <div className="resource-panel__item">
+          <div className="resource-panel__label">
+            <Droplet size={12} />
+            <span>Chakra</span>
+          </div>
+          <div className="resource-panel__bar">
+            <div
+              className="resource-panel__bar-fill resource-panel__bar-fill--chakra"
+              style={{ width: `${chakraPercent}%` }}
+            />
+            {previewCost && previewChakraPercent < chakraPercent && (
+              <div
+                className="resource-panel__bar-preview"
+                style={{
+                  left: `${previewChakraPercent}%`,
+                  width: `${chakraPercent - previewChakraPercent}%`,
+                }}
+              />
+            )}
+          </div>
+          <div className="resource-panel__values">
+            <span className="resource-panel__current">{currentChakra}/{maxChakra}</span>
+            {previewCost && (
+              <>
+                <span className="resource-panel__arrow">→</span>
+                <span className="resource-panel__preview">{previewChakra}</span>
+                <span className="resource-panel__cost">(-{previewCost.chakra})</span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-const INTENSITY_COLORS: Record<TrainingIntensity, { bg: string; border: string; text: string; hover: string }> = {
-  light: {
-    bg: 'bg-green-900/20',
-    border: 'border-green-700',
-    text: 'text-green-400',
-    hover: 'hover:bg-green-900/40',
-  },
-  medium: {
-    bg: 'bg-yellow-900/20',
-    border: 'border-yellow-700',
-    text: 'text-yellow-400',
-    hover: 'hover:bg-yellow-900/40',
-  },
-  intense: {
-    bg: 'bg-red-900/20',
-    border: 'border-red-700',
-    text: 'text-red-400',
-    hover: 'hover:bg-red-900/40',
-  },
+/* ===========================================
+   Intensity Selector Component
+   =========================================== */
+
+interface IntensitySelectorProps {
+  option: TrainingActivity['options'][0];
+  selectedIntensity: TrainingIntensity | null;
+  onSelect: (intensity: TrainingIntensity) => void;
+  canAfford: (hp: number, chakra: number) => boolean;
+}
+
+const IntensitySelector: React.FC<IntensitySelectorProps> = ({
+  option,
+  selectedIntensity,
+  onSelect,
+  canAfford,
+}) => {
+  return (
+    <div className="intensity-selector">
+      {INTENSITY_ORDER.map((intensity) => {
+        const data = option.intensities[intensity];
+        const affordable = canAfford(data.cost.hp, data.cost.chakra);
+        const isSelected = selectedIntensity === intensity;
+
+        return (
+          <button
+            key={intensity}
+            type="button"
+            className={`intensity-option intensity-option--${intensity} ${
+              isSelected ? 'intensity-option--selected' : ''
+            } ${!affordable ? 'intensity-option--disabled' : ''}`}
+            onClick={() => affordable && onSelect(intensity)}
+            disabled={!affordable}
+          >
+            <div className="intensity-option__left">
+              <div className="intensity-option__radio">
+                <div className="intensity-option__radio-dot" />
+              </div>
+              <span className={`intensity-option__label intensity-option__label--${intensity}`}>
+                {intensity}
+              </span>
+              <span className="intensity-option__gain">+{data.gain}</span>
+            </div>
+            <div className="intensity-option__right">
+              <span className={`intensity-option__cost intensity-option__cost--hp ${!affordable ? 'intensity-option__insufficient' : ''}`}>
+                {data.cost.hp} HP
+              </span>
+              <span className={`intensity-option__cost intensity-option__cost--chakra ${!affordable ? 'intensity-option__insufficient' : ''}`}>
+                {data.cost.chakra} CK
+              </span>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
 };
+
+/* ===========================================
+   Stat Card Component
+   =========================================== */
+
+interface StatCardProps {
+  option: TrainingActivity['options'][0];
+  currentValue: number;
+  isSelected: boolean;
+  isDimmed: boolean;
+  selectedIntensity: TrainingIntensity | null;
+  onSelect: () => void;
+  onIntensityChange: (intensity: TrainingIntensity) => void;
+  canAfford: (hp: number, chakra: number) => boolean;
+}
+
+const StatCard: React.FC<StatCardProps> = ({
+  option,
+  currentValue,
+  isSelected,
+  isDimmed,
+  selectedIntensity,
+  onSelect,
+  onIntensityChange,
+  canAfford,
+}) => {
+  const info = STAT_INFO[option.stat];
+  const Icon = info.icon;
+  const displayName = STAT_DISPLAY_NAMES[option.stat];
+
+  const handleClick = useCallback(() => {
+    if (!isSelected) {
+      onSelect();
+    }
+  }, [isSelected, onSelect]);
+
+  return (
+    <div
+      className={`stat-card stat-card--${info.category} ${
+        isSelected ? 'stat-card--selected' : ''
+      } ${isDimmed ? 'stat-card--dimmed' : ''}`}
+      onClick={handleClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && handleClick()}
+    >
+      {/* Header */}
+      <div className="stat-card__header">
+        <span className="stat-card__category">{info.categoryLabel}</span>
+        <span className={`stat-card__value stat-card__value--${info.category}`}>
+          {currentValue}
+        </span>
+      </div>
+
+      {/* Title with Icon */}
+      <div className="stat-card__title">
+        <div className={`stat-card__icon stat-card__icon--${info.category}`}>
+          <Icon size={18} />
+        </div>
+        <span className="stat-card__name">{displayName}</span>
+      </div>
+
+      {/* Benefits */}
+      <div className="stat-card__benefits">
+        {info.benefits.map((benefit) => (
+          <span key={benefit} className="stat-card__benefit">
+            {benefit}
+          </span>
+        ))}
+      </div>
+
+      {/* Intensity Selector */}
+      <IntensitySelector
+        option={option}
+        selectedIntensity={isSelected ? selectedIntensity : null}
+        onSelect={onIntensityChange}
+        canAfford={canAfford}
+      />
+    </div>
+  );
+};
+
+/* ===========================================
+   Train Button Component
+   =========================================== */
+
+interface TrainButtonProps {
+  stat: PrimaryStat;
+  gain: number;
+  category: StatCategory;
+  onClick: () => void;
+  disabled: boolean;
+}
+
+const TrainButton: React.FC<TrainButtonProps> = ({
+  stat,
+  gain,
+  category,
+  onClick,
+  disabled,
+}) => {
+  const displayName = STAT_DISPLAY_NAMES[stat];
+
+  return (
+    <div className="train-button-container">
+      <button
+        type="button"
+        className={`train-button train-button--${category}`}
+        onClick={onClick}
+        disabled={disabled}
+      >
+        <span>Train {displayName}</span>
+        <span className="train-button__gain">+{gain}</span>
+      </button>
+    </div>
+  );
+};
+
+/* ===========================================
+   Main Training Component
+   =========================================== */
 
 const Training: React.FC<TrainingProps> = ({
   training,
@@ -68,116 +404,105 @@ const Training: React.FC<TrainingProps> = ({
   onTrain,
   onSkip,
 }) => {
-  const canAfford = (hp: number, chakra: number): boolean => {
-    return player.currentHp > hp && player.currentChakra >= chakra;
-  };
+  const [selectedStat, setSelectedStat] = useState<PrimaryStat | null>(null);
+  const [selectedIntensity, setSelectedIntensity] = useState<TrainingIntensity | null>(null);
 
-  const getStatValue = (stat: PrimaryStat): number => {
+  const canAfford = useCallback((hp: number, chakra: number): boolean => {
+    return player.currentHp > hp && player.currentChakra >= chakra;
+  }, [player.currentHp, player.currentChakra]);
+
+  const getStatValue = useCallback((stat: PrimaryStat): number => {
     const statKey = stat.toLowerCase() as keyof typeof player.primaryStats;
     return player.primaryStats[statKey] || 0;
-  };
+  }, [player.primaryStats]);
+
+  const selectedOption = useMemo(() => {
+    if (!selectedStat) return null;
+    return training.options.find((opt) => opt.stat === selectedStat) || null;
+  }, [selectedStat, training.options]);
+
+  const previewCost = useMemo(() => {
+    if (!selectedOption || !selectedIntensity) return null;
+    return selectedOption.intensities[selectedIntensity].cost;
+  }, [selectedOption, selectedIntensity]);
+
+  const handleStatSelect = useCallback((stat: PrimaryStat) => {
+    setSelectedStat(stat);
+    setSelectedIntensity(null);
+  }, []);
+
+  const handleIntensitySelect = useCallback((intensity: TrainingIntensity) => {
+    setSelectedIntensity(intensity);
+  }, []);
+
+  const handleTrain = useCallback(() => {
+    if (selectedStat && selectedIntensity) {
+      onTrain(selectedStat, selectedIntensity);
+    }
+  }, [selectedStat, selectedIntensity, onTrain]);
+
+  const canTrain = useMemo(() => {
+    if (!selectedOption || !selectedIntensity) return false;
+    const cost = selectedOption.intensities[selectedIntensity].cost;
+    return canAfford(cost.hp, cost.chakra);
+  }, [selectedOption, selectedIntensity, canAfford]);
+
+  const selectedCategory = selectedStat ? STAT_INFO[selectedStat].category : null;
+  const selectedGain = selectedOption && selectedIntensity
+    ? selectedOption.intensities[selectedIntensity].gain
+    : 0;
 
   return (
-    <div className="w-full max-w-6xl z-10">
-      <div className="flex items-center justify-center gap-4 mb-2">
-        <Dumbbell className="text-orange-500" size={24} />
-        <h2 className="text-2xl text-center text-zinc-500 font-serif tracking-[0.5em] uppercase">
-          Training Grounds
-        </h2>
-        <Dumbbell className="text-orange-500" size={24} />
+    <div className="training">
+      {/* Header */}
+      <header className="training__header">
+        <h1 className="training__title">Training Grounds</h1>
+        <p className="training__subtitle">"Forge your body and spirit"</p>
+      </header>
+
+      {/* Resource Panel */}
+      <ResourcePanel
+        currentHp={player.currentHp}
+        maxHp={playerStats.derived.maxHp}
+        currentChakra={player.currentChakra}
+        maxChakra={playerStats.derived.maxChakra}
+        previewCost={previewCost}
+      />
+
+      {/* Stat Cards */}
+      <div className="training__cards">
+        {training.options.map((option) => (
+          <StatCard
+            key={option.stat}
+            option={option}
+            currentValue={getStatValue(option.stat)}
+            isSelected={selectedStat === option.stat}
+            isDimmed={selectedStat !== null && selectedStat !== option.stat}
+            selectedIntensity={selectedIntensity}
+            onSelect={() => handleStatSelect(option.stat)}
+            onIntensityChange={handleIntensitySelect}
+            canAfford={canAfford}
+          />
+        ))}
       </div>
 
-      <p className="text-center text-zinc-600 text-sm mb-6">
-        Choose a stat to train and select your training intensity
-      </p>
+      {/* Train Button */}
+      {selectedStat && selectedIntensity && selectedCategory && (
+        <TrainButton
+          stat={selectedStat}
+          gain={selectedGain}
+          category={selectedCategory}
+          onClick={handleTrain}
+          disabled={!canTrain}
+        />
+      )}
 
-      <div className="flex items-center justify-center gap-6 mb-8">
-        <div className="flex items-center gap-2">
-          <Heart className="text-red-500" size={16} />
-          <span className="text-red-400 font-mono">
-            {player.currentHp} / {playerStats.derived.maxHp}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Zap className="text-blue-500" size={16} />
-          <span className="text-blue-400 font-mono">
-            {player.currentChakra} / {playerStats.derived.maxChakra}
-          </span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        {training.options.map((option) => {
-          const currentValue = getStatValue(option.stat);
-
-          return (
-            <div
-              key={option.stat}
-              className="bg-black border border-orange-900/30 p-6 flex flex-col gap-4"
-            >
-              <div className="text-center">
-                <h3 className="font-bold text-lg text-orange-400 mb-1">
-                  {STAT_DISPLAY_NAMES[option.stat]}
-                </h3>
-                <p className="text-[10px] text-zinc-600 uppercase tracking-widest">
-                  Current: {currentValue}
-                </p>
-                <p className="text-xs text-zinc-500 mt-2">
-                  {STAT_DESCRIPTIONS[option.stat]}
-                </p>
-              </div>
-
-              <div className="space-y-3 mt-auto">
-                {(['light', 'medium', 'intense'] as TrainingIntensity[]).map((intensity) => {
-                  const data = option.intensities[intensity];
-                  const affordable = canAfford(data.cost.hp, data.cost.chakra);
-                  const colors = INTENSITY_COLORS[intensity];
-
-                  return (
-                    <button
-                      key={intensity}
-                      type="button"
-                      disabled={!affordable}
-                      onClick={() => onTrain(option.stat, intensity)}
-                      className={`w-full py-3 px-4 border text-xs font-bold uppercase transition-colors
-                        ${affordable
-                          ? `${colors.bg} ${colors.border} ${colors.text} ${colors.hover}`
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed opacity-50'
-                        }`}
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="capitalize">{intensity}</span>
-                        <span className={affordable ? 'text-white' : 'text-zinc-600'}>
-                          +{data.gain}
-                        </span>
-                      </div>
-                      <div className="flex justify-center gap-4 mt-1 text-[10px] font-normal">
-                        <span className={affordable ? 'text-red-400' : 'text-zinc-600'}>
-                          -{data.cost.hp} HP
-                        </span>
-                        <span className={affordable ? 'text-blue-400' : 'text-zinc-600'}>
-                          -{data.cost.chakra} Chakra
-                        </span>
-                      </div>
-                      {!affordable && (
-                        <div className="text-[9px] text-zinc-500 mt-1 font-normal normal-case">
-                          Not enough resources
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="text-center">
+      {/* Skip Button */}
+      <div className="training__skip">
         <button
           type="button"
+          className="training__skip-button"
           onClick={onSkip}
-          className="text-zinc-600 hover:text-zinc-300 text-xs uppercase tracking-widest border-b border-transparent hover:border-zinc-600 pb-1"
         >
           Skip Training
         </button>
