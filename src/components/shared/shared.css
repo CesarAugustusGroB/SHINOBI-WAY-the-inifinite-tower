@@ -1,0 +1,276 @@
+/**
+ * Shared Components Styles
+ * BEM-style CSS for reusable shared components
+ */
+
+@import '../../styles/design-system/index.css';
+
+/* ===========================================
+   STAT BAR COMPONENT
+   =========================================== */
+
+.stat-bar {
+  width: 100%;
+}
+
+.stat-bar__header {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--sw-text-xs);
+  font-weight: 700;
+  color: var(--sw-text-secondary);
+  margin-bottom: var(--sw-space-1);
+}
+
+.stat-bar__label {
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+}
+
+.stat-bar__value {
+  font-family: var(--sw-font-mono);
+}
+
+.stat-bar__track {
+  width: 100%;
+  background: rgba(9, 9, 11, 0.8);
+  border-radius: var(--sw-radius-full);
+  height: 0.75rem;
+  border: 1px solid var(--sw-glass-border);
+  overflow: hidden;
+  backdrop-filter: blur(4px);
+}
+
+.stat-bar__fill {
+  height: 100%;
+  border-radius: var(--sw-radius-full);
+  transition: width var(--sw-transition-slow);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+/* Color Variants */
+.stat-bar__fill--hp {
+  background: var(--sw-hp-fill);
+}
+
+.stat-bar__fill--chakra {
+  background: var(--sw-chakra-fill);
+}
+
+.stat-bar__fill--xp {
+  background: var(--sw-xp-fill);
+}
+
+.stat-bar__fill--yellow {
+  background: linear-gradient(to right, #ca8a04, #eab308);
+}
+
+/* Size Variants */
+.stat-bar--sm .stat-bar__track {
+  height: 0.5rem;
+}
+
+.stat-bar--sm .stat-bar__header {
+  font-size: var(--sw-text-2xs);
+}
+
+.stat-bar--lg .stat-bar__track {
+  height: 1rem;
+}
+
+/* ===========================================
+   KEYBOARD SHORTCUT HINTS
+   =========================================== */
+
+.sw-shortcut {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 var(--sw-space-1);
+  background: var(--sw-bg-tertiary);
+  border: 1px solid var(--sw-glass-border);
+  border-radius: var(--sw-radius-sm);
+  font-size: var(--sw-text-2xs);
+  font-family: var(--sw-font-mono);
+  color: var(--sw-text-tertiary);
+  text-transform: uppercase;
+}
+
+/* ===========================================
+   COMMON BADGE STYLES
+   =========================================== */
+
+.sw-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sw-space-1);
+  padding: var(--sw-space-1) var(--sw-space-2);
+  font-size: var(--sw-text-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+  border-radius: var(--sw-radius-sm);
+}
+
+.sw-badge--success {
+  background: rgba(22, 101, 52, 0.3);
+  color: #4ade80;
+}
+
+.sw-badge--warning {
+  background: rgba(120, 53, 15, 0.3);
+  color: #fbbf24;
+}
+
+.sw-badge--danger {
+  background: rgba(127, 29, 29, 0.3);
+  color: #f87171;
+}
+
+.sw-badge--info {
+  background: rgba(30, 58, 138, 0.3);
+  color: #60a5fa;
+}
+
+/* ===========================================
+   COMMON DIVIDERS
+   =========================================== */
+
+.sw-divider {
+  width: 100%;
+  height: 1px;
+  background: var(--sw-glass-border);
+  margin: var(--sw-space-4) 0;
+}
+
+.sw-divider--vertical {
+  width: 1px;
+  height: 100%;
+  margin: 0 var(--sw-space-4);
+}
+
+/* ===========================================
+   SECTION HEADERS
+   =========================================== */
+
+.sw-section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+  margin-bottom: var(--sw-space-4);
+}
+
+.sw-section-header__icon {
+  color: var(--sw-accent-primary);
+}
+
+.sw-section-header__title {
+  font-size: var(--sw-text-xs);
+  font-weight: 700;
+  color: var(--sw-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-widest);
+}
+
+/* ===========================================
+   EMPTY STATE
+   =========================================== */
+
+.sw-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sw-space-8);
+  text-align: center;
+}
+
+.sw-empty-state__icon {
+  color: var(--sw-text-muted);
+  margin-bottom: var(--sw-space-4);
+  opacity: 0.5;
+}
+
+.sw-empty-state__text {
+  font-size: var(--sw-text-sm);
+  color: var(--sw-text-muted);
+}
+
+/* ===========================================
+   TOOLTIP COMPONENT
+   =========================================== */
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  background: var(--sw-bg-primary);
+  border: 1px solid var(--sw-glass-border);
+  color: var(--sw-text-secondary);
+  border-radius: var(--sw-radius-md);
+  padding: var(--sw-space-3);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  min-width: 200px;
+  max-width: 300px;
+}
+
+/* Position Variants */
+.tooltip--bottom {
+  transform: translateX(-50%);
+}
+
+.tooltip--top {
+  transform: translate(-50%, -100%);
+}
+
+.tooltip--left {
+  transform: translate(-100%, -50%);
+}
+
+.tooltip--right {
+  transform: translateY(-50%);
+}
+
+/* Arrow Base */
+.tooltip__arrow {
+  position: absolute;
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--sw-bg-primary);
+  transform: rotate(45deg);
+}
+
+/* Arrow Positions */
+.tooltip__arrow--bottom {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) translateY(-50%) rotate(45deg);
+  border-left: 1px solid var(--sw-glass-border);
+  border-top: 1px solid var(--sw-glass-border);
+}
+
+.tooltip__arrow--top {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%) translateY(50%) rotate(45deg);
+  border-right: 1px solid var(--sw-glass-border);
+  border-bottom: 1px solid var(--sw-glass-border);
+}
+
+.tooltip__arrow--left {
+  right: 0;
+  top: 50%;
+  transform: translateX(50%) translateY(-50%) rotate(45deg);
+  border-right: 1px solid var(--sw-glass-border);
+  border-top: 1px solid var(--sw-glass-border);
+}
+
+.tooltip__arrow--right {
+  left: 0;
+  top: 50%;
+  transform: translateX(-50%) translateY(-50%) rotate(45deg);
+  border-left: 1px solid var(--sw-glass-border);
+  border-bottom: 1px solid var(--sw-glass-border);
+}

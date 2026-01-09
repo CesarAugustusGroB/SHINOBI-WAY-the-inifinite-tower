@@ -5,6 +5,7 @@ import { Item, EquipmentSlot, Rarity, DragData } from '../../game/types';
 import Tooltip from '../shared/Tooltip';
 import { formatStatName } from '../../game/utils/tooltipFormatters';
 import { getRarityTextColorWithEffects } from '../../utils/colorHelpers';
+import './inventory.css';
 
 interface EquipmentPanelProps {
   equipment: Record<EquipmentSlot, Item | null>;
@@ -25,10 +26,8 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
 }) => {
   const [activeMenu, setActiveMenu] = useState<EquipmentSlot | null>(null);
 
-  // Use imported utilities
   const getRarityColor = getRarityTextColorWithEffects;
 
-  // Themed slot names (Primary slot gets +50% stats)
   const SLOT_NAMES: Record<EquipmentSlot, string> = {
     [EquipmentSlot.SLOT_1]: 'Primary (+50%)',
     [EquipmentSlot.SLOT_2]: 'Secondary',
@@ -67,15 +66,13 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     const item = equipment[slot];
     const isMenuOpen = activeMenu === slot;
     const sellValue = item ? Math.floor(item.value * 0.6) : 0;
-    const canUnequip = !!item; // Any item can be moved to bag
+    const canUnequip = !!item;
     const canDisassemble = item && !item.isComponent && item.recipe;
 
-    // Make this slot droppable (to receive items from bag or other equipment)
     const { setNodeRef: setDropRef, isOver } = useDroppable({
       id: `equip-${slot}`,
     });
 
-    // Make item draggable if slot has an item
     const dragData: DragData | undefined = item
       ? { item, source: { type: 'equipment', slot } }
       : undefined;
@@ -92,55 +89,69 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
       disabled: !item,
     });
 
-    // Combine refs
     const combinedRef = (node: HTMLElement | null) => {
       setDropRef(node);
       setDragRef(node);
     };
 
     const style = transform
-      ? {
-          transform: CSS.Translate.toString(transform),
-        }
+      ? { transform: CSS.Translate.toString(transform) }
       : undefined;
 
+    const getSlotClasses = () => {
+      const classes = ['equipment-panel__slot'];
+
+      if (isDragging) {
+        classes.push('equipment-panel__slot--dragging');
+      } else if (isOver && globalDragging) {
+        classes.push('equipment-panel__slot--drop-target');
+      } else if (isMenuOpen) {
+        classes.push('equipment-panel__slot--selected');
+      } else if (isPrimarySlot(slot)) {
+        classes.push('equipment-panel__slot--primary');
+      } else if (item) {
+        classes.push('equipment-panel__slot--filled');
+      } else {
+        classes.push('equipment-panel__slot--empty');
+      }
+
+      return classes.join(' ');
+    };
+
     const tooltipContent = item ? (
-      <div className="space-y-2">
-        <div className={`font-bold ${getRarityColor(item.rarity)}`}>{item.name}</div>
-        <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+      <div className="equipment-panel__tooltip">
+        <div className={`equipment-panel__tooltip-name ${getRarityColor(item.rarity)}`}>{item.name}</div>
+        <div className="equipment-panel__tooltip-type">
           {item.rarity} {item.isComponent ? 'Component' : (item.type || 'Artifact')}
         </div>
         {item.description && (
-          <div className="text-[10px] text-zinc-400 italic">{item.description}</div>
+          <div className="equipment-panel__tooltip-desc">{item.description}</div>
         )}
-        {/* Passive effect display for artifacts */}
         {item.passive && (
-          <div className="text-[10px] text-purple-400 bg-purple-500/10 rounded px-1 py-0.5">
+          <div className="equipment-panel__tooltip-passive">
             Passive: {item.description}
           </div>
         )}
-        <div className="space-y-1 text-[10px] font-mono text-zinc-400 pt-2 border-t border-zinc-800">
+        <div className="equipment-panel__tooltip-stats">
           {Object.entries(item.stats).map(([key, val]) => (
-            <div key={key} className="flex justify-between uppercase">
+            <div key={key} className="equipment-panel__tooltip-stat">
               <span>{formatStatName(key)}</span>
-              <span className="text-zinc-200">+{val}</span>
+              <span className="equipment-panel__tooltip-stat-value">+{val}</span>
             </div>
           ))}
         </div>
-        <div className="text-[10px] text-yellow-600 pt-1 border-t border-zinc-800">
-          Sell: {sellValue} Ryō (60%)
-        </div>
+        <div className="equipment-panel__tooltip-sell">Sell: {sellValue} Ryo (60%)</div>
         {canDisassemble && (
-          <div className="text-[10px] text-amber-400">
-            Can disassemble (50% return)
-          </div>
+          <div className="equipment-panel__tooltip-disassemble">Can disassemble (50% return)</div>
         )}
-        <div className="text-[9px] text-zinc-500 pt-1">Drag to move • Click for actions</div>
+        <div className="equipment-panel__tooltip-hint">Drag to move - Click for actions</div>
       </div>
-    ) : <div className="text-xs text-zinc-500 italic">Empty slot - drop items here</div>;
+    ) : (
+      <div className="equipment-panel__tooltip-empty">Empty slot - drop items here</div>
+    );
 
     return (
-      <div key={slot} className="relative">
+      <div key={slot} className="equipment-panel__slot-wrapper">
         <Tooltip content={tooltipContent} position="left">
           <div
             ref={combinedRef}
@@ -148,89 +159,71 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
             {...attributes}
             {...listeners}
             onClick={() => handleSlotClick(slot, item)}
-            className={`mb-1.5 p-2 border rounded transition-all cursor-pointer touch-none ${
-              isDragging
-                ? 'border-dashed border-zinc-600 bg-zinc-900/30'
-                : isOver && globalDragging
-                  ? 'border-amber-500 bg-amber-500/20 scale-[1.02]'
-                  : isMenuOpen
-                    ? 'border-amber-500 bg-amber-500/10'
-                    : isPrimarySlot(slot)
-                      ? 'border-amber-700/50 bg-amber-950/20 hover:border-amber-600'
-                      : 'border-zinc-800 bg-black/40 hover:border-zinc-600'
-            } ${item && !isDragging ? 'group' : ''}`}
+            className={getSlotClasses()}
           >
-            <div className={`flex justify-between items-center mb-0.5 ${isDragging ? 'invisible' : ''}`}>
-              <span className={`text-[9px] uppercase font-bold tracking-wider ${
-                isPrimarySlot(slot) ? 'text-amber-500' : 'text-zinc-600'
-              }`}>
+            <div className={`equipment-panel__slot-header ${isDragging ? 'equipment-panel__slot-invisible' : ''}`}>
+              <span className={`equipment-panel__slot-label ${isPrimarySlot(slot) ? 'equipment-panel__slot-label--primary' : ''}`}>
                 {SLOT_NAMES[slot]}
               </span>
               {item && (
-                <span className={`text-[9px] uppercase ${getRarityColor(item.rarity)} opacity-70`}>
+                <span className={`equipment-panel__slot-rarity ${getRarityColor(item.rarity)}`}>
                   {item.rarity}
                 </span>
               )}
             </div>
-            <div className={`text-xs font-medium truncate font-serif tracking-wide ${
-              item ? getRarityColor(item.rarity) : 'text-zinc-700 italic'
-            } ${isDragging ? 'invisible' : ''}`}>
+            <div className={`equipment-panel__slot-name ${
+              item ? getRarityColor(item.rarity) : 'equipment-panel__slot-name--empty'
+            } ${isDragging ? 'equipment-panel__slot-invisible' : ''}`}>
               {item ? (item.icon ? `${item.icon} ${item.name}` : item.name) : "Empty"}
             </div>
           </div>
         </Tooltip>
 
-        {/* Action Menu */}
         {isMenuOpen && item && (
-          <div className="absolute left-0 right-0 z-20 bg-zinc-900 border border-zinc-700 rounded shadow-lg overflow-hidden">
-            {/* Sell button - always available */}
+          <div className="equipment-panel__menu">
             <button
               type="button"
               onClick={() => handleSell(slot, item)}
-              className="w-full px-3 py-2 text-left text-[10px] hover:bg-zinc-800 transition-colors flex justify-between items-center text-yellow-400 hover:text-yellow-300"
+              className="equipment-panel__menu-btn equipment-panel__menu-btn--sell"
             >
               <span>Sell</span>
-              <span className="text-zinc-400">+{sellValue} Ryō</span>
+              <span className="equipment-panel__menu-price">+{sellValue} Ryo</span>
             </button>
 
-            {/* Move to Bag - available for all items */}
             {canUnequip && onUnequip && (
               <button
                 type="button"
                 onClick={() => handleUnequip(slot, item)}
-                className="w-full px-3 py-2 text-left text-[10px] hover:bg-zinc-800 transition-colors text-blue-400 hover:text-blue-300 border-t border-zinc-800"
+                className="equipment-panel__menu-btn equipment-panel__menu-btn--unequip"
               >
                 Move to Bag
               </button>
             )}
 
-            {/* Synthesize - only for components */}
             {item.isComponent && onStartSynthesis && (
               <button
                 type="button"
                 onClick={() => handleStartSynthesis(slot, item)}
-                className="w-full px-3 py-2 text-left text-[10px] hover:bg-zinc-800 transition-colors text-purple-400 hover:text-purple-300 border-t border-zinc-800"
+                className="equipment-panel__menu-btn equipment-panel__menu-btn--synthesize"
               >
                 Synthesize
               </button>
             )}
 
-            {/* Disassemble - only for artifacts with recipe */}
             {canDisassemble && onDisassemble && (
               <button
                 type="button"
                 onClick={() => handleDisassemble(slot, item)}
-                className="w-full px-3 py-2 text-left text-[10px] hover:bg-zinc-800 transition-colors text-amber-400 hover:text-amber-300 border-t border-zinc-800"
+                className="equipment-panel__menu-btn equipment-panel__menu-btn--disassemble"
               >
                 Disassemble (50%)
               </button>
             )}
 
-            {/* Cancel */}
             <button
               type="button"
               onClick={() => setActiveMenu(null)}
-              className="w-full px-3 py-2 text-left text-[10px] hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-zinc-300 border-t border-zinc-800"
+              className="equipment-panel__menu-btn equipment-panel__menu-btn--cancel"
             >
               Cancel
             </button>
@@ -241,8 +234,8 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
   };
 
   return (
-    <div className="flex-1">
-      <h3 className="text-[9px] font-bold text-zinc-600 mb-2 uppercase tracking-widest">Equipment</h3>
+    <div className="equipment-panel">
+      <h3 className="equipment-panel__title">Equipment</h3>
       {renderEquip(EquipmentSlot.SLOT_1)}
       {renderEquip(EquipmentSlot.SLOT_2)}
       {renderEquip(EquipmentSlot.SLOT_3)}

@@ -1,0 +1,192 @@
+/* ============================================================================
+   SHINOBI WAY - Design System
+   ============================================================================
+   Master import file for the unified design system.
+   Import this single file in App.tsx or index.tsx to include all design tokens.
+
+   Usage:
+     import './styles/design-system/index.css';
+
+   Or in CSS:
+     @import './styles/design-system/index.css';
+   ============================================================================ */
+
+/* Core design tokens (must be first) */
+@import './_variables.css';
+
+/* Animations (keyframes and utility classes) */
+@import './_animations.css';
+
+/* Reusable component classes */
+@import './_components.css';
+
+/* Background/placeholder system */
+@import './_backgrounds.css';
+
+/* ============================================================================
+   GLOBAL RESETS & BASE STYLES
+   ============================================================================ */
+
+/* Ensure consistent box-sizing */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Remove default margins */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--sw-bg-primary);
+  color: var(--sw-text-primary);
+  font-family: var(--sw-font-sans);
+  font-size: var(--sw-text-base);
+  line-height: var(--sw-leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Focus visible for accessibility */
+:focus-visible {
+  outline: 2px solid var(--sw-accent-primary);
+  outline-offset: 2px;
+}
+
+/* Remove focus outline for mouse users */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ============================================================================
+   TYPOGRAPHY UTILITIES
+   ============================================================================ */
+
+.sw-text-primary { color: var(--sw-text-primary); }
+.sw-text-secondary { color: var(--sw-text-secondary); }
+.sw-text-tertiary { color: var(--sw-text-tertiary); }
+.sw-text-muted { color: var(--sw-text-muted); }
+.sw-text-accent { color: var(--sw-accent-tertiary); }
+
+.sw-font-sans { font-family: var(--sw-font-sans); }
+.sw-font-serif { font-family: var(--sw-font-serif); }
+.sw-font-mono { font-family: var(--sw-font-mono); }
+
+.sw-text-xs { font-size: var(--sw-text-xs); }
+.sw-text-sm { font-size: var(--sw-text-sm); }
+.sw-text-base { font-size: var(--sw-text-base); }
+.sw-text-lg { font-size: var(--sw-text-lg); }
+.sw-text-xl { font-size: var(--sw-text-xl); }
+.sw-text-2xl { font-size: var(--sw-text-2xl); }
+.sw-text-3xl { font-size: var(--sw-text-3xl); }
+
+.sw-font-normal { font-weight: 400; }
+.sw-font-medium { font-weight: 500; }
+.sw-font-semibold { font-weight: 600; }
+.sw-font-bold { font-weight: 700; }
+
+.sw-uppercase { text-transform: uppercase; }
+.sw-tracking-wide { letter-spacing: var(--sw-tracking-wide); }
+.sw-tracking-wider { letter-spacing: var(--sw-tracking-wider); }
+.sw-tracking-widest { letter-spacing: var(--sw-tracking-widest); }
+
+.sw-text-center { text-align: center; }
+.sw-text-left { text-align: left; }
+.sw-text-right { text-align: right; }
+
+/* ============================================================================
+   SPACING UTILITIES
+   ============================================================================ */
+
+.sw-p-0 { padding: var(--sw-space-0); }
+.sw-p-2 { padding: var(--sw-space-2); }
+.sw-p-4 { padding: var(--sw-space-4); }
+.sw-p-6 { padding: var(--sw-space-6); }
+.sw-p-8 { padding: var(--sw-space-8); }
+
+.sw-m-0 { margin: var(--sw-space-0); }
+.sw-m-2 { margin: var(--sw-space-2); }
+.sw-m-4 { margin: var(--sw-space-4); }
+.sw-m-auto { margin: auto; }
+.sw-mx-auto { margin-left: auto; margin-right: auto; }
+
+.sw-mt-2 { margin-top: var(--sw-space-2); }
+.sw-mt-4 { margin-top: var(--sw-space-4); }
+.sw-mt-6 { margin-top: var(--sw-space-6); }
+.sw-mt-8 { margin-top: var(--sw-space-8); }
+
+.sw-mb-2 { margin-bottom: var(--sw-space-2); }
+.sw-mb-4 { margin-bottom: var(--sw-space-4); }
+.sw-mb-6 { margin-bottom: var(--sw-space-6); }
+.sw-mb-8 { margin-bottom: var(--sw-space-8); }
+
+/* ============================================================================
+   VISIBILITY UTILITIES
+   ============================================================================ */
+
+.sw-hidden { display: none; }
+.sw-invisible { visibility: hidden; }
+.sw-visible { visibility: visible; }
+
+.sw-opacity-0 { opacity: 0; }
+.sw-opacity-50 { opacity: 0.5; }
+.sw-opacity-100 { opacity: 1; }
+
+/* Screen reader only */
+.sw-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ============================================================================
+   CURSOR UTILITIES
+   ============================================================================ */
+
+.sw-cursor-pointer { cursor: pointer; }
+.sw-cursor-not-allowed { cursor: not-allowed; }
+.sw-pointer-events-none { pointer-events: none; }
+
+/* ============================================================================
+   BORDER UTILITIES
+   ============================================================================ */
+
+.sw-border { border: 1px solid var(--sw-glass-border); }
+.sw-border-2 { border: 2px solid var(--sw-glass-border); }
+.sw-border-accent { border-color: var(--sw-accent-primary); }
+.sw-border-transparent { border-color: transparent; }
+
+.sw-rounded { border-radius: var(--sw-radius-md); }
+.sw-rounded-lg { border-radius: var(--sw-radius-lg); }
+.sw-rounded-xl { border-radius: var(--sw-radius-xl); }
+.sw-rounded-full { border-radius: var(--sw-radius-full); }
+
+/* ============================================================================
+   RESPONSIVE UTILITIES
+   ============================================================================ */
+
+/* Hide on small screens */
+@media (max-width: 640px) {
+  .sw-hide-sm { display: none !important; }
+}
+
+/* Hide on medium screens */
+@media (max-width: 768px) {
+  .sw-hide-md { display: none !important; }
+}
+
+/* Show only on small screens */
+@media (min-width: 641px) {
+  .sw-show-sm-only { display: none !important; }
+}

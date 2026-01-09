@@ -1,0 +1,295 @@
+/* ============================================================================
+   SHINOBI WAY - Placeholder Background System
+   ============================================================================
+   Provides stylized placeholder backgrounds for scenes that can be
+   easily swapped for real assets later. Uses gradient fallbacks with
+   blur and vignette effects to maintain visual quality without images.
+   ============================================================================ */
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   BASE PLACEHOLDER CONTAINER
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.sw-bg {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--sw-bg-primary);
+}
+
+/* Background layer (gradient or image) */
+.sw-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: var(--sw-z-background);
+  background: var(--sw-bg-gradient,
+    radial-gradient(
+      ellipse at center,
+      var(--sw-bg-tertiary) 0%,
+      var(--sw-bg-secondary) 40%,
+      var(--sw-bg-primary) 100%
+    )
+  );
+  /* When image loads, apply blur */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Vignette overlay for depth */
+.sw-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 0%,
+    rgba(0, 0, 0, 0.2) 50%,
+    rgba(0, 0, 0, 0.7) 100%
+  );
+  pointer-events: none;
+}
+
+/* Content sits above backgrounds */
+.sw-bg > * {
+  position: relative;
+  z-index: var(--sw-z-base);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   BACKGROUND WITH IMAGE SUPPORT
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* When an image is provided via CSS variable or class */
+.sw-bg--image::before {
+  background-image: var(--sw-bg-image);
+  filter: blur(6px) brightness(0.35);
+  transform: scale(1.05); /* Prevent blur edge artifacts */
+}
+
+/* Sharper image variant */
+.sw-bg--image-sharp::before {
+  filter: brightness(0.4);
+  transform: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SCENE-SPECIFIC PLACEHOLDER GRADIENTS
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Main Menu - Dark with subtle amber warmth */
+.sw-bg--menu::before {
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(245, 158, 11, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 80%, rgba(185, 28, 28, 0.05) 0%, transparent 50%),
+    linear-gradient(180deg, var(--sw-bg-tertiary) 0%, var(--sw-bg-primary) 100%);
+}
+
+/* Character Select - Cool blue tones */
+.sw-bg--char-select::before {
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(59, 130, 246, 0.1) 0%, transparent 60%),
+    radial-gradient(ellipse at 20% 70%, rgba(168, 85, 247, 0.08) 0%, transparent 50%),
+    linear-gradient(180deg, var(--sw-bg-tertiary) 0%, var(--sw-bg-primary) 100%);
+}
+
+/* Combat - Red/danger atmosphere */
+.sw-bg--combat::before {
+  background:
+    radial-gradient(ellipse at 50% 20%, rgba(185, 28, 28, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 30% 80%, rgba(239, 68, 68, 0.06) 0%, transparent 40%),
+    linear-gradient(180deg, #1a0a0a 0%, var(--sw-bg-primary) 100%);
+}
+
+/* Event - Mysterious purple/blue */
+.sw-bg--event::before {
+  background:
+    radial-gradient(ellipse at 60% 30%, rgba(126, 34, 206, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 40% 70%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    linear-gradient(180deg, var(--sw-bg-tertiary) 0%, var(--sw-bg-primary) 100%);
+}
+
+/* Merchant - Warm amber/gold */
+.sw-bg--merchant::before {
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(245, 158, 11, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 70%, rgba(217, 119, 6, 0.08) 0%, transparent 40%),
+    linear-gradient(180deg, #1a1508 0%, var(--sw-bg-primary) 100%);
+}
+
+/* Training - Green/technique focus */
+.sw-bg--training::before {
+  background:
+    radial-gradient(ellipse at 40% 30%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 70%, rgba(34, 197, 94, 0.06) 0%, transparent 40%),
+    linear-gradient(180deg, #0a1a10 0%, var(--sw-bg-primary) 100%);
+}
+
+/* Loot/Rewards - Golden treasure glow */
+.sw-bg--loot::before {
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(251, 191, 36, 0.15) 0%, transparent 40%),
+    radial-gradient(ellipse at 30% 30%, rgba(245, 158, 11, 0.08) 0%, transparent 50%),
+    linear-gradient(180deg, #1a1608 0%, var(--sw-bg-primary) 100%);
+}
+
+/* Elite Challenge - Intense danger red/purple */
+.sw-bg--elite::before {
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(185, 28, 28, 0.15) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 70%, rgba(126, 34, 206, 0.1) 0%, transparent 50%),
+    linear-gradient(180deg, #1a0808 0%, #0a0a14 100%);
+}
+
+/* Game Over - Dark with red accents */
+.sw-bg--gameover::before {
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(127, 29, 29, 0.2) 0%, transparent 50%),
+    linear-gradient(180deg, #0a0505 0%, var(--sw-bg-primary) 100%);
+}
+
+/* Game Guide - Parchment/scroll feel */
+.sw-bg--guide::before {
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(161, 98, 7, 0.08) 0%, transparent 60%),
+    linear-gradient(180deg, var(--sw-bg-tertiary) 0%, var(--sw-bg-primary) 100%);
+}
+
+/* Scroll Discovery - Mystical blue */
+.sw-bg--scroll::before {
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 30% 60%, rgba(96, 165, 250, 0.06) 0%, transparent 40%),
+    linear-gradient(180deg, #080a14 0%, var(--sw-bg-primary) 100%);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ANIMATED BACKGROUND EFFECTS
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Subtle particle/dust effect using noise texture */
+.sw-bg--particles::before {
+  position: relative;
+}
+
+.sw-bg--particles .sw-bg__particles {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+/* Slow pulsing ambient glow */
+.sw-bg--pulse::after {
+  animation: sw-bg-pulse 8s ease-in-out infinite;
+}
+
+@keyframes sw-bg-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SCENE CONTENT CONTAINER
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.sw-scene {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: var(--sw-space-4);
+}
+
+/* Centered content variant */
+.sw-scene--centered {
+  align-items: center;
+  justify-content: center;
+}
+
+/* Full width content */
+.sw-scene--full {
+  padding: 0;
+}
+
+/* Scene with header space */
+.sw-scene--with-header {
+  padding-top: var(--sw-space-16);
+}
+
+/* Constrained width containers */
+.sw-scene__container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.sw-scene__container--sm {
+  max-width: 640px;
+}
+
+.sw-scene__container--md {
+  max-width: 768px;
+}
+
+.sw-scene__container--lg {
+  max-width: 1024px;
+}
+
+.sw-scene__container--xl {
+  max-width: 1280px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ASSET PLACEHOLDER (for specific image spots)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Placeholder for where images will be added later */
+.sw-asset-placeholder {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--sw-glass-bg);
+  border: 1px dashed var(--sw-glass-border);
+  border-radius: var(--sw-radius-lg);
+  overflow: hidden;
+}
+
+.sw-asset-placeholder::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.02) 0%,
+    transparent 50%,
+    rgba(0, 0, 0, 0.02) 100%
+  );
+}
+
+/* Placeholder icon container */
+.sw-asset-placeholder__icon {
+  color: var(--sw-text-muted);
+  opacity: 0.5;
+}
+
+/* When real image loads */
+.sw-asset-placeholder--loaded {
+  border-style: solid;
+}
+
+.sw-asset-placeholder--loaded::before {
+  display: none;
+}
+
+.sw-asset-placeholder--loaded .sw-asset-placeholder__icon {
+  display: none;
+}

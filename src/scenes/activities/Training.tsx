@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   TrainingActivity,
   TrainingIntensity,
@@ -286,6 +286,7 @@ interface StatCardProps {
   isSelected: boolean;
   isDimmed: boolean;
   selectedIntensity: TrainingIntensity | null;
+  index: number;
   onSelect: () => void;
   onIntensityChange: (intensity: TrainingIntensity) => void;
   canAfford: (hp: number, chakra: number) => boolean;
@@ -297,6 +298,7 @@ const StatCard: React.FC<StatCardProps> = ({
   isSelected,
   isDimmed,
   selectedIntensity,
+  index,
   onSelect,
   onIntensityChange,
   canAfford,
@@ -323,7 +325,10 @@ const StatCard: React.FC<StatCardProps> = ({
     >
       {/* Header */}
       <div className="stat-card__header">
-        <span className="stat-card__category">{info.categoryLabel}</span>
+        <div>
+          <span className="stat-card__index">{index + 1}</span>
+          <span className="stat-card__category">{info.categoryLabel}</span>
+        </div>
         <span className={`stat-card__value stat-card__value--${info.category}`}>
           {currentValue}
         </span>
@@ -452,6 +457,65 @@ const Training: React.FC<TrainingProps> = ({
     ? selectedOption.intensities[selectedIntensity].gain
     : 0;
 
+  // Keyboard shortcuts
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    const key = e.key.toUpperCase();
+
+    // Number keys 1-9 to select stat
+    if (e.key >= '1' && e.key <= '9') {
+      e.preventDefault();
+      const index = parseInt(e.key) - 1;
+      if (index < training.options.length) {
+        handleStatSelect(training.options[index].stat);
+      }
+    }
+
+    // L/M/I for intensity (only when stat is selected)
+    if (selectedStat && selectedOption) {
+      if (key === 'L') {
+        e.preventDefault();
+        const data = selectedOption.intensities.light;
+        if (canAfford(data.cost.hp, data.cost.chakra)) {
+          handleIntensitySelect('light');
+        }
+      } else if (key === 'M') {
+        e.preventDefault();
+        const data = selectedOption.intensities.medium;
+        if (canAfford(data.cost.hp, data.cost.chakra)) {
+          handleIntensitySelect('medium');
+        }
+      } else if (key === 'I') {
+        e.preventDefault();
+        const data = selectedOption.intensities.intense;
+        if (canAfford(data.cost.hp, data.cost.chakra)) {
+          handleIntensitySelect('intense');
+        }
+      }
+    }
+
+    // Enter to train
+    if (e.key === 'Enter' && selectedStat && selectedIntensity && canTrain) {
+      e.preventDefault();
+      handleTrain();
+    }
+
+    // Escape to skip or deselect
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      if (selectedStat) {
+        setSelectedStat(null);
+        setSelectedIntensity(null);
+      } else {
+        onSkip();
+      }
+    }
+  }, [training.options, selectedStat, selectedOption, selectedIntensity, canTrain, canAfford, handleStatSelect, handleIntensitySelect, handleTrain, onSkip]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
   return (
     <div className="training">
       {/* Header */}
@@ -459,6 +523,22 @@ const Training: React.FC<TrainingProps> = ({
         <h1 className="training__title">Training Grounds</h1>
         <p className="training__subtitle">"Forge your body and spirit"</p>
       </header>
+
+      {/* Keyboard Hints */}
+      <div className="training__hints">
+        <span className="training__hint">
+          <span className="sw-shortcut">1</span>-<span className="sw-shortcut">9</span> Select Stat
+        </span>
+        <span className="training__hint">
+          <span className="sw-shortcut">L</span>/<span className="sw-shortcut">M</span>/<span className="sw-shortcut">I</span> Intensity
+        </span>
+        <span className="training__hint">
+          <span className="sw-shortcut">Enter</span> Train
+        </span>
+        <span className="training__hint">
+          <span className="sw-shortcut">Esc</span> Skip
+        </span>
+      </div>
 
       {/* Resource Panel */}
       <ResourcePanel
@@ -471,7 +551,7 @@ const Training: React.FC<TrainingProps> = ({
 
       {/* Stat Cards */}
       <div className="training__cards">
-        {training.options.map((option) => (
+        {training.options.map((option, idx) => (
           <StatCard
             key={option.stat}
             option={option}
@@ -479,6 +559,7 @@ const Training: React.FC<TrainingProps> = ({
             isSelected={selectedStat === option.stat}
             isDimmed={selectedStat !== null && selectedStat !== option.stat}
             selectedIntensity={selectedIntensity}
+            index={idx}
             onSelect={() => handleStatSelect(option.stat)}
             onIntensityChange={handleIntensitySelect}
             canAfford={canAfford}

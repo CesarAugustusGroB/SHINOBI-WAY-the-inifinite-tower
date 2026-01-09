@@ -1,0 +1,556 @@
+/**
+ * Approach Selector Component Styles
+ * BEM-style CSS for combat approach selection modal
+ */
+
+@import '../../styles/design-system/index.css';
+
+/* ===========================================
+   MODAL OVERLAY
+   =========================================== */
+
+.approach-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: var(--sw-space-4);
+  animation: sw-fade-in 0.2s ease-out;
+}
+
+.approach-modal__container {
+  background: var(--sw-bg-secondary);
+  border: 2px solid var(--sw-glass-border);
+  border-radius: var(--sw-radius-xl);
+  max-width: 64rem;
+  width: 100%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* ===========================================
+   HEADER
+   =========================================== */
+
+.approach-modal__header {
+  padding: var(--sw-space-4) var(--sw-space-5);
+  border-bottom: 1px solid var(--sw-glass-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(to bottom, var(--sw-bg-tertiary), transparent);
+}
+
+.approach-modal__title {
+  font-size: var(--sw-text-xl);
+  font-family: var(--sw-font-serif);
+  color: var(--sw-text-primary);
+  letter-spacing: var(--sw-tracking-wider);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.approach-modal__subtitle {
+  font-size: var(--sw-text-sm);
+  font-family: var(--sw-font-mono);
+  color: var(--sw-text-muted);
+  margin-top: var(--sw-space-1);
+}
+
+.approach-modal__close {
+  padding: var(--sw-space-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--sw-radius-md);
+  color: var(--sw-text-tertiary);
+  cursor: pointer;
+  transition: all var(--sw-transition-fast);
+}
+
+.approach-modal__close:hover {
+  background: var(--sw-bg-tertiary);
+  color: var(--sw-text-primary);
+}
+
+.approach-modal__close-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* ===========================================
+   CARDS GRID
+   =========================================== */
+
+.approach-modal__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sw-space-5);
+}
+
+.approach-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: var(--sw-space-4);
+}
+
+@media (min-width: 768px) {
+  .approach-modal__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .approach-modal__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ===========================================
+   APPROACH CARD
+   =========================================== */
+
+.approach-card {
+  position: relative;
+  padding: var(--sw-space-4);
+  border-radius: var(--sw-radius-lg);
+  border: 2px solid var(--sw-glass-border);
+  background: var(--sw-bg-tertiary);
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--sw-transition-base);
+  overflow: hidden;
+}
+
+.approach-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.approach-card--available:hover {
+  border-color: var(--sw-glass-border-highlight);
+  background: var(--sw-bg-elevated);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+.approach-card--selected {
+  border-color: var(--sw-room-current);
+  box-shadow: 0 0 0 2px var(--sw-room-current-glow), 0 8px 25px -5px rgba(34, 211, 238, 0.2);
+}
+
+.approach-card--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--sw-bg-secondary);
+}
+
+.approach-card--disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ===========================================
+   CARD HEADER (Icon + Name)
+   =========================================== */
+
+.approach-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-3);
+  margin-bottom: var(--sw-space-3);
+}
+
+.approach-card__icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--sw-radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--sw-transition-base);
+}
+
+.approach-card__icon--available {
+  background: linear-gradient(135deg, var(--sw-bg-elevated), var(--sw-bg-surface));
+  border: 1px solid var(--sw-glass-border-highlight);
+  color: var(--sw-text-primary);
+}
+
+.approach-card__icon--disabled {
+  background: var(--sw-bg-tertiary);
+  border: 1px solid var(--sw-glass-border);
+  color: var(--sw-text-muted);
+}
+
+.approach-card__icon svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.approach-card__title-group {
+  flex: 1;
+  min-width: 0;
+}
+
+.approach-card__name {
+  font-size: var(--sw-text-base);
+  font-weight: 700;
+  margin: 0;
+  transition: color var(--sw-transition-fast);
+}
+
+.approach-card__name--available {
+  color: var(--sw-text-primary);
+}
+
+.approach-card__name--disabled {
+  color: var(--sw-text-muted);
+}
+
+.approach-card__tag {
+  font-size: var(--sw-text-xs);
+  color: var(--sw-text-muted);
+  margin-top: 2px;
+}
+
+/* ===========================================
+   CARD DESCRIPTION
+   =========================================== */
+
+.approach-card__description {
+  font-size: var(--sw-text-sm);
+  line-height: var(--sw-leading-relaxed);
+  margin-bottom: var(--sw-space-3);
+  min-height: 3.5rem;
+}
+
+.approach-card__description--available {
+  color: var(--sw-text-secondary);
+}
+
+.approach-card__description--disabled {
+  color: var(--sw-text-muted);
+}
+
+/* ===========================================
+   SUCCESS CHANCE BAR
+   =========================================== */
+
+.success-bar {
+  margin-bottom: var(--sw-space-3);
+}
+
+.success-bar__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--sw-text-xs);
+  margin-bottom: var(--sw-space-1);
+}
+
+.success-bar__label {
+  color: var(--sw-text-muted);
+}
+
+.success-bar__value {
+  font-weight: 700;
+  font-family: var(--sw-font-mono);
+}
+
+.success-bar__value--high { color: #4ade80; }
+.success-bar__value--good { color: #34d399; }
+.success-bar__value--medium { color: #fbbf24; }
+.success-bar__value--low { color: #fb923c; }
+.success-bar__value--critical { color: #f87171; }
+
+.success-bar__track {
+  height: 0.5rem;
+  background: var(--sw-bg-secondary);
+  border-radius: var(--sw-radius-full);
+  overflow: hidden;
+  border: 1px solid var(--sw-glass-border);
+}
+
+.success-bar__fill {
+  height: 100%;
+  border-radius: var(--sw-radius-full);
+  transition: width 0.5s ease-out;
+}
+
+.success-bar__fill--high { background: linear-gradient(90deg, #22c55e, #4ade80); }
+.success-bar__fill--good { background: linear-gradient(90deg, #10b981, #34d399); }
+.success-bar__fill--medium { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.success-bar__fill--low { background: linear-gradient(90deg, #f97316, #fb923c); }
+.success-bar__fill--critical { background: linear-gradient(90deg, #ef4444, #f87171); }
+
+/* ===========================================
+   REQUIREMENT WARNING
+   =========================================== */
+
+.approach-card__requirement {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+  font-size: var(--sw-text-xs);
+  color: var(--sw-risk-high-light);
+  padding: var(--sw-space-2);
+  background: var(--sw-risk-high-bg);
+  border-radius: var(--sw-radius-md);
+  border: 1px solid rgba(185, 28, 28, 0.3);
+}
+
+.approach-card__requirement-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+}
+
+/* ===========================================
+   CHAKRA COST INDICATOR
+   =========================================== */
+
+.approach-card__cost {
+  font-size: var(--sw-text-xs);
+  color: var(--sw-chakra-color);
+  margin-top: var(--sw-space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-1);
+}
+
+.approach-card__cost-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+/* ===========================================
+   TERRAIN EFFECTS FOOTER
+   =========================================== */
+
+.terrain-effects {
+  padding: var(--sw-space-3) var(--sw-space-5);
+  background: var(--sw-bg-tertiary);
+  border-top: 1px solid var(--sw-glass-border);
+}
+
+.terrain-effects__content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sw-space-4);
+  align-items: center;
+  font-size: var(--sw-text-xs);
+}
+
+.terrain-effects__label {
+  font-weight: 700;
+  color: var(--sw-text-secondary);
+}
+
+.terrain-effects__item {
+  font-family: var(--sw-font-mono);
+}
+
+.terrain-effects__item--positive {
+  color: var(--sw-risk-safe-light);
+}
+
+.terrain-effects__item--negative {
+  color: var(--sw-risk-high-light);
+}
+
+.terrain-effects__item--hazard {
+  color: var(--sw-accent-tertiary);
+}
+
+/* ===========================================
+   CONFIRMATION MODAL
+   =========================================== */
+
+.confirm-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+  animation: sw-fade-in 0.15s ease-out;
+}
+
+.confirm-modal__container {
+  background: var(--sw-bg-secondary);
+  border: 2px solid var(--sw-glass-border);
+  border-radius: var(--sw-radius-xl);
+  padding: var(--sw-space-6);
+  max-width: 28rem;
+  width: 100%;
+  margin: var(--sw-space-4);
+  animation: sw-scale-in 0.2s ease-out;
+}
+
+.confirm-modal__title {
+  font-size: var(--sw-text-lg);
+  font-family: var(--sw-font-serif);
+  color: var(--sw-text-primary);
+  margin: 0 0 var(--sw-space-4) 0;
+}
+
+/* Confirm modal approach preview */
+.confirm-modal__preview {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-4);
+  padding: var(--sw-space-3);
+  background: var(--sw-bg-tertiary);
+  border-radius: var(--sw-radius-lg);
+  margin-bottom: var(--sw-space-4);
+}
+
+.confirm-modal__preview-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  background: var(--sw-bg-elevated);
+  border-radius: var(--sw-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sw-text-primary);
+}
+
+.confirm-modal__preview-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.confirm-modal__preview-info {
+  flex: 1;
+}
+
+.confirm-modal__preview-name {
+  font-weight: 700;
+  color: var(--sw-text-primary);
+  margin: 0;
+}
+
+.confirm-modal__preview-chance {
+  font-size: var(--sw-text-sm);
+  margin: 0;
+}
+
+/* Effects lists */
+.confirm-modal__effects {
+  margin-bottom: var(--sw-space-3);
+}
+
+.confirm-modal__effects-title {
+  font-size: var(--sw-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: var(--sw-space-1);
+}
+
+.confirm-modal__effects-title--success {
+  color: var(--sw-risk-safe-light);
+}
+
+.confirm-modal__effects-title--failure {
+  color: var(--sw-text-muted);
+}
+
+.confirm-modal__effects-list {
+  font-size: var(--sw-text-xs);
+  color: var(--sw-text-tertiary);
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0 var(--sw-space-2);
+}
+
+.confirm-modal__effects-list li {
+  margin-bottom: var(--sw-space-1);
+}
+
+.confirm-modal__effects-list li::before {
+  content: '• ';
+  color: var(--sw-text-muted);
+}
+
+/* Chakra cost warning */
+.confirm-modal__cost-warning {
+  padding: var(--sw-space-2) var(--sw-space-3);
+  background: rgba(37, 99, 235, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: var(--sw-radius-md);
+  font-size: var(--sw-text-xs);
+  color: #93c5fd;
+  margin-bottom: var(--sw-space-4);
+}
+
+.confirm-modal__cost-warning--insufficient {
+  color: var(--sw-risk-high-light);
+  display: block;
+  margin-top: var(--sw-space-1);
+}
+
+/* Confirm modal buttons */
+.confirm-modal__buttons {
+  display: flex;
+  gap: var(--sw-space-3);
+}
+
+.confirm-modal__btn {
+  flex: 1;
+  padding: var(--sw-space-2) var(--sw-space-4);
+  border-radius: var(--sw-radius-md);
+  font-weight: 600;
+  font-size: var(--sw-text-sm);
+  cursor: pointer;
+  transition: all var(--sw-transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sw-space-2);
+}
+
+.confirm-modal__btn--back {
+  background: var(--sw-bg-tertiary);
+  border: 1px solid var(--sw-glass-border);
+  color: var(--sw-text-secondary);
+}
+
+.confirm-modal__btn--back:hover {
+  background: var(--sw-bg-elevated);
+  border-color: var(--sw-glass-border-highlight);
+}
+
+.confirm-modal__btn--confirm {
+  background: linear-gradient(135deg, #0e7490, #0891b2);
+  border: 1px solid #22d3ee;
+  color: #ecfeff;
+}
+
+.confirm-modal__btn--confirm:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0891b2, #06b6d4);
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
+}
+
+.confirm-modal__btn--confirm:disabled {
+  background: var(--sw-bg-tertiary);
+  border-color: var(--sw-glass-border);
+  color: var(--sw-text-muted);
+  cursor: not-allowed;
+}
+
+.confirm-modal__btn-icon {
+  width: 1rem;
+  height: 1rem;
+}

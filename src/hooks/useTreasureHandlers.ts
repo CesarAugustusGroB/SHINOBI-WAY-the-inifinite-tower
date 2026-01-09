@@ -11,6 +11,7 @@ import {
   calculateTrapDamage,
   getTreasureHuntReward,
 } from '../game/systems/LocationSystem';
+import { addToBag } from '../game/systems/LootSystem';
 import { generateEnemy } from '../game/systems/EnemySystem';
 import { TurnState } from './useCombat';
 import { LaunchProperties } from '../config/featureFlags';
@@ -31,6 +32,7 @@ export interface TreasureHandlerState {
   region: Region | null;
   currentLocation: Location | null;
   treasureHuntReward: TreasureHuntRewardData | null;
+  pendingBagFullItem: PendingBagFullItem | null;
 }
 
 /**
@@ -52,6 +54,7 @@ export interface TreasureHandlerSetters {
   setShowApproachSelector: React.Dispatch<React.SetStateAction<boolean>>;
   setPendingArtifact: React.Dispatch<React.SetStateAction<Item | null>>;
   setDiceRollResult: React.Dispatch<React.SetStateAction<DiceRollResult | null>>;
+  setPendingBagFullItem: React.Dispatch<React.SetStateAction<PendingBagFullItem | null>>;
 }
 
 /**
@@ -60,6 +63,7 @@ export interface TreasureHandlerSetters {
 export interface TreasureHandlerDeps {
   addLog: (text: string, type?: LogEntry['type']) => void;
   returnToMap: () => void;
+  returnToMapActivityComplete: () => void;
 }
 
 /**
@@ -74,6 +78,14 @@ export interface TreasureHuntRewardData {
 }
 
 /**
+ * Pending item when bag is full during treasure selection
+ */
+export interface PendingBagFullItem {
+  item: Item;
+  index: number;
+}
+
+/**
  * Return type for useTreasureHandlers hook
  */
 export interface UseTreasureHandlersReturn {
@@ -85,6 +97,8 @@ export interface UseTreasureHandlersReturn {
   handleTreasureDeclineHunt: () => void;
   handleTreasureHuntRewardClaim: () => void;
   handleDiceResultContinue: () => void;
+  handleBagFullSell: () => void;
+  handleBagFullLeave: () => void;
 }
 
 /**
@@ -109,6 +123,7 @@ export function useTreasureHandlers(
     region,
     currentLocation,
     treasureHuntReward,
+    pendingBagFullItem,
   } = state;
 
   const {
@@ -127,9 +142,10 @@ export function useTreasureHandlers(
     setShowApproachSelector,
     setPendingArtifact,
     setDiceRollResult,
+    setPendingBagFullItem,
   } = setters;
 
-  const { addLog, returnToMap } = deps;
+  const { addLog, returnToMap, returnToMapActivityComplete } = deps;
 
   // Reveal treasure choices (pay chakra)
   const handleTreasureReveal = useCallback(() => {
@@ -154,6 +170,15 @@ export function useTreasureHandlers(
 
     const selectedItem = currentTreasure.choices[index].item;
 
+    // Check bag space first
+    const hasBagSpace = player.bag.some(slot => slot === null);
+
+    if (!hasBagSpace) {
+      // Bag is full - show options to user instead of losing item
+      setPendingBagFullItem({ item: selectedItem, index });
+      return;
+    }
+
     // Add ryo bonus
     if (currentTreasure.ryoBonus > 0) {
       setPlayer(p => p ? { ...p, ryo: p.ryo + currentTreasure.ryoBonus } : null);
@@ -170,17 +195,20 @@ export function useTreasureHandlers(
       setBranchingFloor(updatedFloor);
     }
 
-    // Go to loot screen with selected item
-    setDroppedItems([selectedItem]);
-    setDroppedSkill(null);
+    // Add item directly to bag (skip loot screen)
+    const updatedPlayer = addToBag(player, selectedItem);
+    if (updatedPlayer) {
+      setPlayer(updatedPlayer);
+      addLog(`${selectedItem.name} added to your bag!`, 'loot');
+    }
+
+    // Clear treasure state and return to map
     setCurrentTreasure(null);
     setCurrentTreasureHunt(null);
-    setSelectedBranchingRoom(null);
-    setGameState(GameState.LOOT);
-    addLog(`Selected ${selectedItem.name} from the treasure!`, 'loot');
+    returnToMapActivityComplete();
   }, [currentTreasure, player, selectedBranchingRoom, locationFloor, branchingFloor, addLog,
-      setPlayer, setLocationFloor, setBranchingFloor, setDroppedItems, setDroppedSkill,
-      setCurrentTreasure, setCurrentTreasureHunt, setSelectedBranchingRoom, setGameState]);
+      setPlayer, setLocationFloor, setBranchingFloor, setCurrentTreasure, setCurrentTreasureHunt,
+      returnToMapActivityComplete, setPendingBagFullItem]);
 
   // Fight guardian for guaranteed map piece (treasure hunter)
   const handleTreasureFightGuardian = useCallback(() => {
@@ -348,6 +376,73 @@ export function useTreasureHandlers(
   }, [treasureHuntReward, player, addLog, returnToMap, setPlayer, setDroppedItems,
       setDroppedSkill, setTreasureHuntReward, setGameState]);
 
+  // Sell pending item when bag is full
+  const handleBagFullSell = useCallback(() => {
+    if (!pendingBagFullItem || !currentTreasure || !player || !selectedBranchingRoom) return;
+
+    const sellValue = Math.floor(pendingBagFullItem.item.value * 0.6);
+
+    // Add ryo bonus from treasure + sell value
+    let totalRyo = sellValue;
+    if (currentTreasure.ryoBonus > 0) {
+      totalRyo += currentTreasure.ryoBonus;
+    }
+    setPlayer(p => p ? { ...p, ryo: p.ryo + totalRyo } : null);
+    addLog(`Sold ${pendingBagFullItem.item.name} for ${sellValue} Ryo.`, 'loot');
+    if (currentTreasure.ryoBonus > 0) {
+      addLog(`Found ${currentTreasure.ryoBonus} Ryo alongside the treasure!`, 'loot');
+    }
+
+    // Complete treasure activity
+    if (locationFloor) {
+      const updatedFloor = completeActivity(locationFloor, selectedBranchingRoom.id, 'treasure');
+      setLocationFloor(updatedFloor);
+    }
+    if (branchingFloor) {
+      const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'treasure');
+      setBranchingFloor(updatedFloor);
+    }
+
+    // Clear state and return to map
+    setPendingBagFullItem(null);
+    setCurrentTreasure(null);
+    setCurrentTreasureHunt(null);
+    returnToMapActivityComplete();
+  }, [pendingBagFullItem, currentTreasure, player, selectedBranchingRoom, locationFloor, branchingFloor,
+      addLog, setPlayer, setLocationFloor, setBranchingFloor, setPendingBagFullItem,
+      setCurrentTreasure, setCurrentTreasureHunt, returnToMapActivityComplete]);
+
+  // Leave pending item behind when bag is full
+  const handleBagFullLeave = useCallback(() => {
+    if (!pendingBagFullItem || !currentTreasure || !player || !selectedBranchingRoom) return;
+
+    addLog(`Left ${pendingBagFullItem.item.name} behind.`, 'info');
+
+    // Add ryo bonus if any
+    if (currentTreasure.ryoBonus > 0) {
+      setPlayer(p => p ? { ...p, ryo: p.ryo + currentTreasure.ryoBonus } : null);
+      addLog(`Found ${currentTreasure.ryoBonus} Ryo alongside the treasure!`, 'loot');
+    }
+
+    // Complete treasure activity
+    if (locationFloor) {
+      const updatedFloor = completeActivity(locationFloor, selectedBranchingRoom.id, 'treasure');
+      setLocationFloor(updatedFloor);
+    }
+    if (branchingFloor) {
+      const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'treasure');
+      setBranchingFloor(updatedFloor);
+    }
+
+    // Clear state and return to map
+    setPendingBagFullItem(null);
+    setCurrentTreasure(null);
+    setCurrentTreasureHunt(null);
+    returnToMapActivityComplete();
+  }, [pendingBagFullItem, currentTreasure, player, selectedBranchingRoom, locationFloor, branchingFloor,
+      addLog, setPlayer, setLocationFloor, setBranchingFloor, setPendingBagFullItem,
+      setCurrentTreasure, setCurrentTreasureHunt, returnToMapActivityComplete]);
+
   return {
     handleTreasureReveal,
     handleTreasureSelectItem,
@@ -357,5 +452,7 @@ export function useTreasureHandlers(
     handleTreasureDeclineHunt,
     handleTreasureHuntRewardClaim,
     handleDiceResultContinue,
+    handleBagFullSell,
+    handleBagFullLeave,
   };
 }

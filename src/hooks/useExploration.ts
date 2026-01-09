@@ -45,6 +45,7 @@ export interface UseExplorationReturn {
   handlePathChoice: (path: import('../game/types').LocationPath) => void;
   handleLeaveLocation: () => void;
   returnToMap: () => void;
+  returnToMapActivityComplete: () => void;
 }
 
 /**
@@ -216,6 +217,35 @@ export function useExploration(
     executeRoomActivity, setLocationFloor, handleLeaveLocationRef
   ]);
 
+  /**
+   * Return to map after an activity that was already completed.
+   * Skips activity checking since caller guarantees the activity is done.
+   * Use this instead of returnToMap when you've already called completeActivity().
+   */
+  const returnToMapActivityComplete = useCallback(() => {
+    logRoomExit(selectedBranchingRoom?.id || 'unknown', 'returnToMapActivityComplete');
+    logStateChange(gameState.toString(), 'EXPLORE', 'returnToMapActivityComplete');
+    setDroppedItems([]);
+    setDroppedSkill(null);
+    setEnemy(null);
+    setSelectedBranchingRoom(null);
+
+    // Skip activity checking - caller guarantees activity is complete
+    if (region && locationFloor && region.currentLocationId) {
+      if (isFloorComplete(locationFloor)) {
+        handleLeaveLocationRef();
+        return;
+      }
+      setGameState(GameState.LOCATION_EXPLORE);
+    } else {
+      setGameState(GameState.EXPLORE);
+    }
+  }, [
+    selectedBranchingRoom, gameState, region, locationFloor,
+    setDroppedItems, setDroppedSkill, setEnemy, setSelectedBranchingRoom, setGameState,
+    handleLeaveLocationRef
+  ]);
+
   // ============================================================================
   // PUBLIC API
   // ============================================================================
@@ -233,5 +263,6 @@ export function useExploration(
     handlePathChoice,
     handleLeaveLocation,
     returnToMap,
+    returnToMapActivityComplete,
   };
 }

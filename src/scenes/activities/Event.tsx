@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   GameEvent,
   Player,
@@ -185,6 +185,7 @@ interface ChoiceCardProps {
   playerStats: CharacterStats | null;
   isSelected: boolean;
   isDimmed: boolean;
+  index: number;
   onSelect: () => void;
   onConfirm: () => void;
 }
@@ -195,6 +196,7 @@ const ChoiceCard: React.FC<ChoiceCardProps> = ({
   playerStats,
   isSelected,
   isDimmed,
+  index,
   onSelect,
   onConfirm,
 }) => {
@@ -245,6 +247,7 @@ const ChoiceCard: React.FC<ChoiceCardProps> = ({
       {/* Header */}
       <div className="choice-card__header">
         <div className="choice-card__header-left">
+          <span className="choice-card__index">{index + 1}</span>
           <RiskBadge riskLevel={choice.riskLevel} />
           <span className="choice-card__label">{choice.label}</span>
         </div>
@@ -356,6 +359,53 @@ const Event: React.FC<EventProps> = ({
     [onChoice]
   );
 
+  // Check if a choice is available (meets requirements and can afford)
+  const isChoiceAvailable = useCallback((choice: EventChoice) => {
+    if (!player) return false;
+    const meetsReqs = checkRequirements(player, choice.requirements, playerStats);
+    const canAfford = checkEventCost(player, choice.costs);
+    return meetsReqs && canAfford;
+  }, [player, playerStats]);
+
+  // Keyboard shortcuts
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (!player) return;
+
+    const key = e.key;
+
+    // Number keys 1-4 to select choice
+    if (key >= '1' && key <= '4') {
+      e.preventDefault();
+      const index = parseInt(key) - 1;
+      if (index < activeEvent.choices.length) {
+        const choice = activeEvent.choices[index];
+        if (isChoiceAvailable(choice)) {
+          handleSelect(index);
+        }
+      }
+    }
+
+    // Enter to confirm selected choice
+    if (key === 'Enter' && selectedIndex !== null) {
+      e.preventDefault();
+      const choice = activeEvent.choices[selectedIndex];
+      if (isChoiceAvailable(choice)) {
+        onChoice(choice);
+      }
+    }
+
+    // Escape to deselect
+    if (key === 'Escape' && selectedIndex !== null) {
+      e.preventDefault();
+      setSelectedIndex(null);
+    }
+  }, [player, activeEvent.choices, selectedIndex, isChoiceAvailable, handleSelect, onChoice]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
   if (!player) {
     return null;
   }
@@ -371,6 +421,19 @@ const Event: React.FC<EventProps> = ({
         <p className="event__description">{activeEvent.description}</p>
       </header>
 
+      {/* Keyboard Hints */}
+      <div className="event__hints">
+        <span className="event__hint">
+          <span className="sw-shortcut">1</span>-<span className="sw-shortcut">4</span> Select
+        </span>
+        <span className="event__hint">
+          <span className="sw-shortcut">Enter</span> Confirm
+        </span>
+        <span className="event__hint">
+          <span className="sw-shortcut">Esc</span> Deselect
+        </span>
+      </div>
+
       {/* Divider */}
       <div className="event__divider">Choose Your Path</div>
 
@@ -384,6 +447,7 @@ const Event: React.FC<EventProps> = ({
             playerStats={playerStats || null}
             isSelected={selectedIndex === idx}
             isDimmed={selectedIndex !== null && selectedIndex !== idx}
+            index={idx}
             onSelect={() => handleSelect(idx)}
             onConfirm={() => handleConfirm(choice)}
           />

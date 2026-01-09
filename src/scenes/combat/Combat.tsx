@@ -6,7 +6,6 @@ import {
   EffectType,
   DamageType,
   CharacterStats,
-  Buff,
   Rarity,
   ActionType,
   TurnPhaseState,
@@ -40,6 +39,7 @@ import {
   getDamagePropertyDescription,
   getDamageTypeDescription,
 } from '../../game/utils/tooltipFormatters';
+import './Combat.css';
 
 export interface CombatRef {
   spawnFloatingText: (target: 'enemy' | 'player', text: string, type: FloatingTextType) => void;
@@ -71,7 +71,6 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
   turnPhase,
   onUseSkill,
   onPassTurn,
-  droppedSkill,
   getDamageTypeColor,
   autoCombatEnabled = false,
   onToggleAutoCombat,
@@ -114,11 +113,29 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
   const sideSkills = player.skills.filter(s => s.actionType === ActionType.SIDE);
   const toggleSkills = player.skills.filter(s => s.actionType === ActionType.TOGGLE);
 
-  // Keyboard shortcuts for MAIN skills (keys 1-4) and pass turn (Space)
+  // Helper to check if a skill can be used
+  const canUseSkill = useCallback((skill: Skill) => {
+    const hasResources = player.currentChakra >= skill.chakraCost && player.currentHp > skill.hpCost;
+    const noCooldown = skill.currentCooldown === 0;
+    const isStunned = player.activeBuffs.some(b => b?.effect?.type === EffectType.STUN);
+    const sideActionsAvailable = turnPhase.sideActionsUsed < turnPhase.maxSideActions;
+    const isSideSkill = skill.actionType === ActionType.SIDE;
+
+    return (hasResources || skill.isActive) && noCooldown && !isStunned && (!isSideSkill || sideActionsAvailable);
+  }, [player, turnPhase]);
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (turnState !== 'PLAYER') return;
+
+      // Tab to toggle auto-combat
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        onToggleAutoCombat?.();
+        return;
+      }
 
       // Space to pass turn
       if (e.code === 'Space') {
@@ -127,249 +144,429 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
         return;
       }
 
-      // Number keys for skills
-      const keyMap: Record<string, number> = {
+      // Number keys 1-4 for MAIN skills
+      const mainKeyMap: Record<string, number> = {
         'Digit1': 0, '1': 0,
         'Digit2': 1, '2': 1,
         'Digit3': 2, '3': 2,
         'Digit4': 3, '4': 3,
       };
 
-      const index = keyMap[e.code] ?? keyMap[e.key];
-      if (index === undefined) return;
+      const mainIndex = mainKeyMap[e.code] ?? mainKeyMap[e.key];
+      if (mainIndex !== undefined) {
+        const skill = mainSkills[mainIndex];
+        if (skill && canUseSkill(skill)) {
+          e.preventDefault();
+          onUseSkill(skill);
+        }
+        return;
+      }
 
-      const skill = mainSkills[index];
-      if (!skill) return;
+      // Q/W/E/R for SIDE skills
+      const sideKeyMap: Record<string, number> = {
+        'KeyQ': 0, 'q': 0, 'Q': 0,
+        'KeyW': 1, 'w': 1, 'W': 1,
+        'KeyE': 2, 'e': 2, 'E': 2,
+        'KeyR': 3, 'r': 3, 'R': 3,
+      };
 
-      const canUse = player.currentChakra >= skill.chakraCost
-                  && player.currentHp > skill.hpCost
-                  && skill.currentCooldown === 0;
-      const isStunned = player.activeBuffs.some(b => b?.effect?.type === EffectType.STUN);
-
-      if (canUse && !isStunned) {
-        e.preventDefault();
-        onUseSkill(skill);
+      const sideIndex = sideKeyMap[e.code] ?? sideKeyMap[e.key];
+      if (sideIndex !== undefined) {
+        const skill = sideSkills[sideIndex];
+        if (skill && canUseSkill(skill)) {
+          e.preventDefault();
+          onUseSkill(skill);
+        }
+        return;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [turnState, player, mainSkills, onUseSkill, onPassTurn]);
+  }, [turnState, player, mainSkills, sideSkills, canUseSkill, onUseSkill, onPassTurn, onToggleAutoCombat]);
+
+  // Render skill card with tooltip
+  const renderSkillCard = (skill: Skill, index: number, type: 'main' | 'side' | 'toggle') => {
+    const isSideSkill = skill.actionType === ActionType.SIDE;
+    const sideActionsAvailable = turnPhase.sideActionsUsed < turnPhase.maxSideActions;
+    const isEnemyTurn = turnState === 'ENEMY_TURN';
+    const isStunned = player.activeBuffs.some(b => b?.effect?.type === EffectType.STUN);
+
+    const canUse = player.currentChakra >= skill.chakraCost && player.currentHp > skill.hpCost && skill.currentCooldown === 0;
+    const usable = (canUse || skill.isActive) && !isStunned && !isEnemyTurn && (!isSideSkill || sideActionsAvailable);
+
+    const prediction = calculateDamage(
+      playerStats.effectivePrimary,
+      playerStats.derived,
+      enemyStats.effectivePrimary,
+      enemyStats.derived,
+      skill,
+      player.element,
+      enemy.element
+    );
+
+    const effectiveness = getElementEffectiveness(skill.element, enemy.element);
+    const isSuperEffective = effectiveness > 1.0;
+
+    // Determine shortcut key
+    let shortcutKey: string | undefined;
+    if (type === 'main' && index < 4) {
+      shortcutKey = String(index + 1);
+    } else if (type === 'side' && index < 4) {
+      shortcutKey = ['Q', 'W', 'E', 'R'][index];
+    }
+
+    return (
+      <Tooltip
+        key={skill.id}
+        position="top"
+        content={
+          <div className="combat-tooltip combat-tooltip--wide">
+            {/* Header */}
+            <div className="combat-tooltip__header">
+              <div>
+                <div className="combat-tooltip__title">{skill.name}</div>
+                <div className="combat-tooltip__subtitle">
+                  <span className="combat-tooltip__tier">{skill.tier}</span>
+                  <span className={
+                    skill.actionType === ActionType.SIDE ? 'combat-tooltip__action--side' :
+                    skill.actionType === ActionType.TOGGLE ? 'combat-tooltip__action--toggle' :
+                    'combat-tooltip__action--main'
+                  }>
+                    {skill.actionType || 'MAIN'} Action
+                  </span>
+                </div>
+              </div>
+              <span className="combat-tooltip__level">Lv.{skill.level || 1}</span>
+            </div>
+
+            {/* Description */}
+            <div className="combat-tooltip__section">
+              <div className="combat-tooltip__description">{skill.description}</div>
+            </div>
+
+            {/* Damage Section */}
+            <div className="combat-tooltip__section">
+              <div className="combat-tooltip__section-title">Damage</div>
+              <div className="combat-tooltip__damage-row">
+                <div className="combat-tooltip__scaling">
+                  <span className={`combat-tooltip__scaling-value ${getStatColor(skill.scalingStat)}`}>
+                    {Math.round(skill.damageMult * 100)}% {formatScalingStat(skill.scalingStat)}
+                  </span>
+                  <span className="combat-tooltip__scaling-label">scaling</span>
+                </div>
+                <div className="combat-tooltip__type-tags">
+                  <span className={getDamageTypeColor(skill.damageType)}>{skill.damageType}</span>
+                  <span className={getElementColor(skill.element)}>{skill.element}</span>
+                  {skill.damageProperty && skill.damageProperty !== 'Normal' && (
+                    <span className="combat-tooltip__damage-property">{skill.damageProperty}</span>
+                  )}
+                </div>
+                <div className="combat-tooltip__mechanics">
+                  <div>- {getDamageTypeDescription(skill.damageType)}</div>
+                  {skill.damageProperty && skill.damageProperty !== 'Normal' && (
+                    <div>- {getDamagePropertyDescription(skill.damageProperty)}</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Hit Chance Section */}
+            <div className="combat-tooltip__section">
+              <div className="combat-tooltip__section-title">Hit Chance</div>
+              <div className="combat-tooltip__hit-chance">
+                <span className="combat-tooltip__attack-method">{skill.attackMethod}</span> - {getAttackMethodDescription(skill.attackMethod)}
+              </div>
+            </div>
+
+            {/* Costs & Cooldown */}
+            <div className="combat-tooltip__section">
+              <div className="combat-tooltip__section-title">Cost</div>
+              <div className="combat-tooltip__cost-row">
+                <span className={skill.chakraCost > 0 ? 'combat-tooltip__cost--cp' : 'combat-tooltip__cost--none'}>
+                  {skill.chakraCost} CP
+                </span>
+                {skill.hpCost > 0 && (
+                  <span className="combat-tooltip__cost--hp">{skill.hpCost} HP</span>
+                )}
+                <span className={skill.cooldown > 0 ? 'combat-tooltip__cost--cd' : 'combat-tooltip__cost--none'}>
+                  {skill.cooldown > 0 ? `${skill.cooldown} turn cooldown` : 'No cooldown'}
+                </span>
+              </div>
+            </div>
+
+            {/* Effects Section */}
+            {skill.effects && skill.effects.length > 0 && (
+              <div className="combat-tooltip__section">
+                <div className="combat-tooltip__section-title">Effects</div>
+                <div className="combat-tooltip__effects">
+                  {skill.effects.map((effect, idx) => (
+                    <div key={idx} className="combat-tooltip__effect">
+                      <span className={getEffectColor(effect.type)}>{getEffectIcon(effect.type)}</span>
+                      <span className="combat-tooltip__effect-text">{formatEffectDescription(effect)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Bonus Stats */}
+            {(skill.critBonus || skill.penetration) && (
+              <div className="combat-tooltip__section combat-tooltip__bonus-row">
+                {skill.critBonus && (
+                  <div className="combat-tooltip__crit-bonus">+{skill.critBonus}% Crit Chance</div>
+                )}
+                {skill.penetration && (
+                  <div className="combat-tooltip__pen-bonus">{Math.round(skill.penetration * 100)}% Defense Penetration</div>
+                )}
+              </div>
+            )}
+
+            {/* Toggle Skill Info */}
+            {(skill.isToggle || skill.actionType === ActionType.TOGGLE) && (
+              <div className="combat-tooltip__section">
+                <div className="combat-tooltip__toggle-info">
+                  Toggle Skill - {skill.upkeepCost || 0} CP/turn upkeep
+                </div>
+              </div>
+            )}
+
+            {/* Damage Preview vs Enemy */}
+            <div className="combat-tooltip__section combat-tooltip__preview">
+              <div className="combat-tooltip__preview-target">vs {enemy.name}</div>
+              <div className="combat-tooltip__preview-row">
+                <div>
+                  <span className="combat-tooltip__preview-dmg-label">Predicted: </span>
+                  <span className={`combat-tooltip__preview-dmg ${isSuperEffective ? 'combat-tooltip__preview-dmg--effective' : ''}`}>
+                    {prediction.finalDamage} dmg
+                  </span>
+                  {prediction.isCrit && <span className="combat-tooltip__crit-marker">(CRIT)</span>}
+                </div>
+                {isSuperEffective && (
+                  <span className="combat-tooltip__effectiveness--super">SUPER EFFECTIVE!</span>
+                )}
+                {effectiveness < 1.0 && (
+                  <span className="combat-tooltip__effectiveness--resist">Resisted</span>
+                )}
+              </div>
+            </div>
+          </div>
+        }
+      >
+        <SkillCard
+          skill={skill}
+          predictedDamage={prediction.finalDamage}
+          isEffective={isSuperEffective}
+          canUse={usable || false}
+          onClick={() => onUseSkill(skill)}
+          shortcutKey={shortcutKey}
+        />
+      </Tooltip>
+    );
+  };
 
   return (
-    <div className="w-full max-w-6xl z-10 flex flex-col h-full mx-auto">
-
+    <div className="combat">
       {/* CINEMATIC BATTLE HEADER - Enemy Area */}
       <div ref={enemyRef}>
         <CinematicViewscreen
           image={enemy.image || '/assets/image_3b2b13.jpg'}
           overlayContent={
-          <div className="flex justify-between w-full h-full">
+            <div className="combat__enemy-overlay">
+              {/* LEFT: Enemy Stats Overlay */}
+              <div className="combat__enemy-stats">
+                <h1 className="combat__enemy-name">{enemy.name}</h1>
 
-            {/* LEFT: Enemy Stats Overlay */}
-            <div className="w-full max-w-md flex flex-col justify-start pt-2">
-              {/* Name */}
-              <h1 className="text-5xl font-black text-white uppercase tracking-tighter italic drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] font-serif">
-                {enemy.name}
-              </h1>
-
-              {/* HP Bar with specific styling from reference */}
-              <div className="mt-2 mb-1 relative">
-                <StatBar
-                  current={enemy.currentHp}
-                  max={enemyStats.derived.maxHp}
-                  color="red"
-                  className="h-4"
-                  showValue={false}
-                />
-                <div className="absolute -top-5 right-0 text-sm font-mono font-bold text-white drop-shadow-md">
-                  {enemy.currentHp} / {enemyStats.derived.maxHp}
+                {/* HP Bar */}
+                <div className="combat__enemy-hp">
+                  <StatBar
+                    current={enemy.currentHp}
+                    max={enemyStats.derived.maxHp}
+                    color="red"
+                    className="h-4"
+                    showValue={false}
+                  />
+                  <div className="combat__enemy-hp-value">
+                    {enemy.currentHp} / {enemyStats.derived.maxHp}
+                  </div>
                 </div>
-              </div>
 
-              {/* Tier & Affinity */}
-              <div className="flex items-center gap-4 text-[10px] font-mono uppercase tracking-widest text-zinc-400">
-                <span className="bg-zinc-950/50 px-2 py-1 rounded border border-zinc-800">{enemy.tier}</span>
-                <span className="bg-zinc-950/50 px-2 py-1 rounded border border-zinc-800">
-                  Affinity: <span className="text-zinc-100 font-bold">{enemy.element}</span>
-                </span>
-              </div>
-
-              {/* Detailed Stats with Tooltip */}
-              <Tooltip
-                content={
-                  (() => {
-                    const ranks = getCategoryRanks(enemyStats.effectivePrimary);
-                    return (
-                      <div className="space-y-3 p-1 max-w-[280px]">
-                        <div className="text-sm font-bold text-zinc-200">{enemy.name}</div>
-                        <div className="text-[10px] text-zinc-500">{enemy.tier} - {enemy.element} Affinity</div>
-
-                        {/* THE BODY */}
-                        <div className="border-t border-zinc-700 pt-2">
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="text-[10px] font-bold text-orange-400 uppercase">The Body</span>
-                            <span className={`text-sm font-black ${getRankColor(ranks.body)}`}>{ranks.body}</span>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2 text-[9px] font-mono text-zinc-300 mb-1">
-                            <div><span className="text-orange-500">STR</span> {enemyStats.effectivePrimary.strength}</div>
-                            <div><span className="text-red-500">WIL</span> {enemyStats.effectivePrimary.willpower}</div>
-                            <div><span className="text-blue-500">CHA</span> {enemyStats.effectivePrimary.chakra}</div>
-                          </div>
-                          <div className="text-[9px] text-zinc-500">
-                            Phys Def: <span className="text-orange-400">{enemyStats.derived.physicalDefenseFlat} + {formatPercent(enemyStats.derived.physicalDefensePercent)}</span>
-                          </div>
-                        </div>
-
-                        {/* THE MIND */}
-                        <div className="border-t border-zinc-700 pt-2">
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="text-[10px] font-bold text-purple-400 uppercase">The Mind</span>
-                            <span className={`text-sm font-black ${getRankColor(ranks.mind)}`}>{ranks.mind}</span>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2 text-[9px] font-mono text-zinc-300 mb-1">
-                            <div><span className="text-purple-500">SPI</span> {enemyStats.effectivePrimary.spirit}</div>
-                            <div><span className="text-cyan-500">INT</span> {enemyStats.effectivePrimary.intelligence}</div>
-                            <div><span className="text-indigo-500">CAL</span> {enemyStats.effectivePrimary.calmness}</div>
-                          </div>
-                          <div className="text-[9px] text-zinc-500 space-y-0.5">
-                            <div>Elem Def: <span className="text-purple-400">{enemyStats.derived.elementalDefenseFlat} + {formatPercent(enemyStats.derived.elementalDefensePercent)}</span></div>
-                            <div>Mind Def: <span className="text-indigo-400">{enemyStats.derived.mentalDefenseFlat} + {formatPercent(enemyStats.derived.mentalDefensePercent)}</span></div>
-                          </div>
-                        </div>
-
-                        {/* THE TECHNIQUE */}
-                        <div className="border-t border-zinc-700 pt-2">
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="text-[10px] font-bold text-green-400 uppercase">The Technique</span>
-                            <span className={`text-sm font-black ${getRankColor(ranks.technique)}`}>{ranks.technique}</span>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2 text-[9px] font-mono text-zinc-300 mb-1">
-                            <div><span className="text-green-500">SPD</span> {enemyStats.effectivePrimary.speed}</div>
-                            <div><span className="text-yellow-500">ACC</span> {enemyStats.effectivePrimary.accuracy}</div>
-                            <div><span className="text-pink-500">DEX</span> {enemyStats.effectivePrimary.dexterity}</div>
-                          </div>
-                          <div className="text-[9px] text-zinc-500 space-y-0.5">
-                            <div>Evasion: <span className="text-green-400">{formatPercent(enemyStats.derived.evasion)}</span></div>
-                            <div>Crit: <span className="text-yellow-400">{Math.round(enemyStats.derived.critChance)}%</span></div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()
-                }
-              >
-                <div className="mt-2 flex gap-3 text-[9px] font-mono text-zinc-500 opacity-80 hover:opacity-100 transition-opacity cursor-help">
-                  <span>Phys: <span className="text-orange-400">{enemyStats.derived.physicalDefenseFlat}+{formatPercent(enemyStats.derived.physicalDefensePercent)}</span></span>
-                  <span>Elem: <span className="text-purple-400">{enemyStats.derived.elementalDefenseFlat}+{formatPercent(enemyStats.derived.elementalDefensePercent)}</span></span>
-                  <span>Mind: <span className="text-indigo-400">{enemyStats.derived.mentalDefenseFlat}+{formatPercent(enemyStats.derived.mentalDefensePercent)}</span></span>
+                {/* Tier & Affinity */}
+                <div className="combat__enemy-tags">
+                  <span className="combat__enemy-tag">{enemy.tier}</span>
+                  <span className="combat__enemy-tag">
+                    Affinity: <span className="combat__enemy-tag-value">{enemy.element}</span>
+                  </span>
                 </div>
-              </Tooltip>
-            </div>
 
-            {/* RIGHT: Active Buffs */}
-            <div className="flex flex-col items-end gap-2">
-              {enemy.activeBuffs.filter(b => b?.effect).map(buff => {
-                const isPositive = buff.effect ? isPositiveEffect(buff.effect.type) : false;
-                const severity = getEffectSeverity(buff);
-                const mechanics = getDetailedEffectMechanics(buff);
-                const tip = buff.effect ? getEffectTip(buff.effect.type) : '';
+                {/* Detailed Stats with Tooltip */}
+                <Tooltip
+                  content={
+                    (() => {
+                      const ranks = getCategoryRanks(enemyStats.effectivePrimary);
+                      return (
+                        <div className="combat-tooltip">
+                          <div className="combat-tooltip__enemy-name">{enemy.name}</div>
+                          <div className="combat-tooltip__enemy-info">{enemy.tier} - {enemy.element} Affinity</div>
 
-                return (
-                  <Tooltip
-                    key={buff.id}
-                    content={
-                      <div className="space-y-2 p-1 max-w-[260px]">
-                        {/* Header */}
-                        <div className="flex items-center gap-2">
-                          <span className={`text-lg ${buff.effect ? getEffectColor(buff.effect.type) : 'text-zinc-400'}`}>
-                            {buff.effect ? getEffectIcon(buff.effect.type) : '✨'}
-                          </span>
-                          <div>
-                            <div className={`font-bold uppercase text-sm ${isPositive ? 'text-green-400' : getSeverityColor(severity)}`}>
-                              {buff.name}
+                          {/* THE BODY */}
+                          <div className="combat-tooltip__section">
+                            <div className="combat-tooltip__category">
+                              <span className="combat-tooltip__category-label combat-tooltip__category-label--body">The Body</span>
+                              <span className={`combat-tooltip__category-rank ${getRankColor(ranks.body)}`}>{ranks.body}</span>
                             </div>
-                            <div className="text-[9px] text-zinc-500 uppercase tracking-wider">
-                              {isPositive ? 'Enemy Buff' : 'Your Debuff on Enemy'}
+                            <div className="combat-tooltip__stat-grid">
+                              <div><span className="combat-tooltip__stat-abbr--str">STR</span> {enemyStats.effectivePrimary.strength}</div>
+                              <div><span className="combat-tooltip__stat-abbr--wil">WIL</span> {enemyStats.effectivePrimary.willpower}</div>
+                              <div><span className="combat-tooltip__stat-abbr--cha">CHA</span> {enemyStats.effectivePrimary.chakra}</div>
+                            </div>
+                            <div className="combat-tooltip__derived">
+                              Phys Def: <span className="combat-tooltip__derived-value--phys">{enemyStats.derived.physicalDefenseFlat} + {formatPercent(enemyStats.derived.physicalDefensePercent)}</span>
+                            </div>
+                          </div>
+
+                          {/* THE MIND */}
+                          <div className="combat-tooltip__section">
+                            <div className="combat-tooltip__category">
+                              <span className="combat-tooltip__category-label combat-tooltip__category-label--mind">The Mind</span>
+                              <span className={`combat-tooltip__category-rank ${getRankColor(ranks.mind)}`}>{ranks.mind}</span>
+                            </div>
+                            <div className="combat-tooltip__stat-grid">
+                              <div><span className="combat-tooltip__stat-abbr--spi">SPI</span> {enemyStats.effectivePrimary.spirit}</div>
+                              <div><span className="combat-tooltip__stat-abbr--int">INT</span> {enemyStats.effectivePrimary.intelligence}</div>
+                              <div><span className="combat-tooltip__stat-abbr--cal">CAL</span> {enemyStats.effectivePrimary.calmness}</div>
+                            </div>
+                            <div className="combat-tooltip__derived">
+                              <div>Elem Def: <span className="combat-tooltip__derived-value--elem">{enemyStats.derived.elementalDefenseFlat} + {formatPercent(enemyStats.derived.elementalDefensePercent)}</span></div>
+                              <div>Mind Def: <span className="combat-tooltip__derived-value--mind">{enemyStats.derived.mentalDefenseFlat} + {formatPercent(enemyStats.derived.mentalDefensePercent)}</span></div>
+                            </div>
+                          </div>
+
+                          {/* THE TECHNIQUE */}
+                          <div className="combat-tooltip__section">
+                            <div className="combat-tooltip__category">
+                              <span className="combat-tooltip__category-label combat-tooltip__category-label--technique">The Technique</span>
+                              <span className={`combat-tooltip__category-rank ${getRankColor(ranks.technique)}`}>{ranks.technique}</span>
+                            </div>
+                            <div className="combat-tooltip__stat-grid">
+                              <div><span className="combat-tooltip__stat-abbr--spd">SPD</span> {enemyStats.effectivePrimary.speed}</div>
+                              <div><span className="combat-tooltip__stat-abbr--acc">ACC</span> {enemyStats.effectivePrimary.accuracy}</div>
+                              <div><span className="combat-tooltip__stat-abbr--dex">DEX</span> {enemyStats.effectivePrimary.dexterity}</div>
+                            </div>
+                            <div className="combat-tooltip__derived">
+                              <div>Evasion: <span className="combat-tooltip__derived-value--eva">{formatPercent(enemyStats.derived.evasion)}</span></div>
+                              <div>Crit: <span className="combat-tooltip__derived-value--crit">{Math.round(enemyStats.derived.critChance)}%</span></div>
                             </div>
                           </div>
                         </div>
+                      );
+                    })()
+                  }
+                >
+                  <div className="combat__enemy-defense">
+                    <span>Phys: <span className="combat__defense-phys">{enemyStats.derived.physicalDefenseFlat}+{formatPercent(enemyStats.derived.physicalDefensePercent)}</span></span>
+                    <span>Elem: <span className="combat__defense-elem">{enemyStats.derived.elementalDefenseFlat}+{formatPercent(enemyStats.derived.elementalDefensePercent)}</span></span>
+                    <span>Mind: <span className="combat__defense-mind">{enemyStats.derived.mentalDefenseFlat}+{formatPercent(enemyStats.derived.mentalDefensePercent)}</span></span>
+                  </div>
+                </Tooltip>
+              </div>
 
-                        {/* Description */}
-                        <div className="text-xs text-zinc-300 border-t border-zinc-700 pt-2">
-                          {getBuffDescription(buff)}
-                        </div>
+              {/* RIGHT: Active Buffs */}
+              <div className="combat__enemy-buffs">
+                {enemy.activeBuffs.filter(b => b?.effect).map(buff => {
+                  const isPositive = buff.effect ? isPositiveEffect(buff.effect.type) : false;
+                  const severity = getEffectSeverity(buff);
+                  const mechanics = getDetailedEffectMechanics(buff);
+                  const tip = buff.effect ? getEffectTip(buff.effect.type) : '';
 
-                        {/* Mechanics Breakdown */}
-                        <div className="border-t border-zinc-700 pt-2">
-                          <div className="text-[9px] text-zinc-500 uppercase tracking-wider mb-1">Mechanics</div>
-                          <div className="space-y-0.5">
-                            {mechanics.map((mechanic, i) => (
-                              <div key={i} className="text-[10px] text-zinc-400 flex items-start gap-1">
-                                <span className="text-zinc-600">•</span>
-                                <span>{mechanic}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Source & Duration */}
-                        <div className="border-t border-zinc-700 pt-2 flex justify-between text-[10px]">
-                          <div>
-                            <span className="text-zinc-500">Source: </span>
-                            <span className="text-zinc-300">{buff.source || 'Unknown'}</span>
-                          </div>
-                          <div>
-                            <span className="text-zinc-500">Remaining: </span>
-                            <span className={buff.duration <= 1 ? 'text-amber-400 font-bold' : 'text-zinc-300'}>
-                              {buff.duration === -1 ? 'Permanent' : `${buff.duration} turn${buff.duration !== 1 ? 's' : ''}`}
+                  return (
+                    <Tooltip
+                      key={buff.id}
+                      content={
+                        <div className="combat-tooltip">
+                          {/* Header */}
+                          <div className="combat-tooltip__buff-header">
+                            <span className={`combat-tooltip__buff-icon ${buff.effect ? getEffectColor(buff.effect.type) : ''}`}>
+                              {buff.effect ? getEffectIcon(buff.effect.type) : '???'}
                             </span>
+                            <div>
+                              <div className={`combat-tooltip__buff-name ${isPositive ? 'combat-tooltip__buff-name--positive' : getSeverityColor(severity)}`}>
+                                {buff.name}
+                              </div>
+                              <div className="combat-tooltip__buff-type">
+                                {isPositive ? 'Enemy Buff' : 'Your Debuff on Enemy'}
+                              </div>
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Strategic Tip */}
-                        {tip && (
-                          <div className="border-t border-zinc-700 pt-2 text-[10px] text-amber-400/80 italic">
-                            Tip: {tip}
+                          {/* Description */}
+                          <div className="combat-tooltip__section">
+                            <div className="combat-tooltip__buff-desc">{getBuffDescription(buff)}</div>
                           </div>
-                        )}
+
+                          {/* Mechanics Breakdown */}
+                          <div className="combat-tooltip__section">
+                            <div className="combat-tooltip__section-title">Mechanics</div>
+                            <div className="combat-tooltip__mechanics-list">
+                              {mechanics.map((mechanic, i) => (
+                                <div key={i} className="combat-tooltip__mechanic">
+                                  <span className="combat-tooltip__mechanic-bullet">-</span>
+                                  <span>{mechanic}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Source & Duration */}
+                          <div className="combat-tooltip__section combat-tooltip__source-row">
+                            <div>
+                              <span className="combat-tooltip__source-label">Source: </span>
+                              <span className="combat-tooltip__source-value">{buff.source || 'Unknown'}</span>
+                            </div>
+                            <div>
+                              <span className="combat-tooltip__duration-label">Remaining: </span>
+                              <span className={buff.duration <= 1 ? 'combat-tooltip__duration-value--expiring' : 'combat-tooltip__duration-value'}>
+                                {buff.duration === -1 ? 'Permanent' : `${buff.duration} turn${buff.duration !== 1 ? 's' : ''}`}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Strategic Tip */}
+                          {tip && (
+                            <div className="combat-tooltip__section">
+                              <div className="combat-tooltip__tip">Tip: {tip}</div>
+                            </div>
+                          )}
+                        </div>
+                      }
+                    >
+                      <div className={`combat__buff ${isPositive ? 'combat__buff--positive' : 'combat__buff--negative'}`}>
+                        {buff.name} <span className={isPositive ? 'combat__buff-duration--positive' : 'combat__buff-duration--negative'}>[{buff.duration}]</span>
                       </div>
-                    }
-                  >
-                    <div className={`px-2 py-1 text-[10px] font-mono uppercase tracking-wider shadow-lg backdrop-blur-sm cursor-help transition-colors ${
-                      isPositive
-                        ? 'bg-green-950/80 border border-green-500/30 text-green-200 hover:border-green-400/50'
-                        : 'bg-red-950/80 border border-red-500/30 text-red-200 hover:border-red-400/50'
-                    }`}>
-                      {buff.name} <span className={isPositive ? 'text-green-500' : 'text-red-500'}>[{buff.duration}]</span>
-                    </div>
-                  </Tooltip>
-                );
-              })}
+                    </Tooltip>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        }
-      />
+          }
+        />
       </div>
 
       {/* SKILL INTERFACE AREA */}
-      <div className="flex-1 p-6 flex flex-col justify-end">
-
-        {/* SIDE Action Counter & Phase Indicator */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-4">
-            {/* Phase Indicator */}
-            <div className="text-[10px] font-mono uppercase tracking-wider">
-              <span className="text-zinc-500">Phase: </span>
-              <span className={turnPhase.phase === 'SIDE' ? 'text-blue-400' : 'text-orange-400'}>
+      <div className="combat__interface">
+        {/* Phase Indicator & Side Actions */}
+        <div className="combat__phase-bar">
+          <div className="combat__phase-left">
+            <div className="combat__phase-indicator">
+              <span className="combat__phase-label">Phase: </span>
+              <span className={turnPhase.phase === 'SIDE' ? 'combat__phase-value--side' : 'combat__phase-value--main'}>
                 {turnPhase.phase}
               </span>
             </div>
-            {/* SIDE Actions */}
-            <div className="flex items-center gap-2 px-3 py-1 bg-blue-950/30 border border-blue-800/50 rounded">
-              <span className="text-[10px] font-bold text-blue-300 uppercase">Side Actions:</span>
-              <span className={`text-sm font-mono font-bold ${
-                turnPhase.sideActionsUsed >= turnPhase.maxSideActions ? 'text-red-400' : 'text-blue-400'
+            <div className="combat__side-actions">
+              <span className="combat__side-actions-label">Side Actions:</span>
+              <span className={`combat__side-actions-value ${
+                turnPhase.sideActionsUsed >= turnPhase.maxSideActions ? 'combat__side-actions-value--exhausted' : ''
               }`}>
                 {turnPhase.sideActionsUsed}/{turnPhase.maxSideActions}
               </span>
@@ -379,254 +576,91 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
           {player.skills.filter(s => s.actionType === ActionType.PASSIVE).length > 0 && (
             <Tooltip
               content={
-                <div className="space-y-2 p-1 max-w-[280px]">
-                  <div className="text-xs font-bold text-zinc-300 uppercase">Active Passives</div>
+                <div className="combat-tooltip">
+                  <div className="combat-tooltip__passives-title">Active Passives</div>
                   {player.skills.filter(s => s.actionType === ActionType.PASSIVE).map(skill => (
-                    <div key={skill.id} className="text-[10px] text-zinc-400">
-                      <span className="text-zinc-200">{skill.name}</span> - {skill.description}
+                    <div key={skill.id} className="combat-tooltip__passive">
+                      <span className="combat-tooltip__passive-name">{skill.name}</span> - {skill.description}
                     </div>
                   ))}
                 </div>
               }
             >
-              <div className="text-[10px] font-mono text-zinc-500 cursor-help hover:text-zinc-300">
+              <div className="combat__passives-summary">
                 {player.skills.filter(s => s.actionType === ActionType.PASSIVE).length} Passives Active
               </div>
             </Tooltip>
           )}
         </div>
 
-        {/* Skills Row - Grouped by ActionType */}
-        {(() => {
-          const renderSkillCard = (skill: Skill, mainIndex?: number) => {
-            const canUse = player.currentChakra >= skill.chakraCost && player.currentHp > skill.hpCost && skill.currentCooldown === 0;
-            const isStunned = player.activeBuffs.some(b => b?.effect?.type === EffectType.STUN);
-            const isEnemyTurn = turnState === 'ENEMY_TURN';
+        {/* Keyboard Hints */}
+        <div className="combat__hints">
+          <span className="combat__hint">
+            <span className="sw-shortcut">1</span>-<span className="sw-shortcut">4</span> Main Skills
+          </span>
+          {sideSkills.length > 0 && (
+            <span className="combat__hint">
+              <span className="sw-shortcut">Q</span><span className="sw-shortcut">W</span><span className="sw-shortcut">E</span><span className="sw-shortcut">R</span> Side Skills
+            </span>
+          )}
+          <span className="combat__hint">
+            <span className="sw-shortcut">Space</span> Pass
+          </span>
+          <span className="combat__hint">
+            <span className="sw-shortcut">Tab</span> Auto
+          </span>
+        </div>
 
-            // SIDE skills have additional check for remaining actions
-            const sideActionsAvailable = turnPhase.sideActionsUsed < turnPhase.maxSideActions;
-            const isSideSkill = skill.actionType === ActionType.SIDE;
-            const usable = (canUse || skill.isActive) && !isStunned && !isEnemyTurn && (!isSideSkill || sideActionsAvailable);
-
-            const prediction = calculateDamage(
-              playerStats.effectivePrimary,
-              playerStats.derived,
-              enemyStats.effectivePrimary,
-              enemyStats.derived,
-              skill,
-              player.element,
-              enemy.element
-            );
-
-            const effectiveness = getElementEffectiveness(skill.element, enemy.element);
-            const isSuperEffective = effectiveness > 1.0;
-
-            return (
-              <Tooltip
-                key={skill.id}
-                position="top"
-                content={
-                  <div className="space-y-2 p-1 max-w-[300px]">
-                    {/* Header */}
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="font-bold text-zinc-200">{skill.name}</div>
-                        <div className="text-[9px] uppercase tracking-wider flex items-center gap-2">
-                          <span className="text-zinc-500">{skill.tier}</span>
-                          <span className={
-                            skill.actionType === ActionType.SIDE ? 'text-blue-400' :
-                            skill.actionType === ActionType.TOGGLE ? 'text-amber-400' :
-                            'text-orange-400'
-                          }>
-                            {skill.actionType || 'MAIN'} Action
-                          </span>
-                        </div>
-                      </div>
-                      <span className="text-yellow-500 text-xs font-bold">Lv.{skill.level || 1}</span>
-                    </div>
-
-                    {/* Description */}
-                    <div className="text-xs text-zinc-400 italic border-t border-zinc-700 pt-2">{skill.description}</div>
-
-                    {/* Damage Section */}
-                    <div className="border-t border-zinc-700 pt-2">
-                      <div className="text-[9px] text-zinc-500 uppercase tracking-wider mb-1">Damage</div>
-                      <div className="space-y-1 text-[10px]">
-                        {/* Scaling */}
-                        <div className="flex items-center gap-2">
-                          <span className={`font-bold ${getStatColor(skill.scalingStat)}`}>
-                            {Math.round(skill.damageMult * 100)}% {formatScalingStat(skill.scalingStat)}
-                          </span>
-                          <span className="text-zinc-600">scaling</span>
-                        </div>
-                        {/* Damage Type & Property */}
-                        <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-                          <span className={getDamageTypeColor(skill.damageType)}>{skill.damageType}</span>
-                          <span className={getElementColor(skill.element)}>{skill.element}</span>
-                          {skill.damageProperty && skill.damageProperty !== 'Normal' && (
-                            <span className="text-red-400">{skill.damageProperty}</span>
-                          )}
-                        </div>
-                        {/* Mechanics Explanations */}
-                        <div className="text-[9px] text-zinc-500 space-y-0.5 mt-1">
-                          <div>• {getDamageTypeDescription(skill.damageType)}</div>
-                          {skill.damageProperty && skill.damageProperty !== 'Normal' && (
-                            <div>• {getDamagePropertyDescription(skill.damageProperty)}</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Hit Chance Section */}
-                    <div className="border-t border-zinc-700 pt-2">
-                      <div className="text-[9px] text-zinc-500 uppercase tracking-wider mb-1">Hit Chance</div>
-                      <div className="text-[10px] text-zinc-400">
-                        <span className="text-zinc-300">{skill.attackMethod}</span> - {getAttackMethodDescription(skill.attackMethod)}
-                      </div>
-                    </div>
-
-                    {/* Costs & Cooldown */}
-                    <div className="border-t border-zinc-700 pt-2">
-                      <div className="text-[9px] text-zinc-500 uppercase tracking-wider mb-1">Cost</div>
-                      <div className="flex flex-wrap gap-3 text-[10px]">
-                        <span className={skill.chakraCost > 0 ? 'text-blue-400' : 'text-zinc-600'}>
-                          {skill.chakraCost} CP
-                        </span>
-                        {skill.hpCost > 0 && (
-                          <span className="text-red-400">{skill.hpCost} HP</span>
-                        )}
-                        <span className={skill.cooldown > 0 ? 'text-zinc-300' : 'text-zinc-600'}>
-                          {skill.cooldown > 0 ? `${skill.cooldown} turn cooldown` : 'No cooldown'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Effects Section */}
-                    {skill.effects && skill.effects.length > 0 && (
-                      <div className="border-t border-zinc-700 pt-2">
-                        <div className="text-[9px] text-zinc-500 uppercase tracking-wider mb-1">Effects</div>
-                        <div className="space-y-0.5">
-                          {skill.effects.map((effect, idx) => (
-                            <div key={idx} className="text-[10px] flex items-center gap-1.5">
-                              <span className={getEffectColor(effect.type)}>{getEffectIcon(effect.type)}</span>
-                              <span className="text-zinc-300">{formatEffectDescription(effect)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Bonus Stats */}
-                    {(skill.critBonus || skill.penetration) && (
-                      <div className="border-t border-zinc-700 pt-2 text-[10px] space-y-0.5">
-                        {skill.critBonus && (
-                          <div className="text-yellow-400">+{skill.critBonus}% Crit Chance</div>
-                        )}
-                        {skill.penetration && (
-                          <div className="text-red-400">{Math.round(skill.penetration * 100)}% Defense Penetration</div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Toggle Skill Info */}
-                    {(skill.isToggle || skill.actionType === ActionType.TOGGLE) && (
-                      <div className="border-t border-zinc-700 pt-2 text-[10px] text-amber-400">
-                        Toggle Skill - {skill.upkeepCost || 0} CP/turn upkeep
-                      </div>
-                    )}
-
-                    {/* Damage Preview vs Enemy */}
-                    <div className="border-t border-zinc-700 pt-2 bg-zinc-800/50 -mx-1 px-2 py-1 rounded">
-                      <div className="text-[9px] text-zinc-500 uppercase tracking-wider mb-1">vs {enemy.name}</div>
-                      <div className="flex items-center justify-between">
-                        <div className="text-[10px]">
-                          <span className="text-zinc-400">Predicted: </span>
-                          <span className={`font-bold ${isSuperEffective ? 'text-yellow-400' : 'text-zinc-200'}`}>
-                            {prediction.finalDamage} dmg
-                          </span>
-                          {prediction.isCrit && <span className="text-yellow-500 ml-1">(CRIT)</span>}
-                        </div>
-                        {isSuperEffective && (
-                          <span className="text-[9px] text-yellow-400 font-bold">SUPER EFFECTIVE!</span>
-                        )}
-                        {effectiveness < 1.0 && (
-                          <span className="text-[9px] text-zinc-500">Resisted</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                }
-              >
-                <SkillCard
-                  skill={skill}
-                  predictedDamage={prediction.finalDamage}
-                  isEffective={isSuperEffective}
-                  canUse={usable || false}
-                  onClick={() => onUseSkill(skill)}
-                  shortcutKey={mainIndex !== undefined && mainIndex < 4 ? String(mainIndex + 1) : undefined}
-                />
-              </Tooltip>
-            );
-          };
-
-          return (
-            <div className="space-y-4">
-              {/* SIDE Skills Row (if any) */}
-              {sideSkills.length > 0 && (
-                <div>
-                  <div className="text-[9px] font-bold text-blue-400 uppercase tracking-wider mb-2">
-                    Side Actions (Free)
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                    {sideSkills.map(renderSkillCard)}
-                  </div>
-                </div>
-              )}
-
-              {/* TOGGLE Skills Row (if any) */}
-              {toggleSkills.length > 0 && (
-                <div>
-                  <div className="text-[9px] font-bold text-amber-400 uppercase tracking-wider mb-2">
-                    Toggle Skills
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                    {toggleSkills.map(renderSkillCard)}
-                  </div>
-                </div>
-              )}
-
-              {/* MAIN Skills Row */}
-              <div>
-                <div className="text-[9px] font-bold text-orange-400 uppercase tracking-wider mb-2">
-                  Main Actions (Ends Turn)
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 lg:gap-6">
-                  {mainSkills.map((skill, index) => renderSkillCard(skill, index))}
-                </div>
+        {/* Skills Grid */}
+        <div className="combat__skills">
+          {/* SIDE Skills Row */}
+          {sideSkills.length > 0 && (
+            <div className="combat__skill-group">
+              <div className="combat__skill-group-label combat__skill-group-label--side">
+                Side Actions (Free)
+              </div>
+              <div className="combat__skill-grid combat__skill-grid--auxiliary">
+                {sideSkills.map((skill, index) => renderSkillCard(skill, index, 'side'))}
               </div>
             </div>
-          );
-        })()}
+          )}
+
+          {/* TOGGLE Skills Row */}
+          {toggleSkills.length > 0 && (
+            <div className="combat__skill-group">
+              <div className="combat__skill-group-label combat__skill-group-label--toggle">
+                Toggle Skills
+              </div>
+              <div className="combat__skill-grid combat__skill-grid--auxiliary">
+                {toggleSkills.map((skill, index) => renderSkillCard(skill, index, 'toggle'))}
+              </div>
+            </div>
+          )}
+
+          {/* MAIN Skills Row */}
+          <div className="combat__skill-group">
+            <div className="combat__skill-group-label combat__skill-group-label--main">
+              Main Actions (Ends Turn)
+            </div>
+            <div className="combat__skill-grid combat__skill-grid--main">
+              {mainSkills.map((skill, index) => renderSkillCard(skill, index, 'main'))}
+            </div>
+          </div>
+        </div>
 
         {/* Turn Control */}
-        <div className="mt-6 flex justify-between items-center border-t border-zinc-800/50 pt-4">
+        <div className="combat__controls">
           {/* Auto-Combat Toggle */}
           <button
             type="button"
             onClick={onToggleAutoCombat}
-            className={`flex items-center gap-2 px-4 py-2 border transition-all duration-200 ${
-              autoCombatEnabled
-                ? 'border-amber-600/50 text-amber-400 bg-amber-950/30 hover:bg-amber-950/50'
-                : 'border-zinc-700 text-zinc-500 hover:border-zinc-600 hover:text-zinc-400 hover:bg-zinc-900/30'
-            }`}
+            className={`combat__auto-btn ${autoCombatEnabled ? 'combat__auto-btn--active' : ''}`}
             title={autoCombatEnabled ? 'Auto-pass enabled - Click to disable' : 'Enable auto-pass for faster pacing'}
           >
             {autoCombatEnabled ? <Zap size={14} /> : <ZapOff size={14} />}
-            <span className="text-[10px] font-bold uppercase tracking-wider">
-              Auto
-            </span>
+            <span className="combat__auto-label">Auto</span>
             {autoCombatEnabled && autoPassTimeRemaining != null && turnState === 'PLAYER' && (
-              <span className="text-[10px] font-mono text-amber-500">
+              <span className="combat__auto-timer">
                 {(autoPassTimeRemaining / 1000).toFixed(1)}s
               </span>
             )}
@@ -637,14 +671,10 @@ const Combat = forwardRef<CombatRef, CombatProps>(({
             type="button"
             onClick={onPassTurn}
             disabled={turnState === 'ENEMY_TURN'}
-            className={`flex items-center gap-3 px-6 py-3 border transition-all duration-200 ${
-              turnState === 'ENEMY_TURN'
-                ? 'border-zinc-800 text-zinc-600 bg-zinc-900/50 cursor-not-allowed'
-                : 'border-zinc-600 text-zinc-300 hover:bg-zinc-900 hover:border-zinc-400 hover:text-white'
-            }`}
+            className="combat__pass-btn"
           >
             <Hourglass size={14} />
-            <span className="text-xs font-bold uppercase tracking-[0.2em]">
+            <span className="combat__pass-label">
               {turnState === 'ENEMY_TURN' ? 'Enemy Turn' : 'Pass Turn'}
             </span>
           </button>

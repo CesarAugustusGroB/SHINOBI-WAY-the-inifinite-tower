@@ -1,5 +1,6 @@
 import React from 'react';
 import { Skill, DamageType, ActionType } from '../../game/types';
+import './SkillCard.css';
 
 interface SkillCardProps {
   skill: Skill;
@@ -27,6 +28,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({
   const isSide = actionType === ActionType.SIDE;
   const isToggle = actionType === ActionType.TOGGLE;
   const isActive = skill.isActive || false;
+
   // Map skill names to specific background images
   const getSkillBackground = () => {
     const skillName = skill.name.toLowerCase();
@@ -48,35 +50,64 @@ export const SkillCard: React.FC<SkillCardProps> = ({
     if (skillName.includes('gentle') && skillName.includes('fist')) {
       return '/assets/skill_gentle_fist.png';
     }
-    if (skillName.includes('mind')){ //&& skillName.includes('body') && skillName.includes('disturbing')) {
+    if (skillName.includes('mind')) {
       return '/assets/skill_mind_body_disturbing.png';
     }
     // Default fallback image
-    return "https://i.pinimg.com/736x/2c/a6/34/2ca6347bd392eb997d74720838b90839.jpg";
+    return 'https://i.pinimg.com/736x/2c/a6/34/2ca6347bd392eb997d74720838b90839.jpg';
   };
 
   const bgImage = getSkillBackground();
 
-  // Get border color based on action type
-  const getBorderStyle = () => {
-    if (isPassive) return 'border-zinc-600 opacity-60';
-    if (isToggle && isActive) return 'border-amber-500 ring-2 ring-amber-500/30 animate-pulse';
-    if (isToggle) return 'border-amber-600/70 hover:border-amber-500';
-    if (isSide) return 'border-blue-600/70 hover:border-blue-400';
-    // MAIN default
-    return canUse
-      ? 'border-zinc-700 hover:border-zinc-500'
-      : 'border-zinc-800';
+  // Build class names
+  const getCardClasses = () => {
+    const classes = ['skill-card'];
+
+    // Action type variant
+    if (isPassive) {
+      classes.push('skill-card--passive');
+    } else if (isToggle) {
+      classes.push('skill-card--toggle');
+      if (isActive) classes.push('skill-card--active');
+    } else if (isSide) {
+      classes.push('skill-card--side');
+    } else {
+      classes.push('skill-card--main');
+    }
+
+    // State modifiers
+    if (!canUse && !isPassive && !isActive) {
+      classes.push('skill-card--disabled');
+    }
+    if (isEffective && canUse) {
+      classes.push('skill-card--effective');
+    }
+
+    return classes.join(' ');
   };
 
-  // Get action type badge
+  // Get action type badge config
   const getActionBadge = () => {
-    if (isPassive) return { text: 'PASSIVE', color: 'bg-zinc-700 text-zinc-300' };
-    if (isToggle) return isActive
-      ? { text: 'ACTIVE', color: 'bg-amber-600 text-amber-100' }
-      : { text: 'TOGGLE', color: 'bg-amber-900/80 text-amber-400' };
-    if (isSide) return { text: 'SIDE', color: 'bg-blue-900/80 text-blue-300' };
+    if (isPassive) return { text: 'PASSIVE', className: 'skill-card__action-badge--passive' };
+    if (isToggle) {
+      return isActive
+        ? { text: 'ACTIVE', className: 'skill-card__action-badge--toggle-active' }
+        : { text: 'TOGGLE', className: 'skill-card__action-badge--toggle' };
+    }
+    if (isSide) return { text: 'SIDE', className: 'skill-card__action-badge--side' };
     return null; // No badge for MAIN
+  };
+
+  // Get damage type class
+  const getDamageTypeClass = () => {
+    switch (skill.damageType) {
+      case DamageType.PHYSICAL:
+        return 'skill-card__damage-type--physical';
+      case DamageType.ELEMENTAL:
+        return 'skill-card__damage-type--elemental';
+      default:
+        return 'skill-card__damage-type--mental';
+    }
   };
 
   const actionBadge = getActionBadge();
@@ -84,106 +115,83 @@ export const SkillCard: React.FC<SkillCardProps> = ({
 
   return (
     <button
+      type="button"
       onClick={effectivelyUsable ? onClick : undefined}
-      className={`
-        relative w-full h-28 rounded-lg overflow-hidden shadow-md border transition-all duration-200 text-left group
-        ${getBorderStyle()}
-        ${!effectivelyUsable && !isPassive ? 'opacity-50 cursor-not-allowed grayscale' : ''}
-        ${effectivelyUsable ? 'hover:scale-[1.02]' : ''}
-        ${isPassive ? 'cursor-default' : ''}
-        ${isEffective && effectivelyUsable ? 'ring-1 ring-yellow-500/50' : ''}
-      `}
+      className={getCardClasses()}
     >
       {/* Keyboard Shortcut Badge */}
       {shortcutKey && (
-        <div className="absolute top-1 left-1 z-30 bg-black/80 border border-zinc-600 text-zinc-200 text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded">
-          {shortcutKey}
-        </div>
+        <div className="skill-card__shortcut">{shortcutKey}</div>
       )}
 
-      {/* LAYER 1: BACKGROUND IMAGE */}
+      {/* Background Image Layer */}
       <img
         src={bgImage}
         alt={skill.name}
-        className="absolute inset-0 w-full h-full object-cover z-0 opacity-70 group-hover:opacity-90 transition-opacity"
+        className="skill-card__bg"
       />
 
-      {/* Gradient Overlay for text readability */}
-      <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent z-10"></div>
+      {/* Gradient Overlay */}
+      <div className="skill-card__overlay" />
 
-      {/* LAYER 2: CONTENT */}
-      <div className="relative z-20 w-full h-full p-3 flex flex-col justify-between">
-
+      {/* Content Layer */}
+      <div className="skill-card__content">
         {/* Top Row: Name and Level */}
-        <div className="flex justify-between items-start">
+        <div className="skill-card__header">
           <div>
-            <h3 className="text-xs font-bold text-zinc-100 uppercase tracking-wider drop-shadow-md">
-              {skill.name}
-            </h3>
-            <div className="flex gap-2 mt-0.5">
-                <span className={`text-[9px] font-bold uppercase ${
-                    skill.damageType === DamageType.PHYSICAL ? 'text-orange-400' :
-                    skill.damageType === DamageType.ELEMENTAL ? 'text-purple-400' :
-                    'text-indigo-400'
-                }`}>
-                    {skill.damageType.charAt(0)} {skill.element}
-                </span>
+            <h3 className="skill-card__name">{skill.name}</h3>
+            <div className="skill-card__type-row">
+              <span className={`skill-card__damage-type ${getDamageTypeClass()}`}>
+                {skill.damageType.charAt(0)} {skill.element}
+              </span>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-1">
+          <div className="skill-card__badges">
             {/* Action Type Badge */}
             {actionBadge && (
-              <div className={`${actionBadge.color} rounded px-1.5 py-0.5`}>
-                <span className="text-[8px] font-bold uppercase tracking-wider">{actionBadge.text}</span>
+              <div className={`skill-card__action-badge ${actionBadge.className}`}>
+                <span className="skill-card__action-badge-text">{actionBadge.text}</span>
               </div>
             )}
             {/* Level Badge */}
-            <div className="bg-black/60 border border-zinc-800 rounded px-1.5 py-0.5">
-              <span className="text-[8px] text-yellow-600 font-mono">LVL {skill.level || 1}</span>
+            <div className="skill-card__level-badge">
+              <span className="skill-card__level-text">LVL {skill.level || 1}</span>
             </div>
           </div>
         </div>
 
-        {/* Middle/Bottom: Big Damage Number */}
-        <div className="absolute right-3 bottom-3 text-right">
-            <div className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest mb-[-2px]">DMG</div>
-            <div className={`text-2xl font-black font-serif transition-colors ${
-                isEffective
-                ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.5)]'
-                : 'text-zinc-200'
-            }`}>
-                {predictedDamage > 0 ? predictedDamage : '-'}
-            </div>
+        {/* Damage Display */}
+        <div className="skill-card__damage">
+          <div className="skill-card__damage-label">DMG</div>
+          <div className={`skill-card__damage-value ${isEffective ? 'skill-card__damage-value--effective' : ''}`}>
+            {predictedDamage > 0 ? predictedDamage : '-'}
+          </div>
         </div>
 
-        {/* Bottom Row: Costs */}
-        <div className="flex gap-3 mt-auto text-[10px] font-mono">
-            {isPassive ? (
-              <span className="text-zinc-500 italic">Always Active</span>
-            ) : (
-              <>
-                <span className={skill.chakraCost > 0 ? "text-blue-400 font-bold" : "text-zinc-600"}>
-                  {skill.chakraCost > 0 ? `${skill.chakraCost} CP` : '-'}
-                </span>
-                {skill.hpCost > 0 && (
-                  <span className="text-red-400 font-bold">
-                    {skill.hpCost} HP
-                  </span>
-                )}
-                {isToggle && skill.upkeepCost && skill.upkeepCost > 0 && (
-                  <span className="text-amber-400 font-bold">
-                    {skill.upkeepCost}/turn
-                  </span>
-                )}
-              </>
-            )}
+        {/* Cost Display */}
+        <div className="skill-card__costs">
+          {isPassive ? (
+            <span className="skill-card__cost--passive">Always Active</span>
+          ) : (
+            <>
+              <span className={skill.chakraCost > 0 ? 'skill-card__cost--cp' : 'skill-card__cost--cp-zero'}>
+                {skill.chakraCost > 0 ? `${skill.chakraCost} CP` : '-'}
+              </span>
+              {skill.hpCost > 0 && (
+                <span className="skill-card__cost--hp">{skill.hpCost} HP</span>
+              )}
+              {isToggle && skill.upkeepCost && skill.upkeepCost > 0 && (
+                <span className="skill-card__cost--upkeep">{skill.upkeepCost}/turn</span>
+              )}
+            </>
+          )}
         </div>
       </div>
 
-      {/* COOLDOWN OVERLAY */}
+      {/* Cooldown Overlay */}
       {skill.currentCooldown > 0 && (
-        <div className="absolute inset-0 z-30 bg-black/80 flex items-center justify-center backdrop-blur-[1px]">
-          <span className="text-2xl font-black text-zinc-600">{skill.currentCooldown}</span>
+        <div className="skill-card__cooldown">
+          <span className="skill-card__cooldown-value">{skill.currentCooldown}</span>
         </div>
       )}
     </button>

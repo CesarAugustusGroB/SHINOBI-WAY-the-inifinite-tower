@@ -1,0 +1,237 @@
+/* ============================================================================
+   GameOver Scene - Modernized Styling
+   ============================================================================ */
+
+@import '../../styles/design-system/index.css';
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SCENE CONTAINER
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.game-over {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sw-space-8);
+  position: relative;
+  overflow: hidden;
+  background: var(--sw-bg-primary);
+}
+
+/* Dark gradient background */
+.game-over::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(127, 29, 29, 0.1) 0%,
+    rgba(0, 0, 0, 0.95) 70%
+  );
+}
+
+/* Red vignette overlay */
+.game-over::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 0%,
+    rgba(127, 29, 29, 0.2) 50%,
+    rgba(127, 29, 29, 0.4) 100%
+  );
+  pointer-events: none;
+  animation: game-over-pulse 4s ease-in-out infinite;
+}
+
+@keyframes game-over-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   CONTENT WRAPPER
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.game-over__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 32rem;
+  animation: sw-fade-in 0.6s ease-out;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   DEATH ICON
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.game-over__icon {
+  margin-bottom: var(--sw-space-6);
+  color: var(--sw-bg-surface);
+  opacity: 0.6;
+  animation: game-over-icon-float 3s ease-in-out infinite;
+}
+
+@keyframes game-over-icon-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   TITLE
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.game-over__title {
+  font-family: var(--sw-font-serif);
+  font-size: clamp(3rem, 12vw, 5rem);
+  font-weight: 900;
+  letter-spacing: var(--sw-tracking-widest);
+  text-transform: uppercase;
+  color: #b91c1c;
+  text-shadow:
+    0 0 40px rgba(185, 28, 28, 0.5),
+    0 0 80px rgba(185, 28, 28, 0.3);
+  margin: 0 0 var(--sw-space-8) 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   STATS PANEL
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.game-over__panel {
+  width: 100%;
+  padding: var(--sw-space-6);
+  background: var(--sw-glass-bg-dark);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(127, 29, 29, 0.3);
+  border-radius: var(--sw-radius-lg);
+  margin-bottom: var(--sw-space-8);
+  text-align: center;
+}
+
+.game-over__location {
+  font-size: var(--sw-text-lg);
+  font-weight: 600;
+  color: var(--sw-text-secondary);
+  margin: 0 0 var(--sw-space-2) 0;
+}
+
+.game-over__danger {
+  font-family: var(--sw-font-mono);
+  font-size: var(--sw-text-sm);
+  font-weight: 700;
+  margin-left: var(--sw-space-2);
+}
+
+.game-over__danger--safe { color: var(--sw-risk-safe-light); }
+.game-over__danger--low { color: var(--sw-risk-low-light); }
+.game-over__danger--medium { color: var(--sw-risk-medium-light); }
+.game-over__danger--high { color: var(--sw-risk-high-light); }
+
+.game-over__region {
+  font-size: var(--sw-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--sw-tracking-widest);
+  text-transform: uppercase;
+  color: var(--sw-text-muted);
+  margin: 0 0 var(--sw-space-4) 0;
+  padding-bottom: var(--sw-space-4);
+  border-bottom: 1px solid var(--sw-glass-border);
+}
+
+.game-over__level {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sw-space-2);
+  font-size: var(--sw-text-sm);
+  color: var(--sw-text-tertiary);
+}
+
+.game-over__level-value {
+  font-family: var(--sw-font-mono);
+  font-weight: 700;
+  color: var(--sw-text-secondary);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   RETRY BUTTON
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.game-over__retry {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sw-space-3);
+  width: 100%;
+  max-width: 20rem;
+  padding: var(--sw-space-4) var(--sw-space-8);
+  background: rgba(127, 29, 29, 0.15);
+  border: 2px solid rgba(185, 28, 28, 0.5);
+  border-radius: var(--sw-radius-md);
+  font-size: var(--sw-text-sm);
+  font-weight: 700;
+  letter-spacing: var(--sw-tracking-widest);
+  text-transform: uppercase;
+  color: #fca5a5;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all var(--sw-transition-base);
+}
+
+.game-over__retry::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(185, 28, 28, 0.3), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+}
+
+.game-over__retry:hover {
+  background: rgba(127, 29, 29, 0.25);
+  border-color: #dc2626;
+  box-shadow: 0 0 30px rgba(185, 28, 28, 0.3);
+  transform: translateY(-2px);
+}
+
+.game-over__retry:hover::before {
+  transform: translateX(100%);
+}
+
+.game-over__retry:active {
+  transform: translateY(0);
+}
+
+.game-over__retry-text {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   RESPONSIVE
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+  .game-over {
+    padding: var(--sw-space-4);
+  }
+
+  .game-over__panel {
+    padding: var(--sw-space-4);
+  }
+
+  .game-over__retry {
+    max-width: 100%;
+  }
+}

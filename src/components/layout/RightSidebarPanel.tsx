@@ -14,7 +14,7 @@ import { Item, EquipmentSlot, DragData, Rarity, TreasureHunt } from '../../game/
 import EquipmentPanel from '../inventory/EquipmentPanel';
 import Bag from '../inventory/Bag';
 import { Coins, Map } from 'lucide-react';
-import { getRarityDragPreviewColor } from '../../utils/colorHelpers';
+import './layout.css';
 
 interface RightSidebarPanelProps {
   // Synthesis system props
@@ -37,12 +37,21 @@ interface RightSidebarPanelProps {
   treasureHunt?: TreasureHunt | null;
 }
 
+// Get drag preview class based on rarity
+const getDragPreviewClass = (rarity: Rarity): string => {
+  switch (rarity) {
+    case Rarity.RARE: return 'drag-preview drag-preview--rare';
+    case Rarity.EPIC: return 'drag-preview drag-preview--epic';
+    case Rarity.LEGENDARY: return 'drag-preview drag-preview--legendary';
+    case Rarity.CURSED: return 'drag-preview drag-preview--cursed';
+    default: return 'drag-preview drag-preview--common';
+  }
+};
+
 // Drag preview component - icon only
 const ItemDragPreview: React.FC<{ item: Item }> = ({ item }) => {
   return (
-    <div
-      className={`w-10 h-10 flex items-center justify-center rounded border-2 ${getRarityDragPreviewColor(item.rarity)} backdrop-blur-sm shadow-lg text-xl`}
-    >
+    <div className={getDragPreviewClass(item.rarity)}>
       {item.icon || '?'}
     </div>
   );
@@ -128,7 +137,7 @@ const RightSidebarPanel: React.FC<RightSidebarPanelProps> = ({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex flex-col gap-4 h-full text-[11px] rounded-lg p-3 overflow-y-auto">
+      <div className="sidebar">
         <EquipmentPanel
           equipment={player.equipment}
           onSellEquipped={onSellEquipped}
@@ -152,43 +161,40 @@ const RightSidebarPanel: React.FC<RightSidebarPanelProps> = ({
         )}
 
         {/* Wallet Display */}
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
-          <div className="text-zinc-400 text-xs mb-1">Wallet</div>
-          {/* Ryo */}
-          <div className="flex items-center gap-2 flex-shrink-0 px-3 py-1 bg-zinc-800/50 rounded border border-zinc-700">
-            <Coins className="w-4 h-4 text-yellow-500" />
-            <span className="text-yellow-400 font-bold text-sm">{player.ryo.toLocaleString()}</span>
+        <div className="wallet">
+          <div className="wallet__label">Wallet</div>
+          <div className="wallet__amount">
+            <Coins className="wallet__icon" />
+            <span className="wallet__value">{player.ryo.toLocaleString()}</span>
           </div>
         </div>
 
         {/* Treasure Hunt Progress - only show when active */}
         {treasureHunt && treasureHunt.isActive && (
-          <div className="bg-zinc-900/50 border border-amber-800/50 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <Map className="w-4 h-4 text-amber-400" />
-              <span className="text-amber-400 text-xs font-medium">Treasure Hunt</span>
+          <div className="treasure-hunt">
+            <div className="treasure-hunt__header">
+              <Map className="treasure-hunt__icon" />
+              <span className="treasure-hunt__title">Treasure Hunt</span>
             </div>
-            {/* Map pieces progress */}
-            <div className="flex items-center gap-2 px-2 py-1.5 bg-zinc-800/50 rounded border border-zinc-700">
-              <div className="flex gap-1 flex-1">
+            <div className="treasure-hunt__progress">
+              <div className="treasure-hunt__pieces">
                 {Array.from({ length: treasureHunt.requiredPieces }).map((_, i) => (
                   <div
                     key={i}
-                    className={`h-2.5 flex-1 rounded-sm transition-colors ${
+                    className={`treasure-hunt__piece ${
                       i < treasureHunt.collectedPieces
-                        ? 'bg-amber-500'
-                        : 'bg-zinc-700'
+                        ? 'treasure-hunt__piece--collected'
+                        : 'treasure-hunt__piece--empty'
                     }`}
                   />
                 ))}
               </div>
-              <span className="text-amber-300 text-xs font-medium ml-1">
+              <span className="treasure-hunt__count">
                 {treasureHunt.collectedPieces}/{treasureHunt.requiredPieces}
               </span>
             </div>
           </div>
         )}
-
       </div>
 
       {/* Drag overlay - shows item preview while dragging */}

@@ -1,0 +1,268 @@
+/* ============================================================================
+   SHINOBI WAY - Design System Variables
+   ============================================================================
+   Central CSS custom properties for consistent theming across all scenes.
+   Import this file first in all scene CSS files.
+   ============================================================================ */
+
+:root {
+  /* ─────────────────────────────────────────────────────────────────────────
+     BACKGROUND SYSTEM
+     ───────────────────────────────────────────────────────────────────────── */
+  --sw-bg-primary: #0a0a0b;
+  --sw-bg-secondary: #121214;
+  --sw-bg-tertiary: #1a1a1d;
+  --sw-bg-elevated: #222225;
+  --sw-bg-surface: #27272a;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     GLASS PANEL COLORS (Glassmorphism)
+     ───────────────────────────────────────────────────────────────────────── */
+  --sw-glass-bg: rgba(24, 24, 27, 0.6);
+  --sw-glass-bg-dark: rgba(10, 10, 11, 0.85);
+  --sw-glass-bg-light: rgba(39, 39, 42, 0.6);
+  --sw-glass-border: rgba(63, 63, 70, 0.5);
+  --sw-glass-border-highlight: rgba(113, 113, 122, 0.5);
+  --sw-glass-blur: 12px;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     ACCENT COLORS (Golden/Amber theme)
+     ───────────────────────────────────────────────────────────────────────── */
+  --sw-accent-primary: #f59e0b;
+  --sw-accent-secondary: #d97706;
+  --sw-accent-tertiary: #fbbf24;
+  --sw-accent-dim: #b45309;
+  --sw-accent-glow: rgba(245, 158, 11, 0.25);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     RISK/DANGER LEVELS
+     ───────────────────────────────────────────────────────────────────────── */
+  /* Safe - Green */
+  --sw-risk-safe: #15803d;
+  --sw-risk-safe-light: #22c55e;
+  --sw-risk-safe-bg: rgba(5, 46, 22, 0.6);
+  --sw-risk-safe-glow: rgba(21, 128, 61, 0.4);
+
+  /* Low - Amber/Brown */
+  --sw-risk-low: #a16207;
+  --sw-risk-low-light: #ca8a04;
+  --sw-risk-low-bg: rgba(66, 32, 6, 0.6);
+  --sw-risk-low-glow: rgba(161, 98, 7, 0.4);
+
+  /* Medium - Orange */
+  --sw-risk-medium: #c2410c;
+  --sw-risk-medium-light: #ea580c;
+  --sw-risk-medium-bg: rgba(67, 20, 7, 0.6);
+  --sw-risk-medium-glow: rgba(194, 65, 12, 0.4);
+
+  /* High - Red */
+  --sw-risk-high: #b91c1c;
+  --sw-risk-high-light: #dc2626;
+  --sw-risk-high-bg: rgba(69, 10, 10, 0.6);
+  --sw-risk-high-glow: rgba(185, 28, 28, 0.4);
+
+  /* Extreme - Purple */
+  --sw-risk-extreme: #7e22ce;
+  --sw-risk-extreme-light: #9333ea;
+  --sw-risk-extreme-bg: rgba(59, 7, 100, 0.6);
+  --sw-risk-extreme-glow: rgba(126, 34, 206, 0.4);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     STAT CATEGORY COLORS (Body/Mind/Technique)
+     ───────────────────────────────────────────────────────────────────────── */
+  /* Body - Orange */
+  --sw-category-body: #f97316;
+  --sw-category-body-light: #fb923c;
+  --sw-category-body-bg: rgba(154, 52, 18, 0.2);
+  --sw-category-body-glow: rgba(249, 115, 22, 0.4);
+
+  /* Mind - Purple */
+  --sw-category-mind: #a855f7;
+  --sw-category-mind-light: #c084fc;
+  --sw-category-mind-bg: rgba(107, 33, 168, 0.2);
+  --sw-category-mind-glow: rgba(168, 85, 247, 0.4);
+
+  /* Technique - Emerald */
+  --sw-category-technique: #10b981;
+  --sw-category-technique-light: #34d399;
+  --sw-category-technique-bg: rgba(6, 95, 70, 0.2);
+  --sw-category-technique-glow: rgba(16, 185, 129, 0.4);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     RARITY COLORS
+     ───────────────────────────────────────────────────────────────────────── */
+  --sw-rarity-broken: #78716c;
+  --sw-rarity-broken-bg: rgba(120, 113, 108, 0.15);
+
+  --sw-rarity-common: #a1a1aa;
+  --sw-rarity-common-bg: rgba(161, 161, 170, 0.15);
+
+  --sw-rarity-rare: #3b82f6;
+  --sw-rarity-rare-bg: rgba(59, 130, 246, 0.15);
+  --sw-rarity-rare-glow: rgba(59, 130, 246, 0.4);
+
+  --sw-rarity-epic: #a855f7;
+  --sw-rarity-epic-bg: rgba(168, 85, 247, 0.15);
+  --sw-rarity-epic-glow: rgba(168, 85, 247, 0.4);
+
+  --sw-rarity-legendary: #f97316;
+  --sw-rarity-legendary-bg: rgba(249, 115, 22, 0.15);
+  --sw-rarity-legendary-glow: rgba(249, 115, 22, 0.5);
+
+  --sw-rarity-cursed: #ef4444;
+  --sw-rarity-cursed-bg: rgba(239, 68, 68, 0.15);
+  --sw-rarity-cursed-glow: rgba(239, 68, 68, 0.5);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     TEXT COLORS
+     ───────────────────────────────────────────────────────────────────────── */
+  --sw-text-primary: #f4f4f5;
+  --sw-text-secondary: #a1a1aa;
+  --sw-text-tertiary: #71717a;
+  --sw-text-muted: #52525b;
+  --sw-text-accent: var(--sw-accent-tertiary);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     RESOURCE COLORS (HP, Chakra)
+     ───────────────────────────────────────────────────────────────────────── */
+  --sw-hp-fill: linear-gradient(to right, #dc2626, #ef4444);
+  --sw-hp-color: #ef4444;
+  --sw-chakra-fill: linear-gradient(to right, #2563eb, #3b82f6);
+  --sw-chakra-color: #3b82f6;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     SPACING SCALE
+     ───────────────────────────────────────────────────────────────────────── */
+  --sw-space-0: 0;
+  --sw-space-1: 0.25rem;   /* 4px */
+  --sw-space-2: 0.5rem;    /* 8px */
+  --sw-space-3: 0.75rem;   /* 12px */
+  --sw-space-4: 1rem;      /* 16px */
+  --sw-space-5: 1.25rem;   /* 20px */
+  --sw-space-6: 1.5rem;    /* 24px */
+  --sw-space-8: 2rem;      /* 32px */
+  --sw-space-10: 2.5rem;   /* 40px */
+  --sw-space-12: 3rem;     /* 48px */
+  --sw-space-16: 4rem;     /* 64px */
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     BORDER RADIUS
+     ───────────────────────────────────────────────────────────────────────── */
+  --sw-radius-xs: 0.125rem;  /* 2px */
+  --sw-radius-sm: 0.25rem;   /* 4px */
+  --sw-radius-md: 0.375rem;  /* 6px */
+  --sw-radius-lg: 0.5rem;    /* 8px */
+  --sw-radius-xl: 0.75rem;   /* 12px */
+  --sw-radius-2xl: 1rem;     /* 16px */
+  --sw-radius-full: 9999px;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     TYPOGRAPHY
+     ───────────────────────────────────────────────────────────────────────── */
+  --sw-font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --sw-font-serif: 'Crimson Pro', 'Georgia', serif;
+  --sw-font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* Font sizes */
+  --sw-text-2xs: 0.625rem;   /* 10px */
+  --sw-text-xs: 0.75rem;     /* 12px */
+  --sw-text-sm: 0.875rem;    /* 14px */
+  --sw-text-base: 1rem;      /* 16px */
+  --sw-text-lg: 1.125rem;    /* 18px */
+  --sw-text-xl: 1.25rem;     /* 20px */
+  --sw-text-2xl: 1.5rem;     /* 24px */
+  --sw-text-3xl: 1.875rem;   /* 30px */
+  --sw-text-4xl: 2.25rem;    /* 36px */
+  --sw-text-5xl: 3rem;       /* 48px */
+
+  /* Line heights */
+  --sw-leading-none: 1;
+  --sw-leading-tight: 1.25;
+  --sw-leading-snug: 1.375;
+  --sw-leading-normal: 1.5;
+  --sw-leading-relaxed: 1.625;
+
+  /* Letter spacing */
+  --sw-tracking-tighter: -0.05em;
+  --sw-tracking-tight: -0.025em;
+  --sw-tracking-normal: 0;
+  --sw-tracking-wide: 0.025em;
+  --sw-tracking-wider: 0.05em;
+  --sw-tracking-widest: 0.1em;
+  --sw-tracking-ultra: 0.2em;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     TRANSITIONS
+     ───────────────────────────────────────────────────────────────────────── */
+  --sw-transition-fast: 150ms ease;
+  --sw-transition-base: 200ms ease;
+  --sw-transition-slow: 300ms ease;
+  --sw-transition-slower: 500ms ease;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     SHADOWS
+     ───────────────────────────────────────────────────────────────────────── */
+  --sw-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --sw-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --sw-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --sw-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --sw-shadow-glow: 0 0 20px rgba(245, 158, 11, 0.2);
+  --sw-shadow-inset: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     Z-INDEX SCALE
+     ───────────────────────────────────────────────────────────────────────── */
+  --sw-z-background: -1;
+  --sw-z-base: 1;
+  --sw-z-dropdown: 10;
+  --sw-z-sticky: 20;
+  --sw-z-overlay: 30;
+  --sw-z-modal: 40;
+  --sw-z-popover: 50;
+  --sw-z-tooltip: 100;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     CLAN COLORS
+     ───────────────────────────────────────────────────────────────────────── */
+  --sw-clan-uchiha: #ef4444;
+  --sw-clan-uchiha-glow: rgba(239, 68, 68, 0.4);
+  --sw-clan-uzumaki: #f97316;
+  --sw-clan-uzumaki-glow: rgba(249, 115, 22, 0.4);
+  --sw-clan-hyuga: #a855f7;
+  --sw-clan-hyuga-glow: rgba(168, 85, 247, 0.4);
+  --sw-clan-lee: #22c55e;
+  --sw-clan-lee-glow: rgba(34, 197, 94, 0.4);
+  --sw-clan-yamanaka: #06b6d4;
+  --sw-clan-yamanaka-glow: rgba(6, 182, 212, 0.4);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     ROOM STATES (Exploration)
+     ───────────────────────────────────────────────────────────────────────── */
+  --sw-room-current: #22d3ee;
+  --sw-room-current-glow: rgba(34, 211, 238, 0.3);
+  --sw-room-cleared: #4ade80;
+  --sw-room-cleared-glow: rgba(74, 222, 128, 0.2);
+  --sw-room-locked: #71717a;
+  --sw-room-locked-bg: rgba(39, 39, 42, 0.4);
+  --sw-room-exit: #ef4444;
+  --sw-room-exit-glow: rgba(239, 68, 68, 0.3);
+  --sw-room-boss: #f97316;
+  --sw-room-boss-glow: rgba(249, 115, 22, 0.3);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     ACTIVITY COLORS
+     ───────────────────────────────────────────────────────────────────────── */
+  --sw-activity-combat: #ef4444;
+  --sw-activity-merchant: #fbbf24;
+  --sw-activity-event: #a855f7;
+  --sw-activity-rest: #22c55e;
+  --sw-activity-training: #3b82f6;
+  --sw-activity-treasure: #f97316;
+  --sw-activity-scroll: #06b6d4;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     XP/PROGRESS COLORS
+     ───────────────────────────────────────────────────────────────────────── */
+  --sw-xp-fill: linear-gradient(to right, #15803d, #22c55e);
+  --sw-xp-color: #22c55e;
+}

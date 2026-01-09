@@ -7,6 +7,7 @@ import {
 } from '../../game/types';
 import RoomCard from './RoomCard';
 import { getCurrentRoom, getChildRooms } from '../../game/systems/LocationSystem';
+import './exploration.css';
 
 interface LocationMapProps {
   branchingFloor: BranchingFloor;
@@ -31,10 +32,6 @@ const LocationMap: React.FC<LocationMapProps> = ({
   const childRooms = useMemo(
     () => currentRoom ? getChildRooms(branchingFloor, currentRoom.id) : [],
     [branchingFloor, currentRoom]
-  );
-  const grandchildRooms = useMemo(
-    () => childRooms.flatMap(child => getChildRooms(branchingFloor, child.id)),
-    [branchingFloor, childRooms]
   );
 
   // Get selected room
@@ -105,27 +102,28 @@ const LocationMap: React.FC<LocationMapProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedRoom, currentRoom, childRooms, handleEnterRoom, onRoomEnter, onRoomSelect]);
 
-  // Get arc-based background
-  const getArcBackground = (): string => {
+  // Get arc-based modifier
+  const getArcModifier = (): string => {
     switch (branchingFloor.arc) {
-      case 'ACADEMY_ARC':
-        return 'from-slate-950 via-zinc-900 to-slate-950';
-      case 'WAVES_ARC':
-        return 'from-slate-950 via-blue-950 to-slate-950';
-      case 'EXAMS_ARC':
-        return 'from-emerald-950 via-zinc-900 to-slate-950';
-      case 'ROGUE_ARC':
-        return 'from-slate-950 via-orange-950 to-slate-950';
-      case 'WAR_ARC':
-        return 'from-red-950 via-zinc-900 to-slate-950';
-      default:
-        return 'from-slate-950 via-zinc-900 to-slate-950';
+      case 'ACADEMY_ARC': return 'location-map--academy';
+      case 'WAVES_ARC': return 'location-map--waves';
+      case 'EXAMS_ARC': return 'location-map--exams';
+      case 'ROGUE_ARC': return 'location-map--rogue';
+      case 'WAR_ARC': return 'location-map--war';
+      default: return 'location-map--academy';
     }
+  };
+
+  // Get action button class
+  const getActionButtonClass = (): string => {
+    if (selectedRoom?.isCleared) return 'location-map__action-btn location-map__action-btn--cleared';
+    if (selectedRoom?.isAccessible) return 'location-map__action-btn location-map__action-btn--enter';
+    return 'location-map__action-btn location-map__action-btn--locked';
   };
 
   return (
     <div
-      className={`w-full max-w-5xl mx-auto h-full flex flex-col bg-gradient-to-b ${getArcBackground()} rounded-lg border border-zinc-800 overflow-hidden`}
+      className={`location-map ${getArcModifier()}`}
       style={{
         backgroundImage: 'url(/assets/background_map_exploring.png)',
         backgroundSize: 'cover',
@@ -134,29 +132,29 @@ const LocationMap: React.FC<LocationMapProps> = ({
       }}
     >
       {/* Header */}
-      <div className="p-4 border-b border-zinc-800 bg-black/60 backdrop-blur-sm">
-        <div className="flex justify-between items-center">
+      <div className="location-map__header">
+        <div className="location-map__header-content">
           <div>
-            <h2 className="text-xl font-serif text-zinc-200 tracking-[0.2em] uppercase">
+            <h2 className="location-map__title">
               {branchingFloor.biome}
             </h2>
           </div>
-          <div className="text-right space-y-1">
-            <p className="text-xs text-zinc-400">
+          <div className="location-map__stats">
+            <p className="location-map__stat">
               Rooms Explored: {branchingFloor.roomsVisited}
             </p>
             {/* Intel Bar */}
-            <div className="flex items-center gap-2 justify-end">
-              <span className="text-amber-400 text-sm">🔮</span>
-              <div className="w-24 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+            <div className="location-map__intel">
+              <span className="location-map__intel-icon">🔮</span>
+              <div className="location-map__intel-bar">
                 <div
-                  className="h-full bg-gradient-to-r from-amber-600 to-amber-400 transition-all duration-500"
+                  className="location-map__intel-fill"
                   style={{ width: `${currentIntel}%` }}
                 />
               </div>
-              <span className="text-xs font-mono text-amber-300 w-8">{currentIntel}%</span>
+              <span className="location-map__intel-value">{currentIntel}%</span>
             </div>
-            <p className="text-[10px] text-zinc-500">
+            <p className="location-map__hint">
               {branchingFloor.exitRoomId
                 ? '🚪 Exit discovered - Find and defeat the Guardian'
                 : 'Keep exploring to find the Exit'}
@@ -166,15 +164,15 @@ const LocationMap: React.FC<LocationMapProps> = ({
       </div>
 
       {/* Map Area - RELATIVE VIEW: Current at bottom, children middle, grandchildren top */}
-      <div className="flex-1 relative p-4 min-h-[400px]">
+      <div className="location-map__area">
         {/* Room Cards Container */}
-        <div className="relative z-10 h-full flex flex-col items-center justify-between py-4">
+        <div className="location-map__rooms">
           {/* Grandchildren grouped by parent - Top row (2 per group) */}
-          <div className="flex justify-center gap-8 flex-wrap">
+          <div className="location-map__row">
             {childRooms.map((child) => {
               const childGrandchildren = getChildRooms(branchingFloor, child.id);
               return (
-                <div key={`gc-group-${child.id}`} className="flex gap-2 flex-wrap justify-center">
+                <div key={`gc-group-${child.id}`} className="location-map__row-group">
                   {childGrandchildren.map((room) => (
                     <RoomCard
                       key={room.id}
@@ -184,9 +182,7 @@ const LocationMap: React.FC<LocationMapProps> = ({
                     />
                   ))}
                   {childGrandchildren.length === 0 && (
-                    <div className="text-zinc-600 text-xs italic w-[120px] text-center">
-                      ...
-                    </div>
+                    <div className="location-map__placeholder">...</div>
                   )}
                 </div>
               );
@@ -194,7 +190,7 @@ const LocationMap: React.FC<LocationMapProps> = ({
           </div>
 
           {/* Children - Middle (2 rooms) - Immediate choices */}
-          <div className="flex justify-center gap-8 flex-wrap">
+          <div className="location-map__row">
             {childRooms.map((room) => (
               <RoomCard
                 key={room.id}
@@ -204,14 +200,14 @@ const LocationMap: React.FC<LocationMapProps> = ({
               />
             ))}
             {childRooms.length === 0 && currentRoom?.isExit && (
-              <div className="text-amber-500 text-sm font-bold uppercase tracking-wider">
+              <div className="location-map__exit-message">
                 ⚔️ Floor Exit - Defeat the Guardian ⚔️
               </div>
             )}
           </div>
 
           {/* Current Room - Bottom (1 room) - You are here */}
-          <div className="flex justify-center gap-4">
+          <div className="location-map__row">
             {currentRoom && (
               <RoomCard
                 key={currentRoom.id}
@@ -226,55 +222,55 @@ const LocationMap: React.FC<LocationMapProps> = ({
 
       {/* Selected Room Panel */}
       {selectedRoom && (
-        <div className="border-t border-zinc-800 p-4 bg-black/70 backdrop-blur-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-zinc-200">
+        <div className="location-map__selected">
+          <div className="location-map__selected-content">
+            <div className="location-map__selected-info">
+              <h3 className="location-map__selected-name">
                 {selectedRoom.name}
               </h3>
-              <p className="text-xs text-zinc-500 mt-1">
+              <p className="location-map__selected-desc">
                 {selectedRoom.description}
               </p>
 
               {/* Activity list */}
-              <div className="flex gap-2 mt-2 flex-wrap">
+              <div className="location-map__selected-activities">
                 {selectedRoom.activities.combat && !selectedRoom.activities.combat.completed && (
-                  <span className="text-[10px] bg-orange-900/50 text-orange-400 px-2 py-0.5 rounded">
+                  <span className="location-map__activity-tag location-map__activity-tag--combat">
                     Combat: {selectedRoom.activities.combat.enemy.name}
                   </span>
                 )}
                 {selectedRoom.activities.eliteChallenge && !selectedRoom.activities.eliteChallenge.completed && (
-                  <span className="text-[10px] bg-red-900/50 text-red-400 px-2 py-0.5 rounded">
+                  <span className="location-map__activity-tag location-map__activity-tag--elite">
                     Elite: {selectedRoom.activities.eliteChallenge.enemy.name}
                   </span>
                 )}
                 {selectedRoom.activities.merchant && !selectedRoom.activities.merchant.completed && (
-                  <span className="text-[10px] bg-yellow-900/50 text-yellow-400 px-2 py-0.5 rounded">
+                  <span className="location-map__activity-tag location-map__activity-tag--merchant">
                     Merchant
                   </span>
                 )}
                 {selectedRoom.activities.event && !selectedRoom.activities.event.completed && (
-                  <span className="text-[10px] bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded">
+                  <span className="location-map__activity-tag location-map__activity-tag--event">
                     Event
                   </span>
                 )}
                 {selectedRoom.activities.scrollDiscovery && !selectedRoom.activities.scrollDiscovery.completed && (
-                  <span className="text-[10px] bg-purple-900/50 text-purple-400 px-2 py-0.5 rounded">
+                  <span className="location-map__activity-tag location-map__activity-tag--scroll">
                     Scroll Discovery
                   </span>
                 )}
                 {selectedRoom.activities.rest && !selectedRoom.activities.rest.completed && (
-                  <span className="text-[10px] bg-green-900/50 text-green-400 px-2 py-0.5 rounded">
+                  <span className="location-map__activity-tag location-map__activity-tag--rest">
                     Rest (+{selectedRoom.activities.rest.healPercent}% HP)
                   </span>
                 )}
                 {selectedRoom.activities.training && !selectedRoom.activities.training.completed && (
-                  <span className="text-[10px] bg-teal-900/50 text-teal-400 px-2 py-0.5 rounded">
+                  <span className="location-map__activity-tag location-map__activity-tag--training">
                     Training
                   </span>
                 )}
                 {selectedRoom.activities.treasure && !selectedRoom.activities.treasure.collected && (
-                  <span className="text-[10px] bg-amber-900/50 text-amber-400 px-2 py-0.5 rounded">
+                  <span className="location-map__activity-tag location-map__activity-tag--treasure">
                     Treasure
                   </span>
                 )}
@@ -282,22 +278,23 @@ const LocationMap: React.FC<LocationMapProps> = ({
             </div>
 
             {/* Action buttons */}
-            <div className="flex gap-2">
+            <div className="location-map__selected-actions">
               {selectedRoom.isAccessible && !selectedRoom.isCleared && (
                 <button
+                  type="button"
                   onClick={handleEnterRoom}
-                  className="px-6 py-2 bg-cyan-900 hover:bg-cyan-800 border border-cyan-700 text-cyan-200 text-sm font-bold uppercase tracking-wider transition-colors"
+                  className={getActionButtonClass()}
                 >
                   Enter
                 </button>
               )}
               {selectedRoom.isCleared && (
-                <span className="px-4 py-2 bg-green-900/50 border border-green-700 text-green-400 text-sm uppercase">
+                <span className={getActionButtonClass()}>
                   Cleared
                 </span>
               )}
               {!selectedRoom.isAccessible && !selectedRoom.isCleared && (
-                <span className="px-4 py-2 bg-zinc-900/50 border border-zinc-700 text-zinc-500 text-sm uppercase">
+                <span className={getActionButtonClass()}>
                   Locked
                 </span>
               )}

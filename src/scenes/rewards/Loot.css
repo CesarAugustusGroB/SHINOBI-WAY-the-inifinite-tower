@@ -1,0 +1,543 @@
+/**
+ * Loot Scene Styles
+ * BEM-style CSS for the victory rewards screen
+ */
+
+@import '../../styles/design-system/index.css';
+
+/* ===========================================
+   Main Container
+   =========================================== */
+
+.loot {
+  width: 100%;
+  max-width: 72rem;
+  z-index: 10;
+}
+
+.loot__title {
+  font-size: var(--sw-text-2xl);
+  text-align: center;
+  margin-bottom: var(--sw-space-2);
+  color: var(--sw-text-muted);
+  font-family: var(--sw-font-serif);
+  letter-spacing: 0.5em;
+  text-transform: uppercase;
+}
+
+.loot__subtitle {
+  text-align: center;
+  color: var(--sw-text-muted);
+  font-size: var(--sw-text-sm);
+  margin-bottom: var(--sw-space-10);
+}
+
+/* Keyboard Hints */
+.loot__hints {
+  display: flex;
+  justify-content: center;
+  gap: var(--sw-space-4);
+  font-size: var(--sw-text-xs);
+  color: var(--sw-text-muted);
+  margin-bottom: var(--sw-space-4);
+}
+
+.loot__hint {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-1);
+}
+
+/* ===========================================
+   Items Grid
+   =========================================== */
+
+.loot__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sw-space-6);
+  margin-bottom: var(--sw-space-10);
+}
+
+@media (min-width: 768px) {
+  .loot__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ===========================================
+   Item Card
+   =========================================== */
+
+.loot-card {
+  background: var(--sw-bg-primary);
+  border: 1px solid var(--sw-glass-border);
+  padding: var(--sw-space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-4);
+  cursor: help;
+  transition: all var(--sw-transition-base);
+}
+
+.loot-card:hover {
+  border-color: var(--sw-glass-border-highlight);
+  background: var(--sw-glass-bg);
+}
+
+.loot-card--component {
+  border-color: rgba(120, 53, 15, 0.3);
+}
+
+.loot-card--skill {
+  border-color: rgba(30, 58, 138, 0.3);
+}
+
+/* Card Header */
+.loot-card__header {
+  display: flex;
+  flex-direction: column;
+}
+
+.loot-card__name {
+  font-weight: 700;
+  font-size: var(--sw-text-lg);
+  margin-bottom: var(--sw-space-1);
+  display: flex;
+  align-items: center;
+}
+
+.loot-card__icon {
+  margin-right: var(--sw-space-2);
+}
+
+.loot-card__type {
+  font-size: var(--sw-text-2xs);
+  color: var(--sw-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-widest);
+  font-weight: 700;
+}
+
+/* Rarity Colors */
+.loot-card__name--common {
+  color: var(--sw-text-tertiary);
+}
+
+.loot-card__name--rare {
+  color: #60a5fa;
+}
+
+.loot-card__name--epic {
+  color: #a855f7;
+}
+
+.loot-card__name--legendary {
+  color: #fbbf24;
+}
+
+.loot-card__name--cursed {
+  color: #f87171;
+}
+
+.loot-card__name--forbidden {
+  color: #ef4444;
+  animation: sw-ready-pulse 2s ease-in-out infinite;
+}
+
+/* Card Description */
+.loot-card__description {
+  font-size: var(--sw-text-2xs);
+  color: var(--sw-text-muted);
+  font-style: italic;
+}
+
+/* Passive Preview */
+.loot-card__passive {
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: var(--sw-radius-sm);
+  padding: var(--sw-space-2);
+}
+
+.loot-card__passive-text {
+  font-size: var(--sw-text-2xs);
+  color: #d8b4fe;
+}
+
+/* Stats List */
+.loot-card__stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-1);
+  font-size: var(--sw-text-xs);
+  font-family: var(--sw-font-mono);
+  color: var(--sw-text-muted);
+}
+
+.loot-card__stat {
+  display: flex;
+  justify-content: space-between;
+  text-transform: uppercase;
+}
+
+.loot-card__stat-value {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+  color: var(--sw-text-secondary);
+}
+
+.loot-card__stat-delta {
+  font-size: var(--sw-text-2xs);
+}
+
+.loot-card__stat-delta--positive {
+  color: #4ade80;
+}
+
+.loot-card__stat-delta--negative {
+  color: #f87171;
+}
+
+/* Synthesis Hint */
+.loot-card__synthesis {
+  font-size: var(--sw-text-3xs);
+  color: rgba(251, 191, 36, 0.7);
+  border-top: 1px solid var(--sw-glass-border);
+  padding-top: var(--sw-space-2);
+}
+
+/* ===========================================
+   Skill Card Specifics
+   =========================================== */
+
+.loot-card__skill-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sw-space-3);
+}
+
+.loot-card__skill-icon {
+  color: rgba(30, 58, 138, 1);
+  flex-shrink: 0;
+}
+
+.loot-card__skill-description {
+  font-size: var(--sw-text-xs);
+  color: var(--sw-text-muted);
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.loot-card__skill-stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-1);
+  font-size: var(--sw-text-2xs);
+  font-family: var(--sw-font-mono);
+}
+
+.loot-card__skill-stat {
+  display: flex;
+  justify-content: space-between;
+}
+
+.loot-card__skill-stat-label {
+  color: var(--sw-text-muted);
+}
+
+.loot-card__skill-stat-value--chakra {
+  color: #60a5fa;
+}
+
+.loot-card__skill-stat-value--requirement-met {
+  color: #4ade80;
+}
+
+.loot-card__skill-stat-value--requirement-not-met {
+  color: #f87171;
+}
+
+/* Effects Section */
+.loot-card__effects {
+  border-top: 1px solid rgba(30, 58, 138, 0.3);
+  padding-top: var(--sw-space-3);
+}
+
+.loot-card__effects-title {
+  font-size: var(--sw-text-3xs);
+  color: #3b82f6;
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+  margin-bottom: var(--sw-space-2);
+}
+
+.loot-card__effects-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-1);
+}
+
+.loot-card__effect {
+  font-size: var(--sw-text-2xs);
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-1-5);
+}
+
+.loot-card__effect-text {
+  color: var(--sw-text-tertiary);
+}
+
+/* Bonus Stats */
+.loot-card__bonuses {
+  border-top: 1px solid rgba(30, 58, 138, 0.3);
+  padding-top: var(--sw-space-3);
+  font-size: var(--sw-text-2xs);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-1);
+}
+
+.loot-card__bonus--crit {
+  color: #facc15;
+}
+
+.loot-card__bonus--pen {
+  color: #f87171;
+}
+
+.loot-card__bonus--toggle {
+  color: var(--sw-accent-tertiary);
+}
+
+/* ===========================================
+   Action Buttons
+   =========================================== */
+
+.loot-card__actions {
+  display: grid;
+  gap: var(--sw-space-3);
+  margin-top: auto;
+  padding-top: var(--sw-space-3);
+}
+
+.loot-card__actions--two {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.loot-card__actions--three {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.loot-card__btn {
+  padding: var(--sw-space-2);
+  font-size: var(--sw-text-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  border: 1px solid;
+  cursor: pointer;
+  transition: all var(--sw-transition-base);
+}
+
+.loot-card__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.loot-card__btn--equip {
+  background: rgba(24, 24, 27, 1);
+  border-color: var(--sw-glass-border);
+  color: var(--sw-text-tertiary);
+}
+
+.loot-card__btn--equip:hover:not(:disabled) {
+  background: var(--sw-glass-bg);
+  color: var(--sw-text-secondary);
+}
+
+.loot-card__btn--store {
+  background: rgba(120, 53, 15, 0.2);
+  border-color: rgba(120, 53, 15, 1);
+  color: #fcd34d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sw-space-1);
+}
+
+.loot-card__btn--store:hover:not(:disabled) {
+  background: rgba(120, 53, 15, 0.4);
+}
+
+.loot-card__btn--store-disabled {
+  background: rgba(24, 24, 27, 1);
+  border-color: var(--sw-glass-border);
+  color: var(--sw-text-muted);
+}
+
+.loot-card__btn--sell {
+  background: rgba(24, 24, 27, 1);
+  border-color: var(--sw-glass-border);
+  color: var(--sw-text-muted);
+}
+
+.loot-card__btn--sell:hover:not(:disabled) {
+  color: #eab308;
+}
+
+.loot-card__btn--learn {
+  width: 100%;
+  background: rgba(30, 58, 138, 0.2);
+  border-color: rgba(30, 58, 138, 1);
+  color: #93c5fd;
+}
+
+.loot-card__btn--learn:hover:not(:disabled) {
+  background: rgba(30, 58, 138, 0.4);
+}
+
+.loot-card__btn--upgrade {
+  width: 100%;
+  background: rgba(22, 101, 52, 0.2);
+  border-color: rgba(22, 101, 52, 1);
+  color: #86efac;
+}
+
+.loot-card__btn--upgrade:hover:not(:disabled) {
+  background: rgba(22, 101, 52, 0.4);
+}
+
+/* Replace Skill Buttons */
+.loot-card__replace-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sw-space-2);
+}
+
+.loot-card__btn--replace {
+  padding: var(--sw-space-1);
+  background: rgba(24, 24, 27, 1);
+  border: 1px solid var(--sw-glass-border);
+  font-size: 0.5rem;
+  color: var(--sw-text-muted);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color var(--sw-transition-base);
+}
+
+.loot-card__btn--replace:hover:not(:disabled) {
+  color: #f87171;
+}
+
+/* ===========================================
+   Leave All Button
+   =========================================== */
+
+.loot__footer {
+  text-align: center;
+}
+
+.loot__leave-btn {
+  color: var(--sw-text-muted);
+  font-size: var(--sw-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-widest);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  padding-bottom: var(--sw-space-1);
+  cursor: pointer;
+  transition: all var(--sw-transition-base);
+}
+
+.loot__leave-btn:hover {
+  color: var(--sw-text-tertiary);
+  border-bottom-color: var(--sw-text-muted);
+}
+
+/* ===========================================
+   Tooltip Styles
+   =========================================== */
+
+.loot-tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-2);
+  padding: var(--sw-space-1);
+  max-width: 260px;
+}
+
+.loot-tooltip__name {
+  font-weight: 700;
+}
+
+.loot-tooltip__type {
+  font-size: var(--sw-text-2xs);
+  color: var(--sw-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+}
+
+.loot-tooltip__description {
+  font-size: var(--sw-text-xs);
+  color: var(--sw-text-muted);
+  font-style: italic;
+}
+
+.loot-tooltip__section {
+  border-top: 1px solid var(--sw-glass-border);
+  padding-top: var(--sw-space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-1);
+}
+
+.loot-tooltip__stat {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--sw-text-2xs);
+  font-family: var(--sw-font-mono);
+}
+
+.loot-tooltip__stat-name {
+  color: var(--sw-text-muted);
+}
+
+.loot-tooltip__stat-values {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+}
+
+.loot-tooltip__stat-value {
+  color: var(--sw-text-secondary);
+}
+
+.loot-tooltip__stat-delta--positive {
+  color: #4ade80;
+}
+
+.loot-tooltip__stat-delta--negative {
+  color: #f87171;
+}
+
+.loot-tooltip__stat-new {
+  color: #60a5fa;
+}
+
+.loot-tooltip__sell {
+  font-size: var(--sw-text-2xs);
+  color: #ca8a04;
+}
+
+/* Additional classes for inline style fixes */
+.loot-card__skill-stat-label--int {
+  color: #06b6d4;
+}
+
+.loot-card__skill-actions {
+  margin-top: auto;
+  padding-top: var(--sw-space-3);
+}

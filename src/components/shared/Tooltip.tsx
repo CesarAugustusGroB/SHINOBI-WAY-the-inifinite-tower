@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FeatureFlags } from '../../config/featureFlags';
+import './shared.css';
 
 type TooltipPosition = 'bottom' | 'right' | 'top' | 'left';
 
@@ -47,32 +48,9 @@ const Tooltip: React.FC<TooltipProps> = ({ content, children, className = "w-ful
     setIsVisible(true);
   };
 
-  const getTooltipClasses = () => {
-    const base = "fixed z-50 bg-black border border-zinc-700 text-zinc-200 rounded p-3 shadow-2xl pointer-events-none min-w-[200px] max-w-[300px]";
-    if (tooltipPosition === 'right') {
-      return `${base} transform -translate-y-1/2`;
-    }
-    if (tooltipPosition === 'left') {
-      return `${base} transform -translate-x-full -translate-y-1/2`;
-    }
-    if (tooltipPosition === 'top') {
-      return `${base} transform -translate-x-1/2 -translate-y-full`;
-    }
-    return `${base} transform -translate-x-1/2`;
-  };
-
-  const getArrowClasses = () => {
-    if (tooltipPosition === 'right') {
-      return "absolute left-0 top-1/2 transform -translate-x-1/2 -translate-y-1/2 rotate-45 w-2 h-2 bg-black border-l border-b border-zinc-700";
-    }
-    if (tooltipPosition === 'left') {
-      return "absolute right-0 top-1/2 transform translate-x-1/2 -translate-y-1/2 rotate-45 w-2 h-2 bg-black border-r border-t border-zinc-700";
-    }
-    if (tooltipPosition === 'top') {
-      return "absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-black border-r border-b border-zinc-700";
-    }
-    return "absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rotate-45 w-2 h-2 bg-black border-l border-t border-zinc-700";
-  };
+  // Build tooltip class based on position
+  const tooltipClass = `tooltip tooltip--${tooltipPosition}`;
+  const arrowClass = `tooltip__arrow tooltip__arrow--${tooltipPosition}`;
 
   return (
     <>
@@ -85,11 +63,11 @@ const Tooltip: React.FC<TooltipProps> = ({ content, children, className = "w-ful
       </div>
       {isVisible && createPortal(
         <div
-          className={getTooltipClasses()}
+          className={tooltipClass}
           style={{ top: coords.top, left: coords.left }}
         >
           {content}
-          <div className={getArrowClasses()}></div>
+          <div className={arrowClass} />
         </div>,
         document.body
       )}

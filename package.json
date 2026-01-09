@@ -12,7 +12,9 @@
     "simulate": "npx tsx src/simulation/index.ts",
     "simulate:quick": "npx tsx src/simulation/index.ts --quick",
     "simulate:progression": "npx tsx src/simulation/index.ts --progression",
-    "simulate:progression:quick": "npx tsx src/simulation/index.ts --progression --quick"
+    "simulate:progression:quick": "npx tsx src/simulation/index.ts --progression --quick",
+    "lint:css": "stylelint \"src/**/*.css\"",
+    "lint:css:fix": "stylelint \"src/**/*.css\" --fix"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -28,6 +30,8 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.0",
+    "stylelint": "^16.26.1",
+    "stylelint-config-standard": "^39.0.1",
     "tsx": "^4.19.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",

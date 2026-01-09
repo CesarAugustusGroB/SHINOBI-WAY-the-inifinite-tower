@@ -1,0 +1,434 @@
+/* ============================================================================
+   SHINOBI WAY - Design System Animations
+   ============================================================================
+   Shared keyframe animations used across all scenes.
+   Consolidates duplicate animations from scene CSS files.
+   ============================================================================ */
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SELECTION & INTERACTION ANIMATIONS
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Card/item selection pulse */
+@keyframes sw-select-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.01); }
+}
+
+/* Ready/confirm button pulse glow */
+@keyframes sw-ready-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--sw-glow-color, var(--sw-accent-primary));
+  }
+  50% {
+    box-shadow: 0 0 15px 3px var(--sw-glow-color, var(--sw-accent-primary));
+  }
+}
+
+/* Hover lift effect */
+@keyframes sw-hover-lift {
+  from { transform: translateY(0); }
+  to { transform: translateY(-4px); }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   RISK/DANGER GLOW ANIMATIONS
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Risk glow - speed controlled by animation-duration */
+@keyframes sw-risk-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px 0 var(--sw-risk-color, var(--sw-risk-medium));
+  }
+  50% {
+    box-shadow: 0 0 25px 5px var(--sw-risk-color, var(--sw-risk-medium));
+  }
+}
+
+/* Danger pulse for critical states */
+@keyframes sw-danger-pulse {
+  0%, 100% {
+    border-color: var(--sw-risk-high);
+    box-shadow: 0 0 10px var(--sw-risk-high-glow);
+  }
+  50% {
+    border-color: var(--sw-risk-high-light);
+    box-shadow: 0 0 20px var(--sw-risk-high-glow);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   RARITY SHIMMER ANIMATIONS
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Legendary item shimmer */
+@keyframes sw-legendary-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Cursed item pulse */
+@keyframes sw-cursed-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px var(--sw-rarity-cursed-glow);
+    filter: brightness(1);
+  }
+  50% {
+    box-shadow: 0 0 16px var(--sw-rarity-cursed-glow);
+    filter: brightness(1.1);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ENTRANCE/EXIT ANIMATIONS
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Fade in */
+@keyframes sw-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Fade out */
+@keyframes sw-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Slide in from right */
+@keyframes sw-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Slide in from left */
+@keyframes sw-slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Slide in from top */
+@keyframes sw-slide-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Slide in from bottom */
+@keyframes sw-slide-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Scale in with bounce */
+@keyframes sw-scale-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   CONTENT REVEAL ANIMATIONS
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Outcome/content reveal with height expansion */
+@keyframes sw-reveal {
+  0% {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    max-height: 300px;
+    transform: translateY(0);
+  }
+}
+
+/* Confirm button entrance */
+@keyframes sw-confirm-entrance {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  60% {
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   COMBAT ANIMATIONS
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Float up for damage numbers */
+@keyframes sw-float-up {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -70%) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -150%) scale(0.8);
+  }
+}
+
+/* Critical hit float with shake */
+@keyframes sw-crit-float {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.2) rotate(-3deg);
+  }
+  10% {
+    transform: translate(-50%, -55%) scale(1.25) rotate(3deg);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -70%) scale(1.2) rotate(-2deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -150%) scale(0.9) rotate(0deg);
+  }
+}
+
+/* Heal float */
+@keyframes sw-heal-float {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(-50%, -80%) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -120%) scale(0.9);
+  }
+}
+
+/* Simple fade for status effects */
+@keyframes sw-fade-only {
+  0% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   UTILITY ANIMATIONS
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Spin for loading */
+@keyframes sw-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Ping for notifications */
+@keyframes sw-ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* Bounce for attention */
+@keyframes sw-bounce {
+  0%, 100% {
+    transform: translateY(-5%);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+/* Shake for errors */
+@keyframes sw-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ANIMATION UTILITY CLASSES
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.sw-animate-select-pulse {
+  animation: sw-select-pulse 0.4s ease-out;
+}
+
+.sw-animate-ready-pulse {
+  animation: sw-ready-pulse 2s ease-in-out infinite;
+}
+
+.sw-animate-fade-in {
+  animation: sw-fade-in 0.3s ease-out forwards;
+}
+
+.sw-animate-slide-in-up {
+  animation: sw-slide-in-up 0.3s ease-out forwards;
+}
+
+.sw-animate-slide-in-down {
+  animation: sw-slide-in-down 0.3s ease-out forwards;
+}
+
+.sw-animate-scale-in {
+  animation: sw-scale-in 0.3s ease-out forwards;
+}
+
+.sw-animate-spin {
+  animation: sw-spin 1s linear infinite;
+}
+
+.sw-animate-bounce {
+  animation: sw-bounce 1s infinite;
+}
+
+.sw-animate-shake {
+  animation: sw-shake 0.5s ease-in-out;
+}
+
+/* Staggered entrance delays */
+.sw-delay-1 { animation-delay: 50ms; }
+.sw-delay-2 { animation-delay: 100ms; }
+.sw-delay-3 { animation-delay: 150ms; }
+.sw-delay-4 { animation-delay: 200ms; }
+.sw-delay-5 { animation-delay: 250ms; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   EXPLORATION ANIMATIONS
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Current room pulse glow */
+@keyframes sw-current-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px var(--sw-room-current-glow);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--sw-room-current-glow), 0 0 30px var(--sw-room-current-glow);
+  }
+}
+
+/* Exit room danger pulse */
+@keyframes sw-exit-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px var(--sw-room-exit-glow);
+    border-color: var(--sw-room-exit);
+  }
+  50% {
+    box-shadow: 0 0 16px var(--sw-room-exit-glow);
+    border-color: #f87171;
+  }
+}
+
+/* Boss room ominous glow */
+@keyframes sw-boss-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px var(--sw-room-boss-glow);
+  }
+  50% {
+    box-shadow: 0 0 25px var(--sw-room-boss-glow), inset 0 0 10px var(--sw-room-boss-glow);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   INVENTORY ANIMATIONS
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Synthesis combine pulse */
+@keyframes sw-combine-pulse {
+  0%, 100% {
+    border-color: var(--sw-risk-safe);
+    box-shadow: 0 0 8px var(--sw-risk-safe-glow);
+  }
+  50% {
+    border-color: var(--sw-risk-safe-light);
+    box-shadow: 0 0 16px var(--sw-risk-safe-glow);
+  }
+}
+
+/* Drag preview float */
+@keyframes sw-drag-float {
+  0%, 100% {
+    transform: scale(1.05) translateY(0);
+  }
+  50% {
+    transform: scale(1.05) translateY(-2px);
+  }
+}
+
+/* Drop target highlight */
+@keyframes sw-drop-highlight {
+  0%, 100% {
+    background-color: rgba(59, 130, 246, 0.1);
+  }
+  50% {
+    background-color: rgba(59, 130, 246, 0.2);
+  }
+}
+
+.sw-animate-current-pulse {
+  animation: sw-current-pulse 2s ease-in-out infinite;
+}
+
+.sw-animate-exit-pulse {
+  animation: sw-exit-pulse 1.5s ease-in-out infinite;
+}
+
+.sw-animate-boss-pulse {
+  animation: sw-boss-pulse 2.5s ease-in-out infinite;
+}
+
+.sw-animate-combine-pulse {
+  animation: sw-combine-pulse 1s ease-in-out infinite;
+}
+
+.sw-animate-drag-float {
+  animation: sw-drag-float 0.3s ease-in-out infinite;
+}
+
+.sw-animate-drop-highlight {
+  animation: sw-drop-highlight 1s ease-in-out infinite;
+}

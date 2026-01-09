@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { Clan, PrimaryAttributes } from '../../game/types';
 import { CLAN_STATS, CLAN_START_SKILL } from '../../game/constants';
 import Tooltip from '../../components/shared/Tooltip';
@@ -18,24 +18,53 @@ const getStatRank = (stats: PrimaryAttributes, keys: (keyof PrimaryAttributes)[]
   return 'D';
 };
 
-// Get color for rank
-const getRankColor = (rank: string): string => {
+// Get CSS modifier for rank
+const getRankModifier = (rank: string): string => {
   switch (rank) {
-    case 'S': return 'text-red-500';
-    case 'A': return 'text-orange-500';
-    case 'B': return 'text-yellow-500';
-    case 'C': return 'text-cyan-500';
-    case 'D': return 'text-blue-500';
-    default: return 'text-zinc-500';
+    case 'S': return 'stat-rank__value--s';
+    case 'A': return 'stat-rank__value--a';
+    case 'B': return 'stat-rank__value--b';
+    case 'C': return 'stat-rank__value--c';
+    case 'D': return 'stat-rank__value--d';
+    default: return '';
   }
 };
 
 const CharacterSelect: React.FC<CharacterSelectProps> = ({ onSelectClan }) => {
+  const clans = Object.values(Clan);
+
+  // Keyboard shortcuts
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    const key = e.key;
+
+    // Number keys 1-5 to select clan
+    if (key >= '1' && key <= '5') {
+      e.preventDefault();
+      const index = parseInt(key) - 1;
+      if (index < clans.length) {
+        onSelectClan(clans[index]);
+      }
+    }
+  }, [clans, onSelectClan]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
   return (
-    <div className="character-select-container min-h-screen bg-zinc-950 text-gray-200 p-8 flex flex-col items-center justify-center">
-      <h2 className="text-2xl font-serif text-zinc-500 mb-12 tracking-[0.2em]">SELECT LINEAGE</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 w-full max-w-7xl">
-        {Object.values(Clan).map(clan => {
+    <div className="char-select">
+      {/* Header */}
+      <header className="char-select__header">
+        <h2 className="char-select__title">Select Lineage</h2>
+        <p className="char-select__hint">
+          Press <span className="sw-shortcut">1</span>-<span className="sw-shortcut">5</span> to select
+        </p>
+      </header>
+
+      {/* Clan Grid */}
+      <div className="char-select__grid">
+        {clans.map((clan, index) => {
           const stats = CLAN_STATS[clan];
           const startSkill = CLAN_START_SKILL[clan];
 
@@ -47,66 +76,121 @@ const CharacterSelect: React.FC<CharacterSelectProps> = ({ onSelectClan }) => {
           return (
             <div
               key={clan}
-              className="h-96 bg-black border-2 border-zinc-800 p-8 flex flex-col items-start justify-between relative overflow-hidden"
+              className="clan-card"
             >
-              <div className="absolute -right-8 -top-8 text-8xl font-black text-zinc-900 opacity-20">{clan.charAt(0)}</div>
-              <div className="z-10 w-full">
-                <h3 className="text-2xl font-black text-zinc-200 mb-2">{clan}</h3>
-                <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-4 border-b border-zinc-800 pb-2">{startSkill.name}</div>
+              {/* Big letter watermark */}
+              <span className="clan-card__watermark" aria-hidden="true">
+                {clan.charAt(0)}
+              </span>
 
-                {/* Stat Category Ranks with Tooltip */}
-                <Tooltip
-                  content={
-                    <div className="space-y-3">
-                      <div className="text-xs font-bold text-zinc-200 mb-2">{startSkill.name}</div>
-                      <div>
-                        <div className="text-[10px] font-bold text-purple-400 mb-1">THE SPIRIT</div>
-                        <div className="text-[10px] font-mono text-zinc-300 space-y-0.5">
-                          <div className="flex justify-between"><span className="text-red-600">WIL</span><span>{stats.willpower}</span></div>
-                          <div className="flex justify-between"><span className="text-blue-600">CHA</span><span>{stats.chakra}</span></div>
-                          <div className="flex justify-between"><span className="text-purple-600">SPI</span><span>{stats.spirit}</span></div>
-                        </div>
+              {/* Card Header */}
+              <div className="clan-card__header">
+                <h3 className="clan-card__name">
+                  <span className="clan-card__index">{index + 1}</span>
+                  {clan}
+                </h3>
+                <div className="clan-card__skill">{startSkill.name}</div>
+              </div>
+
+              {/* Stat Ranks with Tooltip */}
+              <Tooltip
+                content={
+                  <div className="clan-tooltip">
+                    <div className="clan-tooltip__skill">{startSkill.name}</div>
+
+                    {/* Spirit Stats */}
+                    <div className="clan-tooltip__category">
+                      <div className="clan-tooltip__category-title clan-tooltip__category-title--spirit">
+                        The Spirit
                       </div>
-                      <div>
-                        <div className="text-[10px] font-bold text-cyan-400 mb-1">THE MIND</div>
-                        <div className="text-[10px] font-mono text-zinc-300 space-y-0.5">
-                          <div className="flex justify-between"><span className="text-cyan-600">INT</span><span>{stats.intelligence}</span></div>
-                          <div className="flex justify-between"><span className="text-indigo-600">CAL</span><span>{stats.calmness}</span></div>
-                          <div className="flex justify-between"><span className="text-yellow-600">ACC</span><span>{stats.accuracy}</span></div>
-                        </div>
+                      <div className="clan-tooltip__stat">
+                        <span className="clan-tooltip__stat-name clan-tooltip__stat-name--wil">WIL</span>
+                        <span className="clan-tooltip__stat-value">{stats.willpower}</span>
                       </div>
-                      <div>
-                        <div className="text-[10px] font-bold text-orange-400 mb-1">THE BODY</div>
-                        <div className="text-[10px] font-mono text-zinc-300 space-y-0.5">
-                          <div className="flex justify-between"><span className="text-orange-600">STR</span><span>{stats.strength}</span></div>
-                          <div className="flex justify-between"><span className="text-green-600">SPD</span><span>{stats.speed}</span></div>
-                          <div className="flex justify-between"><span className="text-pink-600">DEX</span><span>{stats.dexterity}</span></div>
-                        </div>
+                      <div className="clan-tooltip__stat">
+                        <span className="clan-tooltip__stat-name clan-tooltip__stat-name--cha">CHA</span>
+                        <span className="clan-tooltip__stat-value">{stats.chakra}</span>
+                      </div>
+                      <div className="clan-tooltip__stat">
+                        <span className="clan-tooltip__stat-name clan-tooltip__stat-name--spi">SPI</span>
+                        <span className="clan-tooltip__stat-value">{stats.spirit}</span>
                       </div>
                     </div>
-                  }
-                >
-                  <div className="space-y-2 mb-4 cursor-help">
-                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider">
-                      <span className="text-purple-500">Spirit</span>
-                      <span className={`text-xl font-black ${getRankColor(spiritRank)}`}>{spiritRank}</span>
+
+                    {/* Mind Stats */}
+                    <div className="clan-tooltip__category">
+                      <div className="clan-tooltip__category-title clan-tooltip__category-title--mind">
+                        The Mind
+                      </div>
+                      <div className="clan-tooltip__stat">
+                        <span className="clan-tooltip__stat-name clan-tooltip__stat-name--int">INT</span>
+                        <span className="clan-tooltip__stat-value">{stats.intelligence}</span>
+                      </div>
+                      <div className="clan-tooltip__stat">
+                        <span className="clan-tooltip__stat-name clan-tooltip__stat-name--cal">CAL</span>
+                        <span className="clan-tooltip__stat-value">{stats.calmness}</span>
+                      </div>
+                      <div className="clan-tooltip__stat">
+                        <span className="clan-tooltip__stat-name clan-tooltip__stat-name--acc">ACC</span>
+                        <span className="clan-tooltip__stat-value">{stats.accuracy}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider">
-                      <span className="text-cyan-500">Mind</span>
-                      <span className={`text-xl font-black ${getRankColor(mindRank)}`}>{mindRank}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider">
-                      <span className="text-orange-500">Body</span>
-                      <span className={`text-xl font-black ${getRankColor(bodyRank)}`}>{bodyRank}</span>
+
+                    {/* Body Stats */}
+                    <div className="clan-tooltip__category">
+                      <div className="clan-tooltip__category-title clan-tooltip__category-title--body">
+                        The Body
+                      </div>
+                      <div className="clan-tooltip__stat">
+                        <span className="clan-tooltip__stat-name clan-tooltip__stat-name--str">STR</span>
+                        <span className="clan-tooltip__stat-value">{stats.strength}</span>
+                      </div>
+                      <div className="clan-tooltip__stat">
+                        <span className="clan-tooltip__stat-name clan-tooltip__stat-name--spd">SPD</span>
+                        <span className="clan-tooltip__stat-value">{stats.speed}</span>
+                      </div>
+                      <div className="clan-tooltip__stat">
+                        <span className="clan-tooltip__stat-name clan-tooltip__stat-name--dex">DEX</span>
+                        <span className="clan-tooltip__stat-value">{stats.dexterity}</span>
+                      </div>
                     </div>
                   </div>
-                </Tooltip>
-              </div>
-              <button 
-                onClick={() => onSelectClan(clan)}
-                className="w-full pt-4 z-10 group"
+                }
               >
-                <img src="/assets/translucent_begin_journey.png" alt="Begin Journey" className="w-full h-auto object-cover transition-transform group-hover:scale-105" />
+                <div className="clan-card__stats">
+                  <div className="stat-rank">
+                    <span className="stat-rank__label stat-rank__label--spirit">Spirit</span>
+                    <span className={`stat-rank__value ${getRankModifier(spiritRank)}`}>{spiritRank}</span>
+                  </div>
+                  <div className="stat-rank">
+                    <span className="stat-rank__label stat-rank__label--mind">Mind</span>
+                    <span className={`stat-rank__value ${getRankModifier(mindRank)}`}>{mindRank}</span>
+                  </div>
+                  <div className="stat-rank">
+                    <span className="stat-rank__label stat-rank__label--body">Body</span>
+                    <span className={`stat-rank__value ${getRankModifier(bodyRank)}`}>{bodyRank}</span>
+                  </div>
+                </div>
+              </Tooltip>
+
+              {/* Select Button - Covers entire card for click */}
+              <button
+                type="button"
+                onClick={() => onSelectClan(clan)}
+                className="clan-card__select"
+                aria-label={`Select ${clan} clan`}
+              >
+                <img
+                  src="/assets/translucent_begin_journey.png"
+                  alt="Begin Journey"
+                  className="clan-card__select-img"
+                  onError={(e) => {
+                    // Fallback if image doesn't load
+                    const target = e.target as HTMLImageElement;
+                    target.parentElement?.classList.add('clan-card__select--fallback');
+                  }}
+                />
+                <span className="clan-card__select-text">Begin Journey</span>
               </button>
             </div>
           );

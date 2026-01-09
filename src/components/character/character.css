@@ -1,0 +1,655 @@
+/**
+ * Character Components Styles
+ * BEM-style CSS for PlayerHUD, PrimaryStatsPanel, DerivedStatsPanel
+ */
+
+@import '../../styles/design-system/index.css';
+
+/* ===========================================
+   PLAYER HUD COMPONENT
+   =========================================== */
+
+.player-hud {
+  width: 100%;
+  max-width: 64rem;
+  margin: 0 auto;
+  background: linear-gradient(to right, rgba(24, 24, 27, 0.95), rgba(24, 24, 27, 0.9), rgba(24, 24, 27, 0.95));
+  border: 1px solid var(--sw-glass-border);
+  border-radius: var(--sw-radius-lg);
+  padding: var(--sw-space-3) var(--sw-space-6);
+}
+
+.player-hud__content {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-6);
+}
+
+/* Avatar Section */
+.player-hud__avatar {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: var(--sw-radius-lg);
+  border: 2px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: var(--sw-shadow-lg);
+}
+
+.player-hud__avatar-symbol {
+  font-size: var(--sw-text-2xl);
+}
+
+/* Clan-specific avatar colors */
+.player-hud__avatar--uchiha {
+  background: rgba(69, 10, 10, 1);
+  border-color: var(--sw-clan-uchiha);
+}
+
+.player-hud__avatar--uchiha .player-hud__avatar-symbol {
+  color: var(--sw-clan-uchiha);
+}
+
+.player-hud__avatar--uzumaki {
+  background: rgba(67, 20, 7, 1);
+  border-color: var(--sw-clan-uzumaki);
+}
+
+.player-hud__avatar--uzumaki .player-hud__avatar-symbol {
+  color: var(--sw-clan-uzumaki);
+}
+
+.player-hud__avatar--hyuga {
+  background: rgba(59, 7, 100, 1);
+  border-color: var(--sw-clan-hyuga);
+}
+
+.player-hud__avatar--hyuga .player-hud__avatar-symbol {
+  color: var(--sw-clan-hyuga);
+}
+
+.player-hud__avatar--lee {
+  background: rgba(5, 46, 22, 1);
+  border-color: var(--sw-clan-lee);
+}
+
+.player-hud__avatar--lee .player-hud__avatar-symbol {
+  color: var(--sw-clan-lee);
+}
+
+.player-hud__avatar--yamanaka {
+  background: rgba(8, 51, 68, 1);
+  border-color: var(--sw-clan-yamanaka);
+}
+
+.player-hud__avatar--yamanaka .player-hud__avatar-symbol {
+  color: var(--sw-clan-yamanaka);
+}
+
+/* Stats Section */
+.player-hud__stats {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-1);
+}
+
+.player-hud__info {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-3);
+}
+
+.player-hud__name {
+  font-family: var(--sw-font-serif);
+  font-weight: 700;
+  color: var(--sw-text-secondary);
+}
+
+.player-hud__level {
+  font-size: var(--sw-text-xs);
+  font-family: var(--sw-font-mono);
+  background: var(--sw-bg-tertiary);
+  color: var(--sw-text-tertiary);
+  padding: var(--sw-space-1) var(--sw-space-2);
+  border-radius: var(--sw-radius-sm);
+}
+
+/* XP Bar */
+.player-hud__xp {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+  flex: 1;
+  max-width: 150px;
+}
+
+.player-hud__xp-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+  color: var(--sw-accent-primary);
+}
+
+.player-hud__xp-track {
+  flex: 1;
+  height: 0.375rem;
+  background: var(--sw-bg-tertiary);
+  border-radius: var(--sw-radius-full);
+  overflow: hidden;
+}
+
+.player-hud__xp-fill {
+  height: 100%;
+  background: var(--sw-accent-primary);
+  transition: width var(--sw-transition-slow);
+}
+
+.player-hud__xp-value {
+  font-size: 9px;
+  color: var(--sw-text-muted);
+  font-family: var(--sw-font-mono);
+}
+
+/* Resource Bars */
+.player-hud__bars {
+  display: flex;
+  gap: var(--sw-space-4);
+}
+
+.player-hud__bar {
+  flex: 1;
+}
+
+/* Buffs Section */
+.player-hud__buffs {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+  flex-shrink: 0;
+}
+
+.player-hud__buff {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-1);
+  border-radius: var(--sw-radius-sm);
+  padding: var(--sw-space-1) var(--sw-space-2);
+  cursor: help;
+  transition: border-color var(--sw-transition-fast);
+  border: 1px solid;
+}
+
+.player-hud__buff--positive {
+  background: rgba(5, 46, 22, 0.6);
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+.player-hud__buff--positive:hover {
+  border-color: rgba(34, 197, 94, 0.7);
+}
+
+.player-hud__buff--negative {
+  background: rgba(69, 10, 10, 0.6);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.player-hud__buff--negative:hover {
+  border-color: rgba(239, 68, 68, 0.7);
+}
+
+.player-hud__buff-icon {
+  font-size: var(--sw-text-sm);
+}
+
+.player-hud__buff-duration {
+  font-size: var(--sw-text-xs);
+  font-family: var(--sw-font-mono);
+  color: var(--sw-text-tertiary);
+}
+
+.player-hud__buff-duration--expiring {
+  color: #f87171;
+}
+
+.player-hud__buff-overflow {
+  font-size: var(--sw-text-xs);
+  font-family: var(--sw-font-mono);
+  color: var(--sw-text-muted);
+}
+
+/* Buff Tooltip */
+.player-hud__buff-tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-2);
+  padding: var(--sw-space-1);
+  max-width: 260px;
+}
+
+.player-hud__buff-tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+}
+
+.player-hud__buff-tooltip-icon {
+  font-size: var(--sw-text-lg);
+}
+
+.player-hud__buff-tooltip-name {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: var(--sw-text-sm);
+}
+
+.player-hud__buff-tooltip-name--positive {
+  color: #4ade80;
+}
+
+.player-hud__buff-tooltip-type {
+  font-size: 9px;
+  color: var(--sw-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wider);
+}
+
+.player-hud__buff-tooltip-desc {
+  font-size: var(--sw-text-xs);
+  color: var(--sw-text-secondary);
+  border-top: 1px solid var(--sw-glass-border);
+  padding-top: var(--sw-space-2);
+}
+
+.player-hud__buff-tooltip-section {
+  border-top: 1px solid var(--sw-glass-border);
+  padding-top: var(--sw-space-2);
+}
+
+.player-hud__buff-tooltip-section-title {
+  font-size: 9px;
+  color: var(--sw-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wider);
+  margin-bottom: var(--sw-space-1);
+}
+
+.player-hud__buff-tooltip-mechanic {
+  font-size: 10px;
+  color: var(--sw-text-tertiary);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sw-space-1);
+}
+
+.player-hud__buff-tooltip-bullet {
+  color: var(--sw-glass-border);
+}
+
+.player-hud__buff-tooltip-footer {
+  border-top: 1px solid var(--sw-glass-border);
+  padding-top: var(--sw-space-2);
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+}
+
+.player-hud__buff-tooltip-label {
+  color: var(--sw-text-muted);
+}
+
+.player-hud__buff-tooltip-value {
+  color: var(--sw-text-secondary);
+}
+
+.player-hud__buff-tooltip-value--expiring {
+  color: #f87171;
+  font-weight: 700;
+}
+
+.player-hud__buff-tooltip-tip {
+  border-top: 1px solid var(--sw-glass-border);
+  padding-top: var(--sw-space-2);
+  font-size: 10px;
+  color: rgba(251, 191, 36, 0.8);
+  font-style: italic;
+}
+
+/* ===========================================
+   PRIMARY STATS PANEL
+   =========================================== */
+
+.primary-stats {
+  padding: var(--sw-space-3);
+  border-radius: var(--sw-radius-md);
+  border: 1px solid var(--sw-glass-border);
+}
+
+/* Header */
+.primary-stats__header {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-3);
+  margin-bottom: var(--sw-space-3);
+  border-bottom: 1px solid var(--sw-glass-border);
+  padding-bottom: var(--sw-space-2);
+}
+
+.primary-stats__avatar {
+  padding: var(--sw-space-1);
+  background: var(--sw-bg-primary);
+  border-radius: var(--sw-radius-full);
+  border: 1px solid var(--sw-glass-border);
+}
+
+.primary-stats__avatar-icon {
+  color: var(--sw-clan-uchiha);
+}
+
+.primary-stats__info {
+  display: flex;
+  flex-direction: column;
+}
+
+.primary-stats__clan {
+  font-size: var(--sw-text-sm);
+  font-weight: 700;
+  color: var(--sw-text-secondary);
+}
+
+.primary-stats__element {
+  font-size: 10px;
+  color: var(--sw-text-muted);
+}
+
+/* Category Sections */
+.primary-stats__category {
+  margin-bottom: var(--sw-space-3);
+}
+
+.primary-stats__category:last-child {
+  margin-bottom: 0;
+}
+
+.primary-stats__category-title {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-widest);
+  margin-bottom: var(--sw-space-1);
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-1);
+}
+
+.primary-stats__category-title--spirit {
+  color: rgba(107, 33, 168, 0.9);
+}
+
+.primary-stats__category-title--mind {
+  color: rgba(8, 145, 178, 0.9);
+}
+
+.primary-stats__category-title--body {
+  color: rgba(154, 52, 18, 0.9);
+}
+
+.primary-stats__list {
+  background: rgba(9, 9, 11, 0.5);
+  border-radius: var(--sw-radius-sm);
+  padding: var(--sw-space-1);
+}
+
+/* Stat Row */
+.primary-stats__stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--sw-text-xs);
+  color: var(--sw-text-tertiary);
+  padding: var(--sw-space-1) var(--sw-space-2);
+  border-radius: var(--sw-radius-sm);
+  cursor: help;
+  transition: background var(--sw-transition-fast);
+}
+
+.primary-stats__stat:hover {
+  background: var(--sw-bg-tertiary);
+}
+
+.primary-stats__stat-left {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+}
+
+.primary-stats__stat-icon {
+  transition: color var(--sw-transition-fast);
+}
+
+.primary-stats__stat:hover .primary-stats__stat-icon {
+  color: var(--sw-text-secondary);
+}
+
+.primary-stats__stat-label {
+  color: var(--sw-text-secondary);
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.primary-stats__stat-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-1);
+}
+
+.primary-stats__stat-value {
+  font-family: var(--sw-font-mono);
+  font-weight: 700;
+  font-size: var(--sw-text-sm);
+}
+
+.primary-stats__stat-value--positive {
+  color: #4ade80;
+}
+
+.primary-stats__stat-value--negative {
+  color: #f87171;
+}
+
+.primary-stats__stat-value--neutral {
+  color: var(--sw-text-secondary);
+}
+
+.primary-stats__stat-diff {
+  font-size: 9px;
+  color: var(--sw-glass-border);
+  font-family: var(--sw-font-mono);
+}
+
+/* Stat Tooltip */
+.primary-stats__tooltip {
+  font-size: var(--sw-text-xs);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-1);
+}
+
+.primary-stats__tooltip-title {
+  font-weight: 700;
+  color: var(--sw-text-secondary);
+  margin-bottom: var(--sw-space-1);
+}
+
+.primary-stats__tooltip-desc {
+  color: var(--sw-text-tertiary);
+}
+
+.primary-stats__tooltip-breakdown {
+  border-top: 1px solid var(--sw-glass-border);
+  margin-top: var(--sw-space-2);
+  padding-top: var(--sw-space-2);
+  font-family: var(--sw-font-mono);
+  color: var(--sw-text-muted);
+}
+
+.primary-stats__tooltip-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.primary-stats__tooltip-row--total {
+  border-top: 1px solid var(--sw-glass-border);
+  margin-top: var(--sw-space-1);
+  padding-top: var(--sw-space-1);
+}
+
+/* Icon Colors */
+.primary-stats__stat-icon--willpower { color: #ef4444; }
+.primary-stats__stat-icon--chakra { color: #3b82f6; }
+.primary-stats__stat-icon--spirit { color: #a855f7; }
+.primary-stats__stat-icon--intelligence { color: #06b6d4; }
+.primary-stats__stat-icon--calmness { color: #6366f1; }
+.primary-stats__stat-icon--accuracy { color: #eab308; }
+.primary-stats__stat-icon--strength { color: #f97316; }
+.primary-stats__stat-icon--speed { color: #22c55e; }
+.primary-stats__stat-icon--dexterity { color: #ec4899; }
+
+/* ===========================================
+   DERIVED STATS PANEL
+   =========================================== */
+
+.derived-stats {
+  background: rgba(24, 24, 27, 0.8);
+  padding: var(--sw-space-3);
+  border-radius: var(--sw-radius-md);
+  border: 1px solid var(--sw-glass-border);
+}
+
+.derived-stats__title {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--sw-glass-border);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-widest);
+  margin-bottom: var(--sw-space-2);
+}
+
+/* Defense Grid */
+.derived-stats__defense-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sw-space-2);
+  margin-bottom: var(--sw-space-3);
+}
+
+.derived-stats__defense-card {
+  background: var(--sw-bg-primary);
+  padding: var(--sw-space-2);
+  border-radius: var(--sw-radius-sm);
+  border: 1px solid var(--sw-glass-border);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.derived-stats__defense-label {
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  margin-bottom: var(--sw-space-1);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.derived-stats__defense-label--physical {
+  color: rgba(234, 88, 12, 0.8);
+}
+
+.derived-stats__defense-label--elemental {
+  color: rgba(147, 51, 234, 0.8);
+}
+
+.derived-stats__defense-label--mental {
+  color: rgba(99, 102, 241, 0.8);
+}
+
+.derived-stats__defense-value {
+  color: var(--sw-text-secondary);
+  font-family: var(--sw-font-mono);
+  font-size: 10px;
+}
+
+.derived-stats__defense-flat--physical { color: #fb923c; }
+.derived-stats__defense-flat--elemental { color: #c084fc; }
+.derived-stats__defense-flat--mental { color: #818cf8; }
+
+.derived-stats__defense-separator {
+  color: var(--sw-glass-border);
+  margin: 0 var(--sw-space-1);
+}
+
+.derived-stats__defense-percent--physical { color: #fdba74; }
+.derived-stats__defense-percent--elemental { color: #d8b4fe; }
+.derived-stats__defense-percent--mental { color: #a5b4fc; }
+
+/* Stats List */
+.derived-stats__list {
+  border-top: 1px solid var(--sw-glass-border);
+  padding-top: var(--sw-space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.derived-stats__stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  padding: var(--sw-space-1);
+  cursor: help;
+  border-radius: var(--sw-radius-sm);
+  transition: background var(--sw-transition-fast);
+}
+
+.derived-stats__stat:hover {
+  background: rgba(39, 39, 42, 0.5);
+}
+
+.derived-stats__stat-label {
+  color: var(--sw-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+}
+
+.derived-stats__stat-value {
+  font-family: var(--sw-font-mono);
+  font-weight: 700;
+}
+
+.derived-stats__stat-value--evasion { color: #4ade80; }
+.derived-stats__stat-value--crit { color: #f472b6; }
+.derived-stats__stat-value--melee { color: #fb923c; }
+.derived-stats__stat-value--ranged { color: #facc15; }
+.derived-stats__stat-value--resist { color: #818cf8; }
+.derived-stats__stat-value--guts { color: #f87171; }
+.derived-stats__stat-value--hp-regen { color: #86efac; }
+.derived-stats__stat-value--chakra-regen { color: #93c5fd; }
+
+/* Tooltip */
+.derived-stats__tooltip {
+  font-size: var(--sw-text-xs);
+}
+
+.derived-stats__tooltip-title {
+  font-weight: 700;
+  color: var(--sw-text-secondary);
+  margin-bottom: var(--sw-space-1);
+}
+
+.derived-stats__tooltip-desc {
+  color: var(--sw-text-tertiary);
+}

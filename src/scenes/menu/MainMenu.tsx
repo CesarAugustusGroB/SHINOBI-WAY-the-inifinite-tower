@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 import './MainMenu.css';
 import { BookOpen, Palette } from 'lucide-react';
 
@@ -10,21 +10,54 @@ interface MainMenuProps {
   onAssetCompanion?: () => void;
 }
 
-const MainMenu: React.FC<MainMenuProps> = ({ difficulty, onDifficultyChange, onEnter, onGuide, onAssetCompanion }) => {
-  return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center relative font-sans main-menu-container">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black opacity-80"></div>
-      <div className="z-10 flex flex-col items-center w-full max-w-md px-6">
-        <div className="mb-8 p-6 border-4 border-double border-red-900 bg-black/80 transform rotate-1">
-          <h1 className="text-6xl md:text-8xl font-black text-red-800 tracking-tighter" style={{ textShadow: '4px 4px 0px #000' }}>SHINOBI WAY</h1>
-        </div>
-        <p className="text-sm text-zinc-500 tracking-[0.8em] mb-12 uppercase text-center">The Infinite Tower Awaits</p>
+const MainMenu: React.FC<MainMenuProps> = ({
+  difficulty,
+  onDifficultyChange,
+  onEnter,
+  onGuide,
+  onAssetCompanion
+}) => {
+  // Keyboard shortcuts
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onEnter();
+    }
+  }, [onEnter]);
 
-        <div className="w-full mb-12 p-6 bg-zinc-900/50 border border-zinc-800 rounded">
-          <div className="flex justify-between items-end mb-4">
-            <label htmlFor="difficulty-slider" className="text-xs font-bold uppercase tracking-widest text-zinc-400">Mission Difficulty</label>
-            <span className={`text-2xl font-black ${difficulty < 30 ? 'text-green-500' : difficulty < 60 ? 'text-yellow-500' : difficulty < 85 ? 'text-orange-500' : 'text-red-600'}`}>
-              Rank {difficulty < 30 ? 'D' : difficulty < 60 ? 'C' : difficulty < 85 ? 'B' : 'S'}
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
+  // Get rank based on difficulty
+  const getRank = () => {
+    if (difficulty < 30) return { label: 'D', class: 'main-menu__rank--d' };
+    if (difficulty < 60) return { label: 'C', class: 'main-menu__rank--c' };
+    if (difficulty < 85) return { label: 'B', class: 'main-menu__rank--b' };
+    return { label: 'S', class: 'main-menu__rank--s' };
+  };
+
+  const rank = getRank();
+
+  return (
+    <div className="main-menu">
+      <div className="main-menu__content">
+        {/* Title Panel with decorative corners */}
+        <div className="main-menu__title-panel">
+          <div className="main-menu__corners" aria-hidden="true" />
+          <h1 className="main-menu__title">SHINOBI WAY</h1>
+          <p className="main-menu__subtitle">The Infinite Tower Awaits</p>
+        </div>
+
+        {/* Difficulty Selector */}
+        <div className="main-menu__difficulty">
+          <div className="main-menu__difficulty-header">
+            <label htmlFor="difficulty-slider" className="main-menu__difficulty-label">
+              Mission Difficulty
+            </label>
+            <span className={`main-menu__rank ${rank.class}`}>
+              Rank {rank.label}
             </span>
           </div>
           <input
@@ -34,23 +67,35 @@ const MainMenu: React.FC<MainMenuProps> = ({ difficulty, onDifficultyChange, onE
             max="100"
             value={difficulty}
             onChange={(e) => onDifficultyChange(parseInt(e.target.value))}
-            className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-red-700"
+            className="main-menu__slider"
           />
         </div>
-        <button onClick={onEnter} className="w-full group relative px-16 py-4 bg-black border border-zinc-800 hover:border-red-800 transition-all overflow-hidden">
-          <div className="absolute inset-0 w-0 bg-red-900/20 transition-all duration-300 ease-out group-hover:w-full"></div>
-          <span className="relative font-bold text-lg tracking-widest text-zinc-300 group-hover:text-red-500">ENTER TOWER</span>
-        </button>
 
-        <button type="button" onClick={onGuide} className="w-full py-3 bg-zinc-900/80 border border-zinc-700 text-zinc-400 font-bold uppercase tracking-widest hover:bg-zinc-800 hover:text-white transition-colors text-xs flex items-center justify-center gap-2">
-          <BookOpen size={14} /> Shinobi Handbook
-        </button>
-
-        {onAssetCompanion && (
-          <button type="button" onClick={onAssetCompanion} className="w-full py-3 bg-purple-900/40 border border-purple-700/50 text-purple-400 font-bold uppercase tracking-widest hover:bg-purple-800/50 hover:text-purple-300 transition-colors text-xs flex items-center justify-center gap-2 mt-2">
-            <Palette size={14} /> Asset Companion
+        {/* Action Buttons */}
+        <div className="main-menu__actions">
+          <button type="button" onClick={onEnter} className="main-menu__enter">
+            <span className="main-menu__enter-content">
+              <span>Enter Tower</span>
+              <span className="sw-shortcut">Enter</span>
+            </span>
           </button>
-        )}
+
+          <button type="button" onClick={onGuide} className="main-menu__secondary">
+            <BookOpen size={14} />
+            <span>Shinobi Handbook</span>
+          </button>
+
+          {onAssetCompanion && (
+            <button
+              type="button"
+              onClick={onAssetCompanion}
+              className="main-menu__secondary main-menu__secondary--asset"
+            >
+              <Palette size={14} />
+              <span>Asset Companion</span>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

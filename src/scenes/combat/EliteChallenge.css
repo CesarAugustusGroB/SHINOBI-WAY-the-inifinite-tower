@@ -1,0 +1,373 @@
+/**
+ * Elite Challenge Scene Styles
+ * BEM-style CSS for the elite challenge fight/escape screen
+ */
+
+@import '../../styles/design-system/index.css';
+
+/* ===========================================
+   Main Container
+   =========================================== */
+
+.elite-challenge {
+  width: 100%;
+  max-width: 42rem;
+  background: var(--sw-bg-primary);
+  border: 1px solid var(--sw-glass-border);
+  padding: var(--sw-space-8);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ===========================================
+   Header Section
+   =========================================== */
+
+.elite-challenge__icon {
+  margin-bottom: var(--sw-space-6);
+  color: rgba(127, 29, 29, 0.7);
+}
+
+.elite-challenge__title {
+  font-size: var(--sw-text-xl);
+  font-weight: 700;
+  color: var(--sw-text-secondary);
+  margin-bottom: var(--sw-space-2);
+  font-family: var(--sw-font-serif);
+  letter-spacing: var(--sw-tracking-wide);
+  text-transform: uppercase;
+}
+
+.elite-challenge__subtitle {
+  font-size: var(--sw-text-sm);
+  color: var(--sw-text-muted);
+  margin-bottom: var(--sw-space-8);
+  text-align: center;
+  max-width: 28rem;
+}
+
+/* Keyboard Hints */
+.elite-challenge__hints {
+  display: flex;
+  justify-content: center;
+  gap: var(--sw-space-6);
+  font-size: var(--sw-text-xs);
+  color: var(--sw-text-muted);
+  margin-bottom: var(--sw-space-6);
+}
+
+.elite-challenge__hint {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-1);
+}
+
+/* ===========================================
+   Enemy Info Panel
+   =========================================== */
+
+.elite-challenge__enemy {
+  width: 100%;
+  background: rgba(24, 24, 27, 0.5);
+  border: 1px solid var(--sw-glass-border);
+  padding: var(--sw-space-4);
+  margin-bottom: var(--sw-space-4);
+}
+
+.elite-challenge__enemy-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sw-space-3);
+}
+
+.elite-challenge__enemy-name {
+  font-size: var(--sw-text-lg);
+  font-weight: 700;
+  color: #f87171;
+}
+
+.elite-challenge__enemy-type {
+  font-size: var(--sw-text-2xs);
+  color: var(--sw-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+}
+
+.elite-challenge__enemy-element-label {
+  font-size: var(--sw-text-xs);
+  color: var(--sw-text-muted);
+}
+
+.elite-challenge__enemy-element {
+  font-size: var(--sw-text-sm);
+  color: var(--sw-text-tertiary);
+}
+
+/* Enemy Stats Grid */
+.elite-challenge__enemy-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sw-space-2);
+  font-size: var(--sw-text-2xs);
+  font-family: var(--sw-font-mono);
+}
+
+.elite-challenge__enemy-stat {
+  display: flex;
+  justify-content: space-between;
+}
+
+.elite-challenge__enemy-stat-label {
+  color: var(--sw-text-muted);
+}
+
+.elite-challenge__enemy-stat-value--hp {
+  color: #f87171;
+}
+
+.elite-challenge__enemy-stat-value--atk {
+  color: var(--sw-category-body-light);
+}
+
+.elite-challenge__enemy-stat-value--spd {
+  color: #22d3ee;
+}
+
+/* ===========================================
+   Artifact Preview Panel
+   =========================================== */
+
+.elite-challenge__artifact {
+  width: 100%;
+  background: rgba(24, 24, 27, 0.5);
+  border: 1px solid rgba(120, 53, 15, 0.3);
+  padding: var(--sw-space-4);
+  margin-bottom: var(--sw-space-8);
+}
+
+.elite-challenge__artifact-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+  margin-bottom: var(--sw-space-2);
+}
+
+.elite-challenge__artifact-icon {
+  color: #f59e0b;
+}
+
+.elite-challenge__artifact-label {
+  font-size: var(--sw-text-2xs);
+  color: #d97706;
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+}
+
+.elite-challenge__artifact-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.elite-challenge__artifact-name {
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+}
+
+.elite-challenge__artifact-emoji {
+  margin-right: var(--sw-space-2);
+}
+
+.elite-challenge__artifact-rarity {
+  font-size: var(--sw-text-2xs);
+  color: var(--sw-text-muted);
+}
+
+/* Rarity Colors */
+.elite-challenge__artifact-name--broken {
+  color: #78716c;
+}
+
+.elite-challenge__artifact-name--common {
+  color: var(--sw-text-muted);
+}
+
+.elite-challenge__artifact-name--rare {
+  color: #60a5fa;
+}
+
+.elite-challenge__artifact-name--epic {
+  color: #a855f7;
+}
+
+.elite-challenge__artifact-name--legendary {
+  color: #fbbf24;
+}
+
+.elite-challenge__artifact-name--cursed {
+  color: #ef4444;
+}
+
+.elite-challenge__artifact-description {
+  font-size: var(--sw-text-xs);
+  color: var(--sw-text-muted);
+  font-style: italic;
+  margin-top: var(--sw-space-2);
+}
+
+.elite-challenge__artifact-stats {
+  margin-top: var(--sw-space-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sw-space-4);
+  row-gap: var(--sw-space-1);
+  font-size: var(--sw-text-2xs);
+  font-family: var(--sw-font-mono);
+  color: var(--sw-text-muted);
+}
+
+/* ===========================================
+   Choice Buttons
+   =========================================== */
+
+.elite-challenge__choices {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-3);
+}
+
+.elite-challenge__choice-btn {
+  width: 100%;
+  padding: var(--sw-space-4);
+  border: 1px solid;
+  background: transparent;
+  cursor: pointer;
+  transition: all var(--sw-transition-base);
+}
+
+.elite-challenge__choice-btn:hover {
+  transform: translateY(-2px);
+}
+
+/* Fight Button */
+.elite-challenge__choice-btn--fight {
+  background: rgba(127, 29, 29, 0.2);
+  border-color: rgba(153, 27, 27, 1);
+}
+
+.elite-challenge__choice-btn--fight:hover {
+  background: rgba(127, 29, 29, 0.4);
+}
+
+.elite-challenge__choice-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sw-space-3);
+}
+
+.elite-challenge__choice-icon--fight {
+  color: #ef4444;
+}
+
+.elite-challenge__choice-btn--fight:hover .elite-challenge__choice-icon--fight {
+  color: #f87171;
+}
+
+.elite-challenge__choice-text {
+  text-align: left;
+}
+
+.elite-challenge__choice-title--fight {
+  font-size: var(--sw-text-sm);
+  font-weight: 700;
+  color: #fecaca;
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+}
+
+.elite-challenge__choice-desc {
+  font-size: var(--sw-text-2xs);
+  color: var(--sw-text-muted);
+}
+
+/* Escape Button */
+.elite-challenge__choice-btn--escape {
+  background: rgba(8, 145, 178, 0.2);
+  border-color: rgba(14, 116, 144, 1);
+}
+
+.elite-challenge__choice-btn--escape:hover {
+  background: rgba(8, 145, 178, 0.4);
+}
+
+.elite-challenge__choice-icon--escape {
+  color: #06b6d4;
+}
+
+.elite-challenge__choice-btn--escape:hover .elite-challenge__choice-icon--escape {
+  color: #22d3ee;
+}
+
+.elite-challenge__escape-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.elite-challenge__choice-title--escape {
+  font-size: var(--sw-text-sm);
+  font-weight: 700;
+  color: #a5f3fc;
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+}
+
+.elite-challenge__escape-chance {
+  font-size: var(--sw-text-sm);
+  font-family: var(--sw-font-mono);
+}
+
+.elite-challenge__escape-chance--high {
+  color: #4ade80;
+}
+
+.elite-challenge__escape-chance--medium {
+  color: #facc15;
+}
+
+.elite-challenge__escape-chance--low {
+  color: #f87171;
+}
+
+.elite-challenge__escape-failure {
+  font-size: var(--sw-text-3xs);
+  color: var(--sw-text-muted);
+  margin-top: var(--sw-space-1);
+}
+
+/* ===========================================
+   Footer Info
+   =========================================== */
+
+.elite-challenge__footer {
+  margin-top: var(--sw-space-6);
+  font-size: var(--sw-text-3xs);
+  color: var(--sw-glass-border);
+  text-align: center;
+}
+
+/* Additional utility classes */
+.elite-challenge__enemy-element-wrapper {
+  text-align: right;
+}
+
+.elite-challenge__choice-text--flex {
+  flex: 1;
+}

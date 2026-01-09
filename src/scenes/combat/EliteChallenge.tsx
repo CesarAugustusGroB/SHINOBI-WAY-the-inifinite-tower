@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { Enemy, Item, Player, CharacterStats, Rarity } from '../../game/types';
 import { Shield, Zap, Swords, Wind } from 'lucide-react';
 import { getEscapeChanceDescription } from '../../game/systems/EliteChallengeSystem';
 import { getEnemyFullStats } from '../../game/systems/StatSystem';
+import './EliteChallenge.css';
 
 interface EliteChallengeProps {
   enemy: Enemy;
@@ -15,10 +16,27 @@ interface EliteChallengeProps {
   customDescription?: string;
 }
 
+// Helper for rarity class
+const getRarityClass = (rarity: Rarity): string => {
+  switch (rarity) {
+    case Rarity.BROKEN:
+      return 'elite-challenge__artifact-name--broken';
+    case Rarity.RARE:
+      return 'elite-challenge__artifact-name--rare';
+    case Rarity.EPIC:
+      return 'elite-challenge__artifact-name--epic';
+    case Rarity.LEGENDARY:
+      return 'elite-challenge__artifact-name--legendary';
+    case Rarity.CURSED:
+      return 'elite-challenge__artifact-name--cursed';
+    default:
+      return 'elite-challenge__artifact-name--common';
+  }
+};
+
 const EliteChallenge: React.FC<EliteChallengeProps> = ({
   enemy,
   artifact,
-  player,
   playerStats,
   onFight,
   onEscape,
@@ -28,82 +46,107 @@ const EliteChallenge: React.FC<EliteChallengeProps> = ({
   const escapeInfo = getEscapeChanceDescription(playerStats);
   const enemyStats = getEnemyFullStats(enemy);
 
-  const getRarityColor = (rarity: Rarity): string => {
-    switch (rarity) {
-      case Rarity.BROKEN: return 'text-stone-500';
-      case Rarity.COMMON: return 'text-zinc-400';
-      case Rarity.RARE: return 'text-blue-400';
-      case Rarity.EPIC: return 'text-purple-400';
-      case Rarity.LEGENDARY: return 'text-amber-400';
-      case Rarity.CURSED: return 'text-red-500';
-      default: return 'text-zinc-400';
+  // Keyboard shortcuts: F for Fight, E for Escape
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+    if (e.key.toLowerCase() === 'f') {
+      e.preventDefault();
+      onFight();
+    } else if (e.key.toLowerCase() === 'e' && onEscape) {
+      e.preventDefault();
+      onEscape();
     }
+  }, [onFight, onEscape]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
+  // Get escape chance color class
+  const getEscapeChanceClass = (chance: number): string => {
+    if (chance >= 60) return 'elite-challenge__escape-chance--high';
+    if (chance >= 40) return 'elite-challenge__escape-chance--medium';
+    return 'elite-challenge__escape-chance--low';
   };
 
   return (
-    <div className="w-full max-w-2xl bg-black border border-zinc-800 p-8 shadow-2xl z-10 flex flex-col items-center">
+    <div className="elite-challenge">
       {/* Header */}
-      <div className="mb-6 text-red-900 opacity-70">
+      <div className="elite-challenge__icon">
         <Shield size={48} />
       </div>
-      <h2 className="text-xl font-bold text-zinc-200 mb-2 font-serif tracking-wide uppercase">
+      <h2 className="elite-challenge__title">
         {customTitle || 'Artifact Guardian'}
       </h2>
-      <p className="text-sm text-zinc-600 mb-8 text-center max-w-md">
+      <p className="elite-challenge__subtitle">
         {customDescription || 'A powerful guardian stands between you and a rare artifact. Will you fight or flee?'}
       </p>
 
+      {/* Keyboard Hints */}
+      <div className="elite-challenge__hints">
+        <span className="elite-challenge__hint">
+          <span className="sw-shortcut">F</span> Fight
+        </span>
+        {onEscape && (
+          <span className="elite-challenge__hint">
+            <span className="sw-shortcut">E</span> Escape
+          </span>
+        )}
+      </div>
+
       {/* Enemy Info */}
-      <div className="w-full bg-zinc-900/50 border border-zinc-800 p-4 mb-4">
-        <div className="flex items-center justify-between mb-3">
+      <div className="elite-challenge__enemy">
+        <div className="elite-challenge__enemy-header">
           <div>
-            <h3 className="text-lg font-bold text-red-400">{enemy.name}</h3>
-            <p className="text-[10px] text-zinc-600 uppercase tracking-wider">{enemy.tier} Guardian</p>
+            <h3 className="elite-challenge__enemy-name">{enemy.name}</h3>
+            <p className="elite-challenge__enemy-type">{enemy.tier} Guardian</p>
           </div>
-          <div className="text-right">
-            <div className="text-xs text-zinc-500">Element</div>
-            <div className="text-sm text-zinc-300">{enemy.element}</div>
+          <div className="elite-challenge__enemy-element-wrapper">
+            <div className="elite-challenge__enemy-element-label">Element</div>
+            <div className="elite-challenge__enemy-element">{enemy.element}</div>
           </div>
         </div>
 
         {/* Enemy Stats Preview */}
-        <div className="grid grid-cols-3 gap-2 text-[10px] font-mono">
-          <div className="flex justify-between">
-            <span className="text-zinc-600">HP</span>
-            <span className="text-red-400">{enemyStats.derived.maxHp}</span>
+        <div className="elite-challenge__enemy-stats">
+          <div className="elite-challenge__enemy-stat">
+            <span className="elite-challenge__enemy-stat-label">HP</span>
+            <span className="elite-challenge__enemy-stat-value--hp">{enemyStats.derived.maxHp}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-zinc-600">ATK</span>
-            <span className="text-orange-400">{enemy.primaryStats.strength}</span>
+          <div className="elite-challenge__enemy-stat">
+            <span className="elite-challenge__enemy-stat-label">ATK</span>
+            <span className="elite-challenge__enemy-stat-value--atk">{enemy.primaryStats.strength}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-zinc-600">SPD</span>
-            <span className="text-cyan-400">{enemy.primaryStats.speed}</span>
+          <div className="elite-challenge__enemy-stat">
+            <span className="elite-challenge__enemy-stat-label">SPD</span>
+            <span className="elite-challenge__enemy-stat-value--spd">{enemy.primaryStats.speed}</span>
           </div>
         </div>
       </div>
 
       {/* Artifact Preview - Only shown when artifact exists */}
       {artifact && (
-        <div className="w-full bg-zinc-900/50 border border-amber-900/30 p-4 mb-8">
-          <div className="flex items-center gap-2 mb-2">
-            <Zap size={16} className="text-amber-500" />
-            <span className="text-[10px] text-amber-600 uppercase tracking-wider">Guarded Artifact</span>
+        <div className="elite-challenge__artifact">
+          <div className="elite-challenge__artifact-header">
+            <Zap size={16} className="elite-challenge__artifact-icon" />
+            <span className="elite-challenge__artifact-label">Guarded Artifact</span>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="elite-challenge__artifact-main">
             <div>
-              <h4 className={`font-bold ${getRarityColor(artifact.rarity)}`}>
-                {artifact.icon && <span className="mr-2">{artifact.icon}</span>}
+              <h4 className={`elite-challenge__artifact-name ${getRarityClass(artifact.rarity)}`}>
+                {artifact.icon && <span className="elite-challenge__artifact-emoji">{artifact.icon}</span>}
                 {artifact.name}
               </h4>
-              <p className="text-[10px] text-zinc-600">{artifact.rarity}</p>
+              <p className="elite-challenge__artifact-rarity">{artifact.rarity}</p>
             </div>
           </div>
           {artifact.description && (
-            <p className="text-xs text-zinc-500 italic mt-2">{artifact.description}</p>
+            <p className="elite-challenge__artifact-description">{artifact.description}</p>
           )}
           {/* Show key stats */}
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-mono text-zinc-400">
+          <div className="elite-challenge__artifact-stats">
             {Object.entries(artifact.stats).slice(0, 4).map(([key, val]) => (
               val ? <span key={key}>+{val} {key.toUpperCase()}</span> : null
             ))}
@@ -112,20 +155,20 @@ const EliteChallenge: React.FC<EliteChallengeProps> = ({
       )}
 
       {/* Choice Buttons */}
-      <div className="w-full space-y-3">
+      <div className="elite-challenge__choices">
         {/* Fight Button */}
         <button
           type="button"
           onClick={onFight}
-          className="w-full py-4 bg-red-900/20 hover:bg-red-900/40 border border-red-900 transition-colors group"
+          className="elite-challenge__choice-btn elite-challenge__choice-btn--fight"
         >
-          <div className="flex items-center justify-center gap-3">
-            <Swords size={20} className="text-red-500 group-hover:text-red-400" />
-            <div className="text-left">
-              <div className="text-sm font-bold text-red-200 uppercase tracking-wider">
+          <div className="elite-challenge__choice-content">
+            <Swords size={20} className="elite-challenge__choice-icon--fight" />
+            <div className="elite-challenge__choice-text">
+              <div className="elite-challenge__choice-title--fight">
                 Challenge Guardian
               </div>
-              <div className="text-[10px] text-zinc-500">
+              <div className="elite-challenge__choice-desc">
                 Face the guardian in combat. Victory: Claim the artifact.
               </div>
             </div>
@@ -137,23 +180,23 @@ const EliteChallenge: React.FC<EliteChallengeProps> = ({
           <button
             type="button"
             onClick={onEscape}
-            className="w-full py-4 bg-cyan-900/20 hover:bg-cyan-900/40 border border-cyan-900 transition-colors group"
+            className="elite-challenge__choice-btn elite-challenge__choice-btn--escape"
           >
-            <div className="flex items-center justify-center gap-3">
-              <Wind size={20} className="text-cyan-500 group-hover:text-cyan-400" />
-              <div className="text-left flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-cyan-200 uppercase tracking-wider">
+            <div className="elite-challenge__choice-content">
+              <Wind size={20} className="elite-challenge__choice-icon--escape" />
+              <div className="elite-challenge__choice-text elite-challenge__choice-text--flex">
+                <div className="elite-challenge__escape-header">
+                  <span className="elite-challenge__choice-title--escape">
                     Attempt Escape
                   </span>
-                  <span className={`text-sm font-mono ${escapeInfo.chance >= 60 ? 'text-green-400' : escapeInfo.chance >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
+                  <span className={`elite-challenge__escape-chance ${getEscapeChanceClass(escapeInfo.chance)}`}>
                     {escapeInfo.chance}%
                   </span>
                 </div>
-                <div className="text-[10px] text-zinc-500">
+                <div className="elite-challenge__choice-desc">
                   Use your speed to slip away. Your Speed: {escapeInfo.speedValue} (+{escapeInfo.speedBonus}% bonus)
                 </div>
-                <div className="text-[9px] text-zinc-600 mt-1">
+                <div className="elite-challenge__escape-failure">
                   Failure: Must fight anyway
                 </div>
               </div>
@@ -164,7 +207,7 @@ const EliteChallenge: React.FC<EliteChallengeProps> = ({
 
       {/* Escape Formula Hint - Only shown if escape is allowed */}
       {onEscape && (
-        <div className="mt-6 text-[9px] text-zinc-700 text-center">
+        <div className="elite-challenge__footer">
           Escape chance = 30% base + (Speed x 2), max 80%
         </div>
       )}

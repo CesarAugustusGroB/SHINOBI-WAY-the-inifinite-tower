@@ -1,0 +1,888 @@
+/**
+ * Combat Scene Styles
+ * BEM-style CSS for the turn-based combat experience
+ */
+
+@import '../../styles/design-system/index.css';
+
+/* ===========================================
+   Main Container
+   =========================================== */
+
+.combat {
+  width: 100%;
+  max-width: 72rem;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  margin: 0 auto;
+}
+
+/* ===========================================
+   Enemy Display Header
+   =========================================== */
+
+.combat__enemy-overlay {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+}
+
+/* Enemy Stats (Left Side) */
+.combat__enemy-stats {
+  width: 100%;
+  max-width: 28rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-top: var(--sw-space-2);
+}
+
+.combat__enemy-name {
+  font-size: 3rem;
+  font-weight: 900;
+  color: var(--sw-text-primary);
+  text-transform: uppercase;
+  letter-spacing: -0.05em;
+  font-style: italic;
+  font-family: var(--sw-font-serif);
+  text-shadow: 0 4px 4px rgba(0, 0, 0, 0.8);
+}
+
+.combat__enemy-hp {
+  margin-top: var(--sw-space-2);
+  margin-bottom: var(--sw-space-1);
+  position: relative;
+}
+
+.combat__enemy-hp-value {
+  position: absolute;
+  top: -1.25rem;
+  right: 0;
+  font-size: var(--sw-text-sm);
+  font-family: var(--sw-font-mono);
+  font-weight: 700;
+  color: var(--sw-text-primary);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.combat__enemy-tags {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-4);
+  font-size: var(--sw-text-2xs);
+  font-family: var(--sw-font-mono);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-widest);
+  color: var(--sw-text-muted);
+}
+
+.combat__enemy-tag {
+  background: rgba(0, 0, 0, 0.5);
+  padding: var(--sw-space-1) var(--sw-space-2);
+  border-radius: var(--sw-radius-sm);
+  border: 1px solid var(--sw-glass-border);
+}
+
+.combat__enemy-tag-value {
+  color: var(--sw-text-secondary);
+  font-weight: 700;
+}
+
+.combat__enemy-defense {
+  margin-top: var(--sw-space-2);
+  display: flex;
+  gap: var(--sw-space-3);
+  font-size: var(--sw-text-3xs);
+  font-family: var(--sw-font-mono);
+  color: var(--sw-text-muted);
+  opacity: 0.8;
+  transition: opacity var(--sw-transition-base);
+  cursor: help;
+}
+
+.combat__enemy-defense:hover {
+  opacity: 1;
+}
+
+.combat__defense-phys {
+  color: var(--sw-category-body-light);
+}
+
+.combat__defense-elem {
+  color: var(--sw-category-mind-light);
+}
+
+.combat__defense-mind {
+  color: #a5b4fc;
+}
+
+/* Enemy Buffs (Right Side) */
+.combat__enemy-buffs {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sw-space-2);
+}
+
+.combat__buff {
+  padding: var(--sw-space-1) var(--sw-space-2);
+  font-size: var(--sw-text-2xs);
+  font-family: var(--sw-font-mono);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  cursor: help;
+  transition: border-color var(--sw-transition-base);
+}
+
+.combat__buff--positive {
+  background: rgba(20, 83, 45, 0.8);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #bbf7d0;
+}
+
+.combat__buff--positive:hover {
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+.combat__buff--negative {
+  background: rgba(127, 29, 29, 0.8);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fecaca;
+}
+
+.combat__buff--negative:hover {
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.combat__buff-duration--positive {
+  color: #22c55e;
+}
+
+.combat__buff-duration--negative {
+  color: #ef4444;
+}
+
+/* ===========================================
+   Skill Interface Area
+   =========================================== */
+
+.combat__interface {
+  flex: 1;
+  padding: var(--sw-space-6);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+/* Phase & Actions Header */
+.combat__phase-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sw-space-4);
+}
+
+.combat__phase-left {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-4);
+}
+
+.combat__phase-indicator {
+  font-size: var(--sw-text-2xs);
+  font-family: var(--sw-font-mono);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+}
+
+.combat__phase-label {
+  color: var(--sw-text-muted);
+}
+
+.combat__phase-value--side {
+  color: #60a5fa;
+}
+
+.combat__phase-value--main {
+  color: var(--sw-category-body-light);
+}
+
+.combat__side-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+  padding: var(--sw-space-1) var(--sw-space-3);
+  background: rgba(30, 58, 138, 0.3);
+  border: 1px solid rgba(30, 64, 175, 0.5);
+  border-radius: var(--sw-radius-sm);
+}
+
+.combat__side-actions-label {
+  font-size: var(--sw-text-2xs);
+  font-weight: 700;
+  color: #93c5fd;
+  text-transform: uppercase;
+}
+
+.combat__side-actions-value {
+  font-size: var(--sw-text-sm);
+  font-family: var(--sw-font-mono);
+  font-weight: 700;
+  color: #60a5fa;
+}
+
+.combat__side-actions-value--exhausted {
+  color: #f87171;
+}
+
+.combat__passives-summary {
+  font-size: var(--sw-text-2xs);
+  font-family: var(--sw-font-mono);
+  color: var(--sw-text-muted);
+  cursor: help;
+  transition: color var(--sw-transition-base);
+}
+
+.combat__passives-summary:hover {
+  color: var(--sw-text-tertiary);
+}
+
+/* Keyboard Hints */
+.combat__hints {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--sw-space-4);
+  font-size: var(--sw-text-xs);
+  color: var(--sw-text-muted);
+  margin-bottom: var(--sw-space-4);
+}
+
+.combat__hint {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-1);
+}
+
+/* ===========================================
+   Skills Grid
+   =========================================== */
+
+.combat__skills {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-4);
+}
+
+.combat__skill-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.combat__skill-group-label {
+  font-size: var(--sw-text-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+  margin-bottom: var(--sw-space-2);
+}
+
+.combat__skill-group-label--side {
+  color: #60a5fa;
+}
+
+.combat__skill-group-label--toggle {
+  color: var(--sw-accent-tertiary);
+}
+
+.combat__skill-group-label--main {
+  color: var(--sw-category-body-light);
+}
+
+.combat__skill-grid {
+  display: grid;
+  gap: var(--sw-space-2);
+}
+
+.combat__skill-grid--auxiliary {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.combat__skill-grid--main {
+  grid-template-columns: repeat(1, 1fr);
+  gap: var(--sw-space-4);
+}
+
+@media (min-width: 640px) {
+  .combat__skill-grid--auxiliary {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .combat__skill-grid--main {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .combat__skill-grid--auxiliary {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .combat__skill-grid--main {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .combat__skill-grid--auxiliary {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  .combat__skill-grid--main {
+    gap: var(--sw-space-6);
+  }
+}
+
+/* ===========================================
+   Turn Control Bar
+   =========================================== */
+
+.combat__controls {
+  margin-top: var(--sw-space-6);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid rgba(63, 63, 70, 0.5);
+  padding-top: var(--sw-space-4);
+}
+
+/* Auto-Combat Button */
+.combat__auto-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+  padding: var(--sw-space-2) var(--sw-space-4);
+  border: 1px solid var(--sw-glass-border);
+  background: transparent;
+  cursor: pointer;
+  transition: all var(--sw-transition-base);
+  color: var(--sw-text-muted);
+}
+
+.combat__auto-btn:hover {
+  border-color: var(--sw-glass-border-highlight);
+  color: var(--sw-text-tertiary);
+  background: rgba(24, 24, 27, 0.3);
+}
+
+.combat__auto-btn--active {
+  border-color: rgba(180, 83, 9, 0.5);
+  color: var(--sw-accent-tertiary);
+  background: rgba(69, 26, 3, 0.3);
+}
+
+.combat__auto-btn--active:hover {
+  background: rgba(69, 26, 3, 0.5);
+}
+
+.combat__auto-label {
+  font-size: var(--sw-text-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+}
+
+.combat__auto-timer {
+  font-size: var(--sw-text-2xs);
+  font-family: var(--sw-font-mono);
+  color: #f59e0b;
+}
+
+/* Pass Turn Button */
+.combat__pass-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-3);
+  padding: var(--sw-space-3) var(--sw-space-6);
+  border: 1px solid;
+  background: transparent;
+  cursor: pointer;
+  transition: all var(--sw-transition-base);
+}
+
+.combat__pass-btn:not(:disabled) {
+  border-color: var(--sw-glass-border-highlight);
+  color: var(--sw-text-tertiary);
+}
+
+.combat__pass-btn:not(:disabled):hover {
+  background: rgba(24, 24, 27, 1);
+  border-color: var(--sw-text-muted);
+  color: var(--sw-text-primary);
+}
+
+.combat__pass-btn:disabled {
+  border-color: var(--sw-glass-border);
+  color: var(--sw-text-muted);
+  background: rgba(24, 24, 27, 0.5);
+  cursor: not-allowed;
+}
+
+.combat__pass-label {
+  font-size: var(--sw-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}
+
+/* ===========================================
+   Tooltip Content Styles
+   =========================================== */
+
+.combat-tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-3);
+  padding: var(--sw-space-1);
+  max-width: 280px;
+}
+
+.combat-tooltip--wide {
+  max-width: 300px;
+}
+
+.combat-tooltip__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.combat-tooltip__title {
+  font-weight: 700;
+  color: var(--sw-text-secondary);
+}
+
+.combat-tooltip__subtitle {
+  font-size: var(--sw-text-3xs);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+}
+
+.combat-tooltip__tier {
+  color: var(--sw-text-muted);
+}
+
+.combat-tooltip__action--side {
+  color: #60a5fa;
+}
+
+.combat-tooltip__action--toggle {
+  color: var(--sw-accent-tertiary);
+}
+
+.combat-tooltip__action--main {
+  color: var(--sw-category-body-light);
+}
+
+.combat-tooltip__level {
+  font-size: var(--sw-text-xs);
+  font-weight: 700;
+  color: #eab308;
+}
+
+.combat-tooltip__section {
+  border-top: 1px solid var(--sw-glass-border);
+  padding-top: var(--sw-space-2);
+}
+
+.combat-tooltip__section-title {
+  font-size: var(--sw-text-3xs);
+  color: var(--sw-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+  margin-bottom: var(--sw-space-1);
+}
+
+.combat-tooltip__description {
+  font-size: var(--sw-text-xs);
+  color: var(--sw-text-muted);
+  font-style: italic;
+}
+
+.combat-tooltip__damage-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-1);
+  font-size: var(--sw-text-2xs);
+}
+
+.combat-tooltip__scaling {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+}
+
+.combat-tooltip__scaling-label {
+  color: var(--sw-text-muted);
+}
+
+.combat-tooltip__type-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sw-space-3);
+}
+
+.combat-tooltip__mechanics {
+  font-size: var(--sw-text-3xs);
+  color: var(--sw-text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-0-5);
+  margin-top: var(--sw-space-1);
+}
+
+.combat-tooltip__cost-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sw-space-3);
+  font-size: var(--sw-text-2xs);
+}
+
+.combat-tooltip__cost--cp {
+  color: #60a5fa;
+}
+
+.combat-tooltip__cost--hp {
+  color: #f87171;
+}
+
+.combat-tooltip__cost--cd {
+  color: var(--sw-text-tertiary);
+}
+
+.combat-tooltip__cost--none {
+  color: var(--sw-text-muted);
+}
+
+.combat-tooltip__effects {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-0-5);
+}
+
+.combat-tooltip__effect {
+  font-size: var(--sw-text-2xs);
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-1-5);
+}
+
+.combat-tooltip__effect-text {
+  color: var(--sw-text-tertiary);
+}
+
+.combat-tooltip__bonus-row {
+  font-size: var(--sw-text-2xs);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-0-5);
+}
+
+.combat-tooltip__crit-bonus {
+  color: #facc15;
+}
+
+.combat-tooltip__pen-bonus {
+  color: #f87171;
+}
+
+.combat-tooltip__toggle-info {
+  font-size: var(--sw-text-2xs);
+  color: var(--sw-accent-tertiary);
+}
+
+.combat-tooltip__preview {
+  background: rgba(63, 63, 70, 0.5);
+  margin: 0 calc(-1 * var(--sw-space-1));
+  padding: var(--sw-space-1) var(--sw-space-2);
+  border-radius: var(--sw-radius-sm);
+}
+
+.combat-tooltip__preview-target {
+  font-size: var(--sw-text-3xs);
+  color: var(--sw-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+  margin-bottom: var(--sw-space-1);
+}
+
+.combat-tooltip__preview-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.combat-tooltip__preview-dmg-label {
+  font-size: var(--sw-text-2xs);
+  color: var(--sw-text-muted);
+}
+
+.combat-tooltip__preview-dmg {
+  font-weight: 700;
+  color: var(--sw-text-secondary);
+}
+
+.combat-tooltip__preview-dmg--effective {
+  color: #facc15;
+}
+
+.combat-tooltip__crit-marker {
+  color: #eab308;
+  margin-left: var(--sw-space-1);
+}
+
+.combat-tooltip__effectiveness--super {
+  font-size: var(--sw-text-3xs);
+  font-weight: 700;
+  color: #facc15;
+}
+
+.combat-tooltip__effectiveness--resist {
+  font-size: var(--sw-text-3xs);
+  color: var(--sw-text-muted);
+}
+
+/* Enemy Stats Tooltip */
+.combat-tooltip__enemy-name {
+  font-size: var(--sw-text-sm);
+  font-weight: 700;
+  color: var(--sw-text-secondary);
+}
+
+.combat-tooltip__enemy-info {
+  font-size: var(--sw-text-2xs);
+  color: var(--sw-text-muted);
+}
+
+.combat-tooltip__category {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--sw-space-1);
+}
+
+.combat-tooltip__category-label {
+  font-size: var(--sw-text-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.combat-tooltip__category-label--body {
+  color: var(--sw-category-body-light);
+}
+
+.combat-tooltip__category-label--mind {
+  color: var(--sw-category-mind-light);
+}
+
+.combat-tooltip__category-label--technique {
+  color: var(--sw-category-technique-light);
+}
+
+.combat-tooltip__category-rank {
+  font-size: var(--sw-text-sm);
+  font-weight: 900;
+}
+
+.combat-tooltip__stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sw-space-2);
+  font-size: var(--sw-text-3xs);
+  font-family: var(--sw-font-mono);
+  color: var(--sw-text-tertiary);
+  margin-bottom: var(--sw-space-1);
+}
+
+.combat-tooltip__stat-abbr--str {
+  color: #f97316;
+}
+
+.combat-tooltip__stat-abbr--wil {
+  color: #ef4444;
+}
+
+.combat-tooltip__stat-abbr--cha {
+  color: #3b82f6;
+}
+
+.combat-tooltip__stat-abbr--spi {
+  color: #a855f7;
+}
+
+.combat-tooltip__stat-abbr--int {
+  color: #06b6d4;
+}
+
+.combat-tooltip__stat-abbr--cal {
+  color: #6366f1;
+}
+
+.combat-tooltip__stat-abbr--spd {
+  color: #22c55e;
+}
+
+.combat-tooltip__stat-abbr--acc {
+  color: #eab308;
+}
+
+.combat-tooltip__stat-abbr--dex {
+  color: #ec4899;
+}
+
+.combat-tooltip__derived {
+  font-size: var(--sw-text-3xs);
+  color: var(--sw-text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-0-5);
+}
+
+.combat-tooltip__derived-value--phys {
+  color: var(--sw-category-body-light);
+}
+
+.combat-tooltip__derived-value--elem {
+  color: var(--sw-category-mind-light);
+}
+
+.combat-tooltip__derived-value--mind {
+  color: #a5b4fc;
+}
+
+.combat-tooltip__derived-value--eva {
+  color: var(--sw-category-technique-light);
+}
+
+.combat-tooltip__derived-value--crit {
+  color: #facc15;
+}
+
+/* Buff Tooltip */
+.combat-tooltip__buff-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+}
+
+.combat-tooltip__buff-icon {
+  font-size: var(--sw-text-lg);
+}
+
+.combat-tooltip__buff-name {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: var(--sw-text-sm);
+}
+
+.combat-tooltip__buff-name--positive {
+  color: #4ade80;
+}
+
+.combat-tooltip__buff-type {
+  font-size: var(--sw-text-3xs);
+  color: var(--sw-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+}
+
+.combat-tooltip__buff-desc {
+  font-size: var(--sw-text-xs);
+  color: var(--sw-text-tertiary);
+}
+
+.combat-tooltip__mechanics-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-0-5);
+}
+
+.combat-tooltip__mechanic {
+  font-size: var(--sw-text-2xs);
+  color: var(--sw-text-muted);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sw-space-1);
+}
+
+.combat-tooltip__mechanic-bullet {
+  color: var(--sw-text-muted);
+}
+
+.combat-tooltip__source-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--sw-text-2xs);
+}
+
+.combat-tooltip__source-label,
+.combat-tooltip__duration-label {
+  color: var(--sw-text-muted);
+}
+
+.combat-tooltip__source-value,
+.combat-tooltip__duration-value {
+  color: var(--sw-text-tertiary);
+}
+
+.combat-tooltip__duration-value--expiring {
+  color: var(--sw-accent-tertiary);
+  font-weight: 700;
+}
+
+.combat-tooltip__tip {
+  font-size: var(--sw-text-2xs);
+  color: rgba(251, 191, 36, 0.8);
+  font-style: italic;
+}
+
+/* Passives Tooltip */
+.combat-tooltip__passives-title {
+  font-size: var(--sw-text-xs);
+  font-weight: 700;
+  color: var(--sw-text-tertiary);
+  text-transform: uppercase;
+}
+
+.combat-tooltip__passive {
+  font-size: var(--sw-text-2xs);
+  color: var(--sw-text-muted);
+}
+
+.combat-tooltip__passive-name {
+  color: var(--sw-text-secondary);
+}
+
+/* Additional inline style replacements */
+.combat-tooltip__scaling-value {
+  font-weight: 700;
+}
+
+.combat-tooltip__damage-property {
+  color: #f87171;
+}
+
+.combat-tooltip__hit-chance {
+  font-size: var(--sw-text-2xs);
+  color: var(--sw-text-muted);
+}
+
+.combat-tooltip__attack-method {
+  color: var(--sw-text-tertiary);
+}

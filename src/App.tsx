@@ -82,7 +82,7 @@ import { resolveEventChoice } from './game/systems/EventSystem';
 import { useCombat } from './hooks/useCombat';
 import { useCombatExplorationState } from './hooks/useCombatExplorationState';
 import { useExploration, ActivitySceneSetters } from './hooks/useExploration';
-import { useTreasureHandlers, TreasureHuntRewardData } from './hooks/useTreasureHandlers';
+import { useTreasureHandlers, TreasureHuntRewardData, PendingBagFullItem } from './hooks/useTreasureHandlers';
 import { GameProvider, GameContextValue } from './contexts/GameContext';
 import { LIMITS, MERCHANT } from './game/config';
 import { MainMenu, CharacterSelect, GameOver, GameGuide } from './scenes/menu';
@@ -156,6 +156,7 @@ const App: React.FC = () => {
   const [currentTreasureHunt, setCurrentTreasureHunt] = useState<TreasureHunt | null>(null);
   const [treasureHuntReward, setTreasureHuntReward] = useState<TreasureHuntRewardData | null>(null);
   const [diceRollResult, setDiceRollResult] = useState<DiceRollResult | null>(null);
+  const [pendingBagFullItem, setPendingBagFullItem] = useState<PendingBagFullItem | null>(null);
   const [combatReward, setCombatReward] = useState<{
     expGain: number;
     ryoGain: number;
@@ -489,6 +490,7 @@ const App: React.FC = () => {
     handlePathChoice,
     handleLeaveLocation,
     returnToMap,
+    returnToMapActivityComplete,
   } = useExploration(sharedExplorationState, {
     player,
     playerStats,
@@ -511,6 +513,8 @@ const App: React.FC = () => {
     handleTreasureDeclineHunt,
     handleTreasureHuntRewardClaim,
     handleDiceResultContinue,
+    handleBagFullSell,
+    handleBagFullLeave,
   } = useTreasureHandlers(
     {
       currentTreasure,
@@ -525,6 +529,7 @@ const App: React.FC = () => {
       region,
       currentLocation,
       treasureHuntReward,
+      pendingBagFullItem,
     },
     {
       setPlayer,
@@ -542,10 +547,12 @@ const App: React.FC = () => {
       setShowApproachSelector,
       setPendingArtifact,
       setDiceRollResult,
+      setPendingBagFullItem,
     },
     {
       addLog,
       returnToMap,
+      returnToMapActivityComplete,
     }
   );
 
@@ -1933,6 +1940,9 @@ const App: React.FC = () => {
                 onRollDice={handleTreasureRollDice}
                 onStartHunt={handleTreasureStartHunt}
                 onDeclineHunt={handleTreasureDeclineHunt}
+                pendingBagFullItem={pendingBagFullItem}
+                onBagFullSell={handleBagFullSell}
+                onBagFullLeave={handleBagFullLeave}
                 getRarityColor={getRarityColor}
               />
             </ErrorBoundary>

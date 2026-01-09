@@ -2,7 +2,7 @@ import React, { forwardRef } from 'react';
 import { Player, Clan, Buff } from '../../game/types';
 import StatBar from '../shared/StatBar';
 import Tooltip from '../shared/Tooltip';
-import { Coins, TrendingUp } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 import {
   getEffectIcon,
   getEffectColor,
@@ -13,6 +13,7 @@ import {
   getSeverityColor,
   isPositiveEffect,
 } from '../../game/utils/tooltipFormatters';
+import './character.css';
 
 interface PlayerHUDProps {
   player: Player;
@@ -25,66 +26,61 @@ interface PlayerHUDProps {
   biome?: string;
 }
 
-const getClanSymbol = (clan: Clan): { symbol: string; color: string; bgColor: string } => {
+const getClanData = (clan: Clan): { symbol: string; modifier: string } => {
   switch (clan) {
     case Clan.UCHIHA:
-      return { symbol: '🔥', color: 'text-red-500', bgColor: 'bg-red-950 border-red-700' };
+      return { symbol: '🔥', modifier: 'uchiha' };
     case Clan.UZUMAKI:
-      return { symbol: '🌀', color: 'text-orange-500', bgColor: 'bg-orange-950 border-orange-700' };
+      return { symbol: '🌀', modifier: 'uzumaki' };
     case Clan.HYUGA:
-      return { symbol: '👁️', color: 'text-purple-400', bgColor: 'bg-purple-950 border-purple-700' };
+      return { symbol: '👁️', modifier: 'hyuga' };
     case Clan.LEE:
-      return { symbol: '💪', color: 'text-green-500', bgColor: 'bg-green-950 border-green-700' };
+      return { symbol: '💪', modifier: 'lee' };
     case Clan.YAMANAKA:
-      return { symbol: '💠', color: 'text-cyan-500', bgColor: 'bg-cyan-950 border-cyan-700' };
+      return { symbol: '💠', modifier: 'yamanaka' };
     default:
-      return { symbol: '忍', color: 'text-zinc-400', bgColor: 'bg-zinc-900 border-zinc-700' };
+      return { symbol: '忍', modifier: '' };
   }
 };
 
 const PlayerHUD = forwardRef<HTMLDivElement, PlayerHUDProps>(({ player, playerStats, biome }, ref) => {
-  const { symbol, color, bgColor } = getClanSymbol(player.clan);
+  const { symbol, modifier } = getClanData(player.clan);
   const visibleBuffs = player.activeBuffs.slice(0, 4);
   const overflowCount = Math.max(0, player.activeBuffs.length - 4);
   const xpPercent = Math.min(100, (player.exp / player.maxExp) * 100);
 
   return (
-    <div
-      ref={ref}
-      className="w-full max-w-5xl mx-auto bg-gradient-to-r from-zinc-900/95 via-zinc-900/90 to-zinc-900/95 border border-zinc-700 rounded-lg px-6 py-3"
-    >
-      <div className="flex items-center gap-6">
+    <div ref={ref} className="player-hud">
+      <div className="player-hud__content">
         {/* Clan Avatar */}
-        <div className={`w-14 h-14 rounded-lg border-2 ${bgColor} flex items-center justify-center flex-shrink-0 shadow-lg`}>
-          <span className={`text-2xl ${color}`}>{symbol}</span>
+        <div className={`player-hud__avatar player-hud__avatar--${modifier}`}>
+          <span className="player-hud__avatar-symbol">{symbol}</span>
         </div>
 
         {/* Stats Section */}
-        <div className="flex-1 space-y-1">
+        <div className="player-hud__stats">
           {/* Player Name & Level */}
-          <div className="flex items-center gap-3">
-            <span className="font-serif font-bold text-zinc-200">{player.clan}</span>
-            <span className="text-xs font-mono bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded">
-              Lv.{player.level}
-            </span>
+          <div className="player-hud__info">
+            <span className="player-hud__name">{player.clan}</span>
+            <span className="player-hud__level">Lv.{player.level}</span>
             {/* XP Bar inline */}
-            <div className="flex items-center gap-2 flex-1 max-w-[150px]">
-              <TrendingUp className="w-3 h-3 text-amber-500" />
-              <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+            <div className="player-hud__xp">
+              <TrendingUp className="player-hud__xp-icon" />
+              <div className="player-hud__xp-track">
                 <div
-                  className="h-full bg-amber-500 transition-all duration-300"
+                  className="player-hud__xp-fill"
                   style={{ width: `${xpPercent}%` }}
                 />
               </div>
-              <span className="text-[9px] text-zinc-500 font-mono">
+              <span className="player-hud__xp-value">
                 {player.exp}/{player.maxExp}
               </span>
             </div>
           </div>
 
           {/* HP & Chakra Bars */}
-          <div className="flex gap-4">
-            <div className="flex-1">
+          <div className="player-hud__bars">
+            <div className="player-hud__bar">
               <StatBar
                 current={player.currentHp}
                 max={playerStats.derived.maxHp}
@@ -93,7 +89,7 @@ const PlayerHUD = forwardRef<HTMLDivElement, PlayerHUDProps>(({ player, playerSt
                 showValue={true}
               />
             </div>
-            <div className="flex-1">
+            <div className="player-hud__bar">
               <StatBar
                 current={player.currentChakra}
                 max={playerStats.derived.maxChakra}
@@ -107,7 +103,7 @@ const PlayerHUD = forwardRef<HTMLDivElement, PlayerHUDProps>(({ player, playerSt
 
         {/* Buffs Section */}
         {player.activeBuffs.length > 0 && (
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="player-hud__buffs">
             {visibleBuffs.map((buff, idx) => {
               const isPositive = buff.effect ? isPositiveEffect(buff.effect.type) : true;
               const severity = getEffectSeverity(buff);
@@ -119,34 +115,34 @@ const PlayerHUD = forwardRef<HTMLDivElement, PlayerHUDProps>(({ player, playerSt
                   key={buff.id || idx}
                   position="top"
                   content={
-                    <div className="space-y-2 p-1 max-w-[260px]">
+                    <div className="player-hud__buff-tooltip">
                       {/* Header */}
-                      <div className="flex items-center gap-2">
-                        <span className={`text-lg ${buff.effect ? getEffectColor(buff.effect.type) : 'text-zinc-400'}`}>
+                      <div className="player-hud__buff-tooltip-header">
+                        <span className={`player-hud__buff-tooltip-icon ${buff.effect ? getEffectColor(buff.effect.type) : 'text-zinc-400'}`}>
                           {buff.effect ? getEffectIcon(buff.effect.type) : '✨'}
                         </span>
                         <div>
-                          <div className={`font-bold uppercase text-sm ${isPositive ? 'text-green-400' : getSeverityColor(severity)}`}>
+                          <div className={`player-hud__buff-tooltip-name ${isPositive ? 'player-hud__buff-tooltip-name--positive' : getSeverityColor(severity)}`}>
                             {buff.name}
                           </div>
-                          <div className="text-[9px] text-zinc-500 uppercase tracking-wider">
+                          <div className="player-hud__buff-tooltip-type">
                             {isPositive ? 'Beneficial' : 'Harmful'} Effect
                           </div>
                         </div>
                       </div>
 
                       {/* Description */}
-                      <div className="text-xs text-zinc-300 border-t border-zinc-700 pt-2">
+                      <div className="player-hud__buff-tooltip-desc">
                         {getBuffDescription(buff)}
                       </div>
 
                       {/* Mechanics Breakdown */}
-                      <div className="border-t border-zinc-700 pt-2">
-                        <div className="text-[9px] text-zinc-500 uppercase tracking-wider mb-1">Mechanics</div>
-                        <div className="space-y-0.5">
+                      <div className="player-hud__buff-tooltip-section">
+                        <div className="player-hud__buff-tooltip-section-title">Mechanics</div>
+                        <div>
                           {mechanics.map((mechanic, i) => (
-                            <div key={i} className="text-[10px] text-zinc-400 flex items-start gap-1">
-                              <span className="text-zinc-600">•</span>
+                            <div key={i} className="player-hud__buff-tooltip-mechanic">
+                              <span className="player-hud__buff-tooltip-bullet">•</span>
                               <span>{mechanic}</span>
                             </div>
                           ))}
@@ -154,14 +150,14 @@ const PlayerHUD = forwardRef<HTMLDivElement, PlayerHUDProps>(({ player, playerSt
                       </div>
 
                       {/* Source & Duration */}
-                      <div className="border-t border-zinc-700 pt-2 flex justify-between text-[10px]">
+                      <div className="player-hud__buff-tooltip-footer">
                         <div>
-                          <span className="text-zinc-500">Source: </span>
-                          <span className="text-zinc-300">{buff.source || 'Unknown'}</span>
+                          <span className="player-hud__buff-tooltip-label">Source: </span>
+                          <span className="player-hud__buff-tooltip-value">{buff.source || 'Unknown'}</span>
                         </div>
                         <div>
-                          <span className="text-zinc-500">Remaining: </span>
-                          <span className={buff.duration <= 1 ? 'text-red-400 font-bold' : 'text-zinc-300'}>
+                          <span className="player-hud__buff-tooltip-label">Remaining: </span>
+                          <span className={buff.duration <= 1 ? 'player-hud__buff-tooltip-value--expiring' : 'player-hud__buff-tooltip-value'}>
                             {buff.duration === -1 ? 'Permanent' : `${buff.duration} turn${buff.duration !== 1 ? 's' : ''}`}
                           </span>
                         </div>
@@ -169,23 +165,17 @@ const PlayerHUD = forwardRef<HTMLDivElement, PlayerHUDProps>(({ player, playerSt
 
                       {/* Strategic Tip */}
                       {tip && (
-                        <div className="border-t border-zinc-700 pt-2 text-[10px] text-amber-400/80 italic">
+                        <div className="player-hud__buff-tooltip-tip">
                           Tip: {tip}
                         </div>
                       )}
                     </div>
                   }
                 >
-                  <div
-                    className={`flex items-center gap-1 rounded px-2 py-1 cursor-help transition-colors ${
-                      isPositive
-                        ? 'bg-green-950/60 border border-green-700/50 hover:border-green-500/70'
-                        : 'bg-red-950/60 border border-red-700/50 hover:border-red-500/70'
-                    }`}
-                  >
-                    <span className="text-sm">{buff.effect ? getEffectIcon(buff.effect.type) : '✨'}</span>
+                  <div className={`player-hud__buff ${isPositive ? 'player-hud__buff--positive' : 'player-hud__buff--negative'}`}>
+                    <span className="player-hud__buff-icon">{buff.effect ? getEffectIcon(buff.effect.type) : '✨'}</span>
                     {buff.duration !== undefined && buff.duration > 0 && (
-                      <span className={`text-xs font-mono ${buff.duration <= 1 ? 'text-red-400' : 'text-zinc-400'}`}>
+                      <span className={`player-hud__buff-duration ${buff.duration <= 1 ? 'player-hud__buff-duration--expiring' : ''}`}>
                         {buff.duration}
                       </span>
                     )}
@@ -194,7 +184,7 @@ const PlayerHUD = forwardRef<HTMLDivElement, PlayerHUDProps>(({ player, playerSt
               );
             })}
             {overflowCount > 0 && (
-              <div className="text-xs font-mono text-zinc-500">
+              <div className="player-hud__buff-overflow">
                 +{overflowCount}
               </div>
             )}

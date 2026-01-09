@@ -4,6 +4,7 @@ import {
   Swords, Brain, Flame, Droplet, Target, Wind, Sparkles, User, Heart, Eye
 } from 'lucide-react';
 import Tooltip from '../shared/Tooltip';
+import './character.css';
 
 interface PrimaryStatsPanelProps {
   player: Player;
@@ -17,39 +18,52 @@ const PrimaryStatsPanel: React.FC<PrimaryStatsPanelProps> = ({ player, effective
     key: keyof PrimaryAttributes,
     subLabel: string,
     description: string,
-    color: string = 'text-zinc-500'
+    iconClass: string
   ) => {
     const base = player.primaryStats[key];
     const effective = effectivePrimary[key];
     const diff = effective - base;
 
     const tooltipContent = (
-      <div className="text-xs space-y-1">
-        <div className="font-bold text-zinc-200 mb-1">{subLabel}</div>
-        <div className="text-zinc-400">{description}</div>
-        <div className="border-t border-zinc-800 mt-2 pt-2 font-mono text-zinc-500">
-          <div className="flex justify-between"><span>Base</span> <span className="text-zinc-300">{base}</span></div>
-          <div className="flex justify-between"><span>Bonus</span> <span className={diff > 0 ? "text-green-400" : diff < 0 ? "text-red-400" : "text-zinc-500"}>{diff >= 0 ? '+' : ''}{diff}</span></div>
-          <div className="flex justify-between border-t border-zinc-800 mt-1 pt-1"><span>Total</span> <span className="text-zinc-200 font-bold">{effective}</span></div>
+      <div className="primary-stats__tooltip">
+        <div className="primary-stats__tooltip-title">{subLabel}</div>
+        <div className="primary-stats__tooltip-desc">{description}</div>
+        <div className="primary-stats__tooltip-breakdown">
+          <div className="primary-stats__tooltip-row">
+            <span>Base</span>
+            <span className="primary-stats__stat-value--neutral">{base}</span>
+          </div>
+          <div className="primary-stats__tooltip-row">
+            <span>Bonus</span>
+            <span className={diff > 0 ? "primary-stats__stat-value--positive" : diff < 0 ? "primary-stats__stat-value--negative" : ""}>
+              {diff >= 0 ? '+' : ''}{diff}
+            </span>
+          </div>
+          <div className="primary-stats__tooltip-row primary-stats__tooltip-row--total">
+            <span>Total</span>
+            <span className="primary-stats__stat-value--neutral">{effective}</span>
+          </div>
         </div>
       </div>
     );
 
     return (
       <Tooltip content={tooltipContent} position="right">
-        <div className="flex items-center justify-between text-xs text-zinc-400 py-1.5 px-2 rounded hover:bg-zinc-800 transition-colors group cursor-help">
-          <div className="flex items-center gap-2">
-            <span className={`${color} group-hover:text-zinc-300 transition-colors`}>{icon}</span>
-            <div>
-              <div className="text-zinc-300 font-medium text-[11px]">{label}</div>
-            </div>
+        <div className="primary-stats__stat">
+          <div className="primary-stats__stat-left">
+            <span className={`primary-stats__stat-icon ${iconClass}`}>{icon}</span>
+            <div className="primary-stats__stat-label">{label}</div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className={`font-mono font-bold text-sm ${diff > 0 ? 'text-green-400' : diff < 0 ? 'text-red-400' : 'text-zinc-200'}`}>
+          <div className="primary-stats__stat-right">
+            <span className={`primary-stats__stat-value ${
+              diff > 0 ? 'primary-stats__stat-value--positive' :
+              diff < 0 ? 'primary-stats__stat-value--negative' :
+              'primary-stats__stat-value--neutral'
+            }`}>
               {effective}
             </span>
             {diff !== 0 && (
-              <span className="text-[9px] text-zinc-600 font-mono">
+              <span className="primary-stats__stat-diff">
                 ({diff >= 0 ? '+' : ''}{diff})
               </span>
             )}
@@ -60,51 +74,51 @@ const PrimaryStatsPanel: React.FC<PrimaryStatsPanelProps> = ({ player, effective
   };
 
   return (
-    <div className="primary-stats-panel p-3 rounded border border-zinc-800">
+    <div className="primary-stats">
       {/* Header: Clan & Element */}
-      <div className="flex items-center gap-3 mb-3 border-b border-zinc-800 pb-2">
-        <div className="p-1.5 bg-zinc-950 rounded-full border border-zinc-800">
-          <User size={16} className="text-red-600" />
+      <div className="primary-stats__header">
+        <div className="primary-stats__avatar">
+          <User size={16} className="primary-stats__avatar-icon" />
         </div>
-        <div>
-          <div className="text-sm font-bold text-zinc-200">{player.clan} Clan</div>
-          <div className="text-[10px] text-zinc-500">Affinity: {player.element}</div>
+        <div className="primary-stats__info">
+          <div className="primary-stats__clan">{player.clan} Clan</div>
+          <div className="primary-stats__element">Affinity: {player.element}</div>
         </div>
       </div>
 
       {/* THE SPIRIT */}
-      <div className="mb-3">
-        <h3 className="text-[9px] font-bold text-purple-900 mb-1 uppercase tracking-widest flex items-center gap-1">
+      <div className="primary-stats__category">
+        <h3 className="primary-stats__category-title primary-stats__category-title--spirit">
           <Flame size={10} /> The Spirit
         </h3>
-        <div className="space-y-0 bg-zinc-950/50 rounded p-1">
-          {renderPrimaryStat(<Heart size={12} />, "Willpower", "willpower", "Willpower", "Grit & survival instinct. Governs Max HP, Guts chance (survive fatal blow), and HP regeneration.", "text-red-500")}
-          {renderPrimaryStat(<Droplet size={12} />, "Chakra", "chakra", "Chakra", "Raw energy capacity. Determines Max Chakra pool size.", "text-blue-500")}
-          {renderPrimaryStat(<Flame size={12} />, "Spirit", "spirit", "Spirit", "Nature affinity. Governs Elemental Ninjutsu damage and Elemental Defense.", "text-purple-500")}
+        <div className="primary-stats__list">
+          {renderPrimaryStat(<Heart size={12} />, "Willpower", "willpower", "Willpower", "Grit & survival instinct. Governs Max HP, Guts chance (survive fatal blow), and HP regeneration.", "primary-stats__stat-icon--willpower")}
+          {renderPrimaryStat(<Droplet size={12} />, "Chakra", "chakra", "Chakra", "Raw energy capacity. Determines Max Chakra pool size.", "primary-stats__stat-icon--chakra")}
+          {renderPrimaryStat(<Flame size={12} />, "Spirit", "spirit", "Spirit", "Nature affinity. Governs Elemental Ninjutsu damage and Elemental Defense.", "primary-stats__stat-icon--spirit")}
         </div>
       </div>
 
       {/* THE MIND */}
-      <div className="mb-3">
-        <h3 className="text-[9px] font-bold text-cyan-900 mb-1 uppercase tracking-widest flex items-center gap-1">
+      <div className="primary-stats__category">
+        <h3 className="primary-stats__category-title primary-stats__category-title--mind">
           <Brain size={10} /> The Mind
         </h3>
-        <div className="space-y-0 bg-zinc-950/50 rounded p-1">
-          {renderPrimaryStat(<Brain size={12} />, "Intelligence", "intelligence", "Intelligence", "Tactical acumen. Required to learn complex Jutsus. Governs Chakra regeneration.", "text-cyan-500")}
-          {renderPrimaryStat(<Eye size={12} />, "Calmness", "calmness", "Calmness", "Mental fortitude. Governs Genjutsu damage/defense and Status Resistance.", "text-indigo-500")}
-          {renderPrimaryStat(<Target size={12} />, "Accuracy", "accuracy", "Accuracy", "Marksmanship. Governs Ranged Hit chance and Ranged Critical Damage bonus.", "text-yellow-500")}
+        <div className="primary-stats__list">
+          {renderPrimaryStat(<Brain size={12} />, "Intelligence", "intelligence", "Intelligence", "Tactical acumen. Required to learn complex Jutsus. Governs Chakra regeneration.", "primary-stats__stat-icon--intelligence")}
+          {renderPrimaryStat(<Eye size={12} />, "Calmness", "calmness", "Calmness", "Mental fortitude. Governs Genjutsu damage/defense and Status Resistance.", "primary-stats__stat-icon--calmness")}
+          {renderPrimaryStat(<Target size={12} />, "Accuracy", "accuracy", "Accuracy", "Marksmanship. Governs Ranged Hit chance and Ranged Critical Damage bonus.", "primary-stats__stat-icon--accuracy")}
         </div>
       </div>
 
       {/* THE BODY */}
-      <div>
-        <h3 className="text-[9px] font-bold text-orange-900 mb-1 uppercase tracking-widest flex items-center gap-1">
+      <div className="primary-stats__category">
+        <h3 className="primary-stats__category-title primary-stats__category-title--body">
           <Swords size={10} /> The Body
         </h3>
-        <div className="space-y-0 bg-zinc-950/50 rounded p-1">
-          {renderPrimaryStat(<Swords size={12} />, "Strength", "strength", "Strength", "Physical conditioning. Governs Taijutsu damage and Physical Defense.", "text-orange-500")}
-          {renderPrimaryStat(<Wind size={12} />, "Speed", "speed", "Speed", "Reflexes & flow. Governs Initiative, Melee Hit chance, and Evasion.", "text-green-500")}
-          {renderPrimaryStat(<Sparkles size={12} />, "Dexterity", "dexterity", "Dexterity", "Lethal precision. Governs Critical Hit chance for all attack types.", "text-pink-500")}
+        <div className="primary-stats__list">
+          {renderPrimaryStat(<Swords size={12} />, "Strength", "strength", "Strength", "Physical conditioning. Governs Taijutsu damage and Physical Defense.", "primary-stats__stat-icon--strength")}
+          {renderPrimaryStat(<Wind size={12} />, "Speed", "speed", "Speed", "Reflexes & flow. Governs Initiative, Melee Hit chance, and Evasion.", "primary-stats__stat-icon--speed")}
+          {renderPrimaryStat(<Sparkles size={12} />, "Dexterity", "dexterity", "Dexterity", "Lethal precision. Governs Critical Hit chance for all attack types.", "primary-stats__stat-icon--dexterity")}
         </div>
       </div>
     </div>

@@ -1,0 +1,463 @@
+/**
+ * Scroll Discovery Scene Styles
+ * BEM-style CSS for the jutsu scroll discovery screen
+ */
+
+@import '../../styles/design-system/index.css';
+
+/* ===========================================
+   Main Container
+   =========================================== */
+
+.scroll-discovery {
+  width: 100%;
+  max-width: 56rem;
+  z-index: 10;
+}
+
+.scroll-discovery__header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sw-space-4);
+  margin-bottom: var(--sw-space-2);
+}
+
+.scroll-discovery__header-icon {
+  color: #f59e0b;
+}
+
+.scroll-discovery__title {
+  font-size: var(--sw-text-2xl);
+  text-align: center;
+  color: var(--sw-text-muted);
+  font-family: var(--sw-font-serif);
+  letter-spacing: 0.5em;
+  text-transform: uppercase;
+}
+
+.scroll-discovery__subtitle {
+  text-align: center;
+  color: var(--sw-text-muted);
+  font-size: var(--sw-text-sm);
+  margin-bottom: var(--sw-space-6);
+}
+
+/* Keyboard Hints */
+.scroll-discovery__hints {
+  display: flex;
+  justify-content: center;
+  gap: var(--sw-space-4);
+  font-size: var(--sw-text-xs);
+  color: var(--sw-text-muted);
+  margin-bottom: var(--sw-space-4);
+}
+
+.scroll-discovery__hint {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-1);
+}
+
+/* ===========================================
+   Player Resources Bar
+   =========================================== */
+
+.scroll-discovery__resources {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sw-space-6);
+  margin-bottom: var(--sw-space-8);
+}
+
+.scroll-discovery__resource {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+}
+
+.scroll-discovery__resource-icon--chakra {
+  color: #3b82f6;
+}
+
+.scroll-discovery__resource-icon--int {
+  color: #06b6d4;
+}
+
+.scroll-discovery__resource-value--chakra {
+  color: #60a5fa;
+  font-family: var(--sw-font-mono);
+}
+
+.scroll-discovery__resource-value--int {
+  color: #22d3ee;
+  font-family: var(--sw-font-mono);
+}
+
+/* ===========================================
+   Scrolls Grid
+   =========================================== */
+
+.scroll-discovery__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sw-space-6);
+  margin-bottom: var(--sw-space-10);
+}
+
+@media (min-width: 768px) {
+  .scroll-discovery__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ===========================================
+   Scroll Card
+   =========================================== */
+
+.scroll-card {
+  background: var(--sw-bg-primary);
+  border: 1px solid;
+  padding: var(--sw-space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-4);
+  transition: all var(--sw-transition-base);
+}
+
+.scroll-card:hover {
+  background: var(--sw-glass-bg);
+}
+
+/* Tier Border Colors */
+.scroll-card--basic {
+  border-color: var(--sw-glass-border);
+}
+
+.scroll-card--advanced {
+  border-color: rgba(6, 182, 212, 0.7);
+}
+
+.scroll-card--hidden {
+  border-color: rgba(180, 83, 9, 0.7);
+}
+
+.scroll-card--forbidden {
+  border-color: rgba(185, 28, 28, 0.7);
+}
+
+.scroll-card--kinjutsu {
+  border-color: rgba(190, 18, 60, 0.7);
+}
+
+/* Card Header */
+.scroll-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.scroll-card__title-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.scroll-card__name {
+  font-weight: 700;
+  font-size: var(--sw-text-lg);
+  margin-bottom: var(--sw-space-1);
+}
+
+/* Tier Name Colors */
+.scroll-card__name--basic {
+  color: var(--sw-text-muted);
+}
+
+.scroll-card__name--advanced {
+  color: #22d3ee;
+}
+
+.scroll-card__name--hidden {
+  color: #fbbf24;
+}
+
+.scroll-card__name--forbidden {
+  color: #ef4444;
+}
+
+.scroll-card__name--kinjutsu {
+  color: #fb7185;
+  animation: sw-ready-pulse 2s ease-in-out infinite;
+}
+
+.scroll-card__type {
+  font-size: var(--sw-text-2xs);
+  color: var(--sw-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-widest);
+  font-weight: 700;
+}
+
+.scroll-card__known-badge {
+  font-size: var(--sw-text-2xs);
+  background: rgba(22, 101, 52, 0.3);
+  color: #4ade80;
+  padding: var(--sw-space-1) var(--sw-space-2);
+  border-radius: var(--sw-radius-sm);
+}
+
+/* Description */
+.scroll-card__description {
+  font-size: var(--sw-text-xs);
+  color: var(--sw-text-muted);
+  font-style: italic;
+  flex: 1;
+}
+
+/* Stats List */
+.scroll-card__stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-1);
+  font-size: var(--sw-text-2xs);
+  font-family: var(--sw-font-mono);
+  color: var(--sw-text-muted);
+}
+
+.scroll-card__stat {
+  display: flex;
+  justify-content: space-between;
+}
+
+.scroll-card__stat-value--chakra {
+  color: #60a5fa;
+}
+
+.scroll-card__stat-value--physical {
+  color: var(--sw-category-body-light);
+}
+
+.scroll-card__stat-value--elemental {
+  color: #22d3ee;
+}
+
+.scroll-card__stat-value--mental {
+  color: #a855f7;
+}
+
+.scroll-card__stat-value--true {
+  color: #f87171;
+}
+
+.scroll-card__stat-value--multiplier {
+  color: #fbbf24;
+}
+
+/* Warning Messages */
+.scroll-card__warning {
+  font-size: var(--sw-text-2xs);
+  border-radius: var(--sw-radius-sm);
+  padding: var(--sw-space-1) var(--sw-space-2);
+}
+
+.scroll-card__warning--requirement {
+  color: #f87171;
+  background: rgba(127, 29, 29, 0.2);
+}
+
+.scroll-card__warning--slots {
+  color: var(--sw-accent-tertiary);
+  background: rgba(120, 53, 15, 0.2);
+}
+
+.scroll-card__warning--chakra {
+  font-size: var(--sw-text-3xs);
+  color: #f87171;
+  text-align: center;
+  margin-top: var(--sw-space-1);
+}
+
+/* ===========================================
+   Action Buttons
+   =========================================== */
+
+.scroll-card__actions {
+  margin-top: auto;
+  padding-top: var(--sw-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-2);
+}
+
+.scroll-card__btn {
+  width: 100%;
+  padding: var(--sw-space-3);
+  border: 1px solid;
+  font-size: var(--sw-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--sw-transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sw-space-2);
+}
+
+.scroll-card__btn:disabled {
+  cursor: not-allowed;
+}
+
+.scroll-card__btn--learn {
+  background: rgba(120, 53, 15, 0.2);
+  border-color: rgba(180, 83, 9, 0.7);
+  color: #fcd34d;
+}
+
+.scroll-card__btn--learn:hover:not(:disabled) {
+  background: rgba(120, 53, 15, 0.4);
+}
+
+.scroll-card__btn--learn:disabled {
+  background: rgba(24, 24, 27, 1);
+  border-color: var(--sw-glass-border);
+  color: var(--sw-text-muted);
+}
+
+.scroll-card__btn-cost {
+  font-size: var(--sw-text-xs);
+}
+
+.scroll-card__btn-cost--affordable {
+  color: #60a5fa;
+}
+
+.scroll-card__btn-cost--insufficient {
+  color: #f87171;
+}
+
+/* Replace Skill Grid */
+.scroll-card__replace-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sw-space-2);
+}
+
+.scroll-card__btn--replace {
+  padding: var(--sw-space-2);
+  background: rgba(24, 24, 27, 1);
+  border: 1px solid var(--sw-glass-border);
+  font-size: var(--sw-text-3xs);
+  color: var(--sw-text-muted);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--sw-transition-base);
+}
+
+.scroll-card__btn--replace:hover:not(:disabled) {
+  color: #f87171;
+  border-color: rgba(153, 27, 27, 1);
+}
+
+.scroll-card__btn--replace:disabled {
+  color: var(--sw-glass-border);
+  cursor: not-allowed;
+}
+
+/* ===========================================
+   Leave Button
+   =========================================== */
+
+.scroll-discovery__footer {
+  text-align: center;
+}
+
+.scroll-discovery__leave-btn {
+  color: var(--sw-text-muted);
+  font-size: var(--sw-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-widest);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  padding-bottom: var(--sw-space-1);
+  cursor: pointer;
+  transition: all var(--sw-transition-base);
+}
+
+.scroll-discovery__leave-btn:hover {
+  color: var(--sw-text-tertiary);
+  border-bottom-color: var(--sw-text-muted);
+}
+
+/* ===========================================
+   Tooltip Styles
+   =========================================== */
+
+.scroll-tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-2);
+  padding: var(--sw-space-1);
+  max-width: 280px;
+}
+
+.scroll-tooltip__name {
+  font-weight: 700;
+}
+
+.scroll-tooltip__description {
+  font-size: var(--sw-text-xs);
+  color: var(--sw-text-muted);
+  font-style: italic;
+}
+
+.scroll-tooltip__section {
+  border-top: 1px solid var(--sw-glass-border);
+  padding-top: var(--sw-space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-1);
+  font-size: var(--sw-text-2xs);
+  font-family: var(--sw-font-mono);
+}
+
+.scroll-tooltip__stat {
+  display: flex;
+  justify-content: space-between;
+}
+
+.scroll-tooltip__stat-label {
+  color: var(--sw-text-muted);
+}
+
+.scroll-tooltip__effects-title {
+  font-size: var(--sw-text-3xs);
+  color: var(--sw-text-muted);
+  text-transform: uppercase;
+  margin-bottom: var(--sw-space-1);
+}
+
+.scroll-tooltip__effect {
+  font-size: var(--sw-text-2xs);
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-1);
+}
+
+.scroll-tooltip__effect-text {
+  color: var(--sw-text-tertiary);
+}
+
+.scroll-tooltip__requirements-title {
+  color: var(--sw-text-muted);
+}
+
+.scroll-tooltip__requirement--met {
+  color: #4ade80;
+}
+
+.scroll-tooltip__requirement--unmet {
+  color: #f87171;
+}

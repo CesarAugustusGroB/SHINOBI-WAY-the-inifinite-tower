@@ -3,6 +3,8 @@ import { useGame } from '../../contexts/GameContext';
 import LocationPanel from '../exploration/LocationPanel';
 import PrimaryStatsPanel from '../character/PrimaryStatsPanel';
 import DerivedStatsPanel from '../character/DerivedStatsPanel';
+import './layout.css';
+import locationBg from '@/assets/ui_seinen-sublime-atmosferico_1767723116286.png';
 
 interface LeftSidebarPanelProps {
   // Props are now optional - uses context if not provided
@@ -23,12 +25,13 @@ const LeftSidebarPanel: React.FC<LeftSidebarPanelProps> = ({
   const regionName = region?.name ?? 'Unknown Region';
 
   return (
-    <div className="flex flex-col gap-4 h-full text-[11px] rounded-lg p-3 overflow-y-auto">
+    <div className="sidebar">
       <LocationPanel
         locationName={locationName}
         dangerLevel={dangerLevel}
         regionName={regionName}
         storyArcLabel={arcLabel}
+        backgroundImage={locationBg}
       />
 
       <PrimaryStatsPanel

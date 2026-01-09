@@ -17,6 +17,7 @@ import {
   getEffectIcon,
   formatEffectDescription,
 } from '../../game/utils/tooltipFormatters';
+import './ScrollDiscovery.css';
 
 interface ScrollDiscoveryProps {
   scrollDiscovery: ScrollDiscoveryActivity;
@@ -26,29 +27,49 @@ interface ScrollDiscoveryProps {
   onSkip: () => void;
 }
 
-const TIER_COLORS: Record<SkillTier, string> = {
-  [SkillTier.BASIC]: 'text-zinc-400',
-  [SkillTier.ADVANCED]: 'text-cyan-400',
-  [SkillTier.HIDDEN]: 'text-amber-400',
-  [SkillTier.FORBIDDEN]: 'text-red-500',
-  [SkillTier.KINJUTSU]: 'text-rose-500 animate-pulse',
+// Helper functions for tier-based styling
+const getTierNameClass = (tier: SkillTier): string => {
+  switch (tier) {
+    case SkillTier.ADVANCED:
+      return 'scroll-card__name--advanced';
+    case SkillTier.HIDDEN:
+      return 'scroll-card__name--hidden';
+    case SkillTier.FORBIDDEN:
+      return 'scroll-card__name--forbidden';
+    case SkillTier.KINJUTSU:
+      return 'scroll-card__name--kinjutsu';
+    default:
+      return 'scroll-card__name--basic';
+  }
 };
 
-const TIER_BORDER_COLORS: Record<SkillTier, string> = {
-  [SkillTier.BASIC]: 'border-zinc-700',
-  [SkillTier.ADVANCED]: 'border-cyan-700',
-  [SkillTier.HIDDEN]: 'border-amber-700',
-  [SkillTier.FORBIDDEN]: 'border-red-700',
-  [SkillTier.KINJUTSU]: 'border-rose-700',
+const getTierCardClass = (tier: SkillTier): string => {
+  switch (tier) {
+    case SkillTier.ADVANCED:
+      return 'scroll-card--advanced';
+    case SkillTier.HIDDEN:
+      return 'scroll-card--hidden';
+    case SkillTier.FORBIDDEN:
+      return 'scroll-card--forbidden';
+    case SkillTier.KINJUTSU:
+      return 'scroll-card--kinjutsu';
+    default:
+      return 'scroll-card--basic';
+  }
 };
 
-const getDamageTypeColor = (dt: DamageType): string => {
+const getDamageTypeClass = (dt: DamageType): string => {
   switch (dt) {
-    case DamageType.PHYSICAL: return 'text-orange-400';
-    case DamageType.ELEMENTAL: return 'text-cyan-400';
-    case DamageType.MENTAL: return 'text-purple-400';
-    case DamageType.TRUE: return 'text-red-400';
-    default: return 'text-zinc-400';
+    case DamageType.PHYSICAL:
+      return 'scroll-card__stat-value--physical';
+    case DamageType.ELEMENTAL:
+      return 'scroll-card__stat-value--elemental';
+    case DamageType.MENTAL:
+      return 'scroll-card__stat-value--mental';
+    case DamageType.TRUE:
+      return 'scroll-card__stat-value--true';
+    default:
+      return '';
   }
 };
 
@@ -63,7 +84,6 @@ const ScrollDiscovery: React.FC<ScrollDiscoveryProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' || e.code === 'Enter') {
-        // Don't trigger if user is typing in an input
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
         e.preventDefault();
         onSkip();
@@ -101,91 +121,94 @@ const ScrollDiscovery: React.FC<ScrollDiscoveryProps> = ({
   };
 
   return (
-    <div className="w-full max-w-4xl z-10">
-      <div className="flex items-center justify-center gap-4 mb-2">
-        <Scroll className="text-amber-500" size={24} />
-        <h2 className="text-2xl text-center text-zinc-500 font-serif tracking-[0.5em] uppercase">
-          Ancient Scrolls
-        </h2>
-        <Scroll className="text-amber-500" size={24} />
+    <div className="scroll-discovery">
+      <div className="scroll-discovery__header">
+        <Scroll className="scroll-discovery__header-icon" size={24} />
+        <h2 className="scroll-discovery__title">Ancient Scrolls</h2>
+        <Scroll className="scroll-discovery__header-icon" size={24} />
       </div>
 
-      <p className="text-center text-zinc-600 text-sm mb-6">
+      <p className="scroll-discovery__subtitle">
         You discovered ancient jutsu scrolls. Study them to learn new techniques.
       </p>
 
-      <div className="flex items-center justify-center gap-6 mb-8">
-        <div className="flex items-center gap-2">
-          <Zap className="text-blue-500" size={16} />
-          <span className="text-blue-400 font-mono">
+      {/* Keyboard Hints */}
+      <div className="scroll-discovery__hints">
+        <span className="scroll-discovery__hint">
+          <span className="sw-shortcut">Space</span> or <span className="sw-shortcut">Enter</span> Leave Scrolls
+        </span>
+      </div>
+
+      <div className="scroll-discovery__resources">
+        <div className="scroll-discovery__resource">
+          <Zap className="scroll-discovery__resource-icon--chakra" size={16} />
+          <span className="scroll-discovery__resource-value--chakra">
             {player.currentChakra} / {playerStats.derived.maxChakra}
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <Brain className="text-cyan-500" size={16} />
-          <span className="text-cyan-400 font-mono">
+        <div className="scroll-discovery__resource">
+          <Brain className="scroll-discovery__resource-icon--int" size={16} />
+          <span className="scroll-discovery__resource-value--int">
             INT: {Math.floor(playerStats.effectivePrimary.intelligence)}
           </span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+      <div className="scroll-discovery__grid">
         {scrollDiscovery.availableScrolls.map((skill) => {
           const known = alreadyKnows(skill);
           const reqCheck = meetsRequirements(skill);
           const canLearn = canAfford && reqCheck.meets && (!skillSlotsFull || known);
-          const tierColor = TIER_COLORS[skill.tier];
-          const borderColor = TIER_BORDER_COLORS[skill.tier];
 
           return (
             <Tooltip
               key={skill.id}
               content={
-                <div className="space-y-2 p-1 max-w-[280px]">
-                  <div className={`font-bold ${tierColor}`}>{skill.name}</div>
-                  <div className="text-xs text-zinc-400 italic">{skill.description}</div>
+                <div className="scroll-tooltip">
+                  <div className={`scroll-tooltip__name ${getTierNameClass(skill.tier)}`}>{skill.name}</div>
+                  <div className="scroll-tooltip__description">{skill.description}</div>
 
-                  <div className="border-t border-zinc-700 pt-2 space-y-1 text-[10px] font-mono">
-                    <div className="flex justify-between">
-                      <span className="text-zinc-600">Chakra Cost</span>
-                      <span className="text-blue-400">{skill.chakraCost}</span>
+                  <div className="scroll-tooltip__section">
+                    <div className="scroll-tooltip__stat">
+                      <span className="scroll-tooltip__stat-label">Chakra Cost</span>
+                      <span className="scroll-card__stat-value--chakra">{skill.chakraCost}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-600">Damage Type</span>
-                      <span className={getDamageTypeColor(skill.damageType)}>{skill.damageType}</span>
+                    <div className="scroll-tooltip__stat">
+                      <span className="scroll-tooltip__stat-label">Damage Type</span>
+                      <span className={getDamageTypeClass(skill.damageType)}>{skill.damageType}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-600">Multiplier</span>
-                      <span className="text-amber-400">{skill.damageMult}x {formatScalingStat(skill.scalingStat)}</span>
+                    <div className="scroll-tooltip__stat">
+                      <span className="scroll-tooltip__stat-label">Multiplier</span>
+                      <span className="scroll-card__stat-value--multiplier">{skill.damageMult}x {formatScalingStat(skill.scalingStat)}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-600">Element</span>
+                    <div className="scroll-tooltip__stat">
+                      <span className="scroll-tooltip__stat-label">Element</span>
                       <span className={getElementColor(skill.element)}>{skill.element}</span>
                     </div>
                   </div>
 
                   {skill.effects && skill.effects.length > 0 && (
-                    <div className="border-t border-zinc-700 pt-2">
-                      <div className="text-[9px] text-zinc-500 uppercase mb-1">Effects</div>
+                    <div className="scroll-tooltip__section">
+                      <div className="scroll-tooltip__effects-title">Effects</div>
                       {skill.effects.map((effect, idx) => (
-                        <div key={idx} className="text-[10px] flex items-center gap-1">
+                        <div key={idx} className="scroll-tooltip__effect">
                           <span className={getEffectColor(effect.type)}>{getEffectIcon(effect.type)}</span>
-                          <span className="text-zinc-300">{formatEffectDescription(effect)}</span>
+                          <span className="scroll-tooltip__effect-text">{formatEffectDescription(effect)}</span>
                         </div>
                       ))}
                     </div>
                   )}
 
                   {skill.requirements && (
-                    <div className="border-t border-zinc-700 pt-2 text-[10px]">
-                      <div className="text-zinc-500">Requirements:</div>
+                    <div className="scroll-tooltip__section">
+                      <div className="scroll-tooltip__requirements-title">Requirements:</div>
                       {skill.requirements.intelligence && (
-                        <div className={playerStats.effectivePrimary.intelligence >= skill.requirements.intelligence ? 'text-green-400' : 'text-red-400'}>
+                        <div className={playerStats.effectivePrimary.intelligence >= skill.requirements.intelligence ? 'scroll-tooltip__requirement--met' : 'scroll-tooltip__requirement--unmet'}>
                           INT {skill.requirements.intelligence}
                         </div>
                       )}
                       {skill.requirements.clan && (
-                        <div className={player.clan === skill.requirements.clan ? 'text-green-400' : 'text-red-400'}>
+                        <div className={player.clan === skill.requirements.clan ? 'scroll-tooltip__requirement--met' : 'scroll-tooltip__requirement--unmet'}>
                           {skill.requirements.clan} bloodline
                         </div>
                       )}
@@ -194,75 +217,65 @@ const ScrollDiscovery: React.FC<ScrollDiscoveryProps> = ({
                 </div>
               }
             >
-              <div className={`bg-black border ${borderColor} p-6 flex flex-col gap-4`}>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className={`font-bold text-lg mb-1 ${tierColor}`}>
+              <div className={`scroll-card ${getTierCardClass(skill.tier)}`}>
+                <div className="scroll-card__header">
+                  <div className="scroll-card__title-section">
+                    <h3 className={`scroll-card__name ${getTierNameClass(skill.tier)}`}>
                       {skill.name}
                     </h3>
-                    <p className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">
-                      {skill.tier} Technique
-                    </p>
+                    <p className="scroll-card__type">{skill.tier} Technique</p>
                   </div>
                   {known && (
-                    <span className="text-[10px] bg-green-900/30 text-green-400 px-2 py-1 rounded">
-                      Known
-                    </span>
+                    <span className="scroll-card__known-badge">Known</span>
                   )}
                 </div>
 
-                <p className="text-xs text-zinc-500 italic flex-1">
-                  {skill.description}
-                </p>
+                <p className="scroll-card__description">{skill.description}</p>
 
-                <div className="space-y-1 text-[10px] font-mono text-zinc-500">
-                  <div className="flex justify-between">
+                <div className="scroll-card__stats">
+                  <div className="scroll-card__stat">
                     <span>Chakra Cost</span>
-                    <span className="text-blue-400">{skill.chakraCost}</span>
+                    <span className="scroll-card__stat-value--chakra">{skill.chakraCost}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="scroll-card__stat">
                     <span>Damage Type</span>
-                    <span className={getDamageTypeColor(skill.damageType)}>{skill.damageType}</span>
+                    <span className={getDamageTypeClass(skill.damageType)}>{skill.damageType}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="scroll-card__stat">
                     <span>Element</span>
                     <span className={getElementColor(skill.element)}>{skill.element}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="scroll-card__stat">
                     <span>Multiplier</span>
-                    <span className="text-amber-400">{skill.damageMult}x {formatScalingStat(skill.scalingStat)}</span>
+                    <span className="scroll-card__stat-value--multiplier">{skill.damageMult}x {formatScalingStat(skill.scalingStat)}</span>
                   </div>
                 </div>
 
                 {!reqCheck.meets && (
-                  <div className="text-[10px] text-red-400 bg-red-900/20 rounded px-2 py-1">
+                  <div className="scroll-card__warning scroll-card__warning--requirement">
                     {reqCheck.reason}
                   </div>
                 )}
 
                 {skillSlotsFull && !known && (
-                  <div className="text-[10px] text-amber-400 bg-amber-900/20 rounded px-2 py-1">
+                  <div className="scroll-card__warning scroll-card__warning--slots">
                     Skill slots full (4/4) - will replace existing skill
                   </div>
                 )}
 
-                <div className="mt-auto pt-3 space-y-2">
+                <div className="scroll-card__actions">
                   {/* Upgrade or Learn button */}
                   {(known || (!skillSlotsFull && reqCheck.meets)) && (
                     <button
                       type="button"
                       disabled={!canAfford || !reqCheck.meets}
                       onClick={() => onLearnScroll(skill)}
-                      className={`w-full py-3 border text-xs font-bold uppercase transition-colors flex items-center justify-center gap-2
-                        ${canAfford && reqCheck.meets
-                          ? 'bg-amber-900/20 border-amber-700 text-amber-300 hover:bg-amber-900/40'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed'
-                        }`}
+                      className={`scroll-card__btn scroll-card__btn--learn ${!canAfford || !reqCheck.meets ? 'scroll-card__btn--learn:disabled' : ''}`}
                     >
                       <Sparkles size={14} />
                       {known ? 'Upgrade Skill' : 'Learn Technique'}
                       {chakraCost > 0 && (
-                        <span className={canAfford ? 'text-blue-400' : 'text-red-400'}>
+                        <span className={`scroll-card__btn-cost ${canAfford ? 'scroll-card__btn-cost--affordable' : 'scroll-card__btn-cost--insufficient'}`}>
                           (-{chakraCost} Chakra)
                         </span>
                       )}
@@ -271,18 +284,14 @@ const ScrollDiscovery: React.FC<ScrollDiscoveryProps> = ({
 
                   {/* Replacement buttons when slots are full */}
                   {!known && player.skills.length > 0 && reqCheck.meets && (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="scroll-card__replace-grid">
                       {player.skills.map((s, idx) => (
                         <button
                           type="button"
                           key={idx}
                           disabled={!canAfford}
                           onClick={() => onLearnScroll(skill, idx)}
-                          className={`py-2 border text-[9px] uppercase transition-colors
-                            ${canAfford
-                              ? 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-red-400 hover:border-red-900'
-                              : 'bg-zinc-900 border-zinc-800 text-zinc-700 cursor-not-allowed'
-                            }`}
+                          className="scroll-card__btn--replace"
                         >
                           Replace {s.name}
                         </button>
@@ -291,7 +300,7 @@ const ScrollDiscovery: React.FC<ScrollDiscoveryProps> = ({
                   )}
 
                   {!canAfford && (
-                    <div className="text-[9px] text-red-400 text-center mt-1">
+                    <div className="scroll-card__warning--chakra">
                       Not enough chakra to study
                     </div>
                   )}
@@ -302,12 +311,8 @@ const ScrollDiscovery: React.FC<ScrollDiscoveryProps> = ({
         })}
       </div>
 
-      <div className="text-center">
-        <button
-          type="button"
-          onClick={onSkip}
-          className="text-zinc-600 hover:text-zinc-300 text-xs uppercase tracking-widest border-b border-transparent hover:border-zinc-600 pb-1"
-        >
+      <div className="scroll-discovery__footer">
+        <button type="button" onClick={onSkip} className="scroll-discovery__leave-btn">
           Leave Scrolls
         </button>
       </div>

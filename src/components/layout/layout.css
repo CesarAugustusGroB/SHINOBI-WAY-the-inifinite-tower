@@ -1,0 +1,172 @@
+/**
+ * Layout Components Styles
+ * BEM-style CSS for sidebar panels and layout containers
+ */
+
+@import '../../styles/design-system/index.css';
+
+/* ===========================================
+   SIDEBAR BASE
+   =========================================== */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-4);
+  height: 100%;
+  font-size: var(--sw-text-2xs);
+  border-radius: var(--sw-radius-lg);
+  padding: var(--sw-space-3);
+  overflow-y: auto;
+}
+
+/* ===========================================
+   WALLET DISPLAY
+   =========================================== */
+
+.wallet {
+  background: rgba(24, 24, 27, 0.5);
+  border: 1px solid var(--sw-glass-border);
+  border-radius: var(--sw-radius-lg);
+  padding: var(--sw-space-3);
+}
+
+.wallet__label {
+  color: var(--sw-text-tertiary);
+  font-size: var(--sw-text-xs);
+  margin-bottom: var(--sw-space-1);
+}
+
+.wallet__amount {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+  flex-shrink: 0;
+  padding: var(--sw-space-1) var(--sw-space-3);
+  background: rgba(39, 39, 42, 0.5);
+  border-radius: var(--sw-radius-sm);
+  border: 1px solid var(--sw-glass-border);
+}
+
+.wallet__icon {
+  width: 1rem;
+  height: 1rem;
+  color: #eab308;
+}
+
+.wallet__value {
+  color: #facc15;
+  font-weight: 700;
+  font-size: var(--sw-text-sm);
+}
+
+/* ===========================================
+   TREASURE HUNT PANEL
+   =========================================== */
+
+.treasure-hunt {
+  background: rgba(24, 24, 27, 0.5);
+  border: 1px solid rgba(180, 83, 9, 0.5);
+  border-radius: var(--sw-radius-lg);
+  padding: var(--sw-space-3);
+}
+
+.treasure-hunt__header {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+  margin-bottom: var(--sw-space-2);
+}
+
+.treasure-hunt__icon {
+  width: 1rem;
+  height: 1rem;
+  color: #fbbf24;
+}
+
+.treasure-hunt__title {
+  color: #fbbf24;
+  font-size: var(--sw-text-xs);
+  font-weight: 500;
+}
+
+.treasure-hunt__progress {
+  display: flex;
+  align-items: center;
+  gap: var(--sw-space-2);
+  padding: var(--sw-space-1) var(--sw-space-2);
+  background: rgba(39, 39, 42, 0.5);
+  border-radius: var(--sw-radius-sm);
+  border: 1px solid var(--sw-glass-border);
+}
+
+.treasure-hunt__pieces {
+  display: flex;
+  gap: var(--sw-space-1);
+  flex: 1;
+}
+
+.treasure-hunt__piece {
+  height: 0.625rem;
+  flex: 1;
+  border-radius: var(--sw-radius-sm);
+  transition: background var(--sw-transition-fast);
+}
+
+.treasure-hunt__piece--collected {
+  background: #f59e0b;
+}
+
+.treasure-hunt__piece--empty {
+  background: var(--sw-glass-border);
+}
+
+.treasure-hunt__count {
+  color: #fcd34d;
+  font-size: var(--sw-text-xs);
+  font-weight: 500;
+  margin-left: var(--sw-space-1);
+}
+
+/* ===========================================
+   DRAG PREVIEW
+   =========================================== */
+
+.drag-preview {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--sw-radius-sm);
+  border-width: 2px;
+  border-style: solid;
+  backdrop-filter: blur(8px);
+  box-shadow: var(--sw-shadow-lg);
+  font-size: var(--sw-text-xl);
+}
+
+.drag-preview--common {
+  background: rgba(161, 161, 170, 0.3);
+  border-color: var(--sw-rarity-common);
+}
+
+.drag-preview--rare {
+  background: rgba(59, 130, 246, 0.3);
+  border-color: var(--sw-rarity-rare);
+}
+
+.drag-preview--epic {
+  background: rgba(168, 85, 247, 0.3);
+  border-color: var(--sw-rarity-epic);
+}
+
+.drag-preview--legendary {
+  background: rgba(249, 115, 22, 0.3);
+  border-color: var(--sw-rarity-legendary);
+}
+
+.drag-preview--cursed {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: var(--sw-rarity-cursed);
+}

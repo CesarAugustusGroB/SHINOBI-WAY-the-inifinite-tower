@@ -1,0 +1,323 @@
+/**
+ * Skill Card Component Styles
+ * BEM-style CSS for combat skill cards
+ */
+
+@import '../../styles/design-system/index.css';
+
+/* ===========================================
+   Main Skill Card Container
+   =========================================== */
+
+.skill-card {
+  position: relative;
+  width: 100%;
+  height: 7rem;
+  border-radius: var(--sw-radius-lg);
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border: 1px solid;
+  transition: all var(--sw-transition-base);
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.skill-card:hover:not(.skill-card--disabled):not(.skill-card--passive) {
+  transform: scale(1.02);
+}
+
+/* Border Color Variants */
+.skill-card--main {
+  border-color: var(--sw-glass-border);
+}
+
+.skill-card--main:hover:not(.skill-card--disabled) {
+  border-color: var(--sw-glass-border-highlight);
+}
+
+.skill-card--side {
+  border-color: rgba(37, 99, 235, 0.7);
+}
+
+.skill-card--side:hover:not(.skill-card--disabled) {
+  border-color: #60a5fa;
+}
+
+.skill-card--toggle {
+  border-color: rgba(180, 83, 9, 0.7);
+}
+
+.skill-card--toggle:hover:not(.skill-card--disabled) {
+  border-color: #f59e0b;
+}
+
+.skill-card--toggle.skill-card--active {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
+  animation: sw-ready-pulse 2s ease-in-out infinite;
+}
+
+.skill-card--passive {
+  border-color: var(--sw-glass-border-highlight);
+  opacity: 0.6;
+  cursor: default;
+}
+
+.skill-card--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(30%);
+}
+
+.skill-card--effective:not(.skill-card--disabled) {
+  box-shadow: inset 0 0 0 1px rgba(234, 179, 8, 0.5);
+}
+
+/* ===========================================
+   Keyboard Shortcut Badge
+   =========================================== */
+
+.skill-card__shortcut {
+  position: absolute;
+  top: var(--sw-space-1);
+  left: var(--sw-space-1);
+  z-index: 30;
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid var(--sw-glass-border-highlight);
+  color: var(--sw-text-secondary);
+  font-size: var(--sw-text-2xs);
+  font-weight: 700;
+  width: 1.25rem;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--sw-radius-sm);
+}
+
+/* ===========================================
+   Background Image Layer
+   =========================================== */
+
+.skill-card__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  opacity: 0.7;
+  transition: opacity var(--sw-transition-base);
+}
+
+.skill-card:hover:not(.skill-card--disabled):not(.skill-card--passive) .skill-card__bg {
+  opacity: 0.9;
+}
+
+/* Gradient Overlay */
+.skill-card__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.4), transparent);
+  z-index: 10;
+}
+
+/* ===========================================
+   Content Layer
+   =========================================== */
+
+.skill-card__content {
+  position: relative;
+  z-index: 20;
+  width: 100%;
+  height: 100%;
+  padding: var(--sw-space-3);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* Top Row: Name and Badges */
+.skill-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.skill-card__name {
+  font-size: var(--sw-text-xs);
+  font-weight: 700;
+  color: var(--sw-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.skill-card__type-row {
+  display: flex;
+  gap: var(--sw-space-2);
+  margin-top: var(--sw-space-0-5);
+}
+
+.skill-card__damage-type {
+  font-size: var(--sw-text-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.skill-card__damage-type--physical {
+  color: var(--sw-category-body-light);
+}
+
+.skill-card__damage-type--elemental {
+  color: var(--sw-category-mind-light);
+}
+
+.skill-card__damage-type--mental {
+  color: #a5b4fc;
+}
+
+/* Right Badges */
+.skill-card__badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sw-space-1);
+}
+
+.skill-card__action-badge {
+  border-radius: var(--sw-radius-sm);
+  padding: var(--sw-space-0-5) var(--sw-space-1-5);
+}
+
+.skill-card__action-badge-text {
+  font-size: 0.5rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-wide);
+}
+
+.skill-card__action-badge--side {
+  background: rgba(30, 58, 138, 0.8);
+  color: #93c5fd;
+}
+
+.skill-card__action-badge--toggle {
+  background: rgba(120, 53, 15, 0.8);
+  color: var(--sw-accent-tertiary);
+}
+
+.skill-card__action-badge--toggle-active {
+  background: #d97706;
+  color: #fef3c7;
+}
+
+.skill-card__action-badge--passive {
+  background: var(--sw-glass-border);
+  color: var(--sw-text-tertiary);
+}
+
+.skill-card__level-badge {
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--sw-glass-border);
+  border-radius: var(--sw-radius-sm);
+  padding: var(--sw-space-0-5) var(--sw-space-1-5);
+}
+
+.skill-card__level-text {
+  font-size: 0.5rem;
+  font-family: var(--sw-font-mono);
+  color: #ca8a04;
+}
+
+/* ===========================================
+   Damage Display
+   =========================================== */
+
+.skill-card__damage {
+  position: absolute;
+  right: var(--sw-space-3);
+  bottom: var(--sw-space-3);
+  text-align: right;
+}
+
+.skill-card__damage-label {
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: var(--sw-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--sw-tracking-widest);
+  margin-bottom: -2px;
+}
+
+.skill-card__damage-value {
+  font-size: 1.5rem;
+  font-weight: 900;
+  font-family: var(--sw-font-serif);
+  color: var(--sw-text-secondary);
+  transition: color var(--sw-transition-base);
+}
+
+.skill-card__damage-value--effective {
+  color: #facc15;
+  text-shadow: 0 0 8px rgba(234, 179, 8, 0.5);
+}
+
+/* ===========================================
+   Cost Display
+   =========================================== */
+
+.skill-card__costs {
+  display: flex;
+  gap: var(--sw-space-3);
+  margin-top: auto;
+  font-size: var(--sw-text-2xs);
+  font-family: var(--sw-font-mono);
+}
+
+.skill-card__cost--cp {
+  color: #60a5fa;
+  font-weight: 700;
+}
+
+.skill-card__cost--cp-zero {
+  color: var(--sw-text-muted);
+}
+
+.skill-card__cost--hp {
+  color: #f87171;
+  font-weight: 700;
+}
+
+.skill-card__cost--upkeep {
+  color: var(--sw-accent-tertiary);
+  font-weight: 700;
+}
+
+.skill-card__cost--passive {
+  color: var(--sw-text-muted);
+  font-style: italic;
+}
+
+/* ===========================================
+   Cooldown Overlay
+   =========================================== */
+
+.skill-card__cooldown {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: rgba(0, 0, 0, 0.8);
+  -webkit-backdrop-filter: blur(1px);
+  backdrop-filter: blur(1px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.skill-card__cooldown-value {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--sw-text-muted);
+}

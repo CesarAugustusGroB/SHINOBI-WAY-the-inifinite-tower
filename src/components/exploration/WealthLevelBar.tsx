@@ -1,4 +1,5 @@
 import React from 'react';
+import './exploration.css';
 
 interface WealthLevelBarProps {
   level: number | null;
@@ -8,41 +9,34 @@ interface WealthLevelBarProps {
 const WealthLevelBar: React.FC<WealthLevelBarProps> = ({ level, showLabel = true }) => {
   const segments = [1, 2, 3, 4, 5, 6, 7];
 
-  const getSegmentColor = (segmentLevel: number, currentLevel: number | null) => {
-    if (currentLevel === null) return 'bg-zinc-800';
-    if (segmentLevel > currentLevel) return 'bg-zinc-800';
+  // Get segment class based on level
+  const getSegmentClass = (seg: number): string => {
+    if (level === null || seg > level) {
+      return 'level-bar__segment level-bar__segment--wealth-empty';
+    }
+    return `level-bar__segment level-bar__segment--wealth-${seg}`;
+  };
 
-    // Gold/yellow color scheme for wealth
-    if (segmentLevel <= 2) return 'bg-amber-800';
-    if (segmentLevel <= 4) return 'bg-amber-600';
-    if (segmentLevel <= 5) return 'bg-yellow-500';
-    return 'bg-yellow-400';
+  // Get value class for text color
+  const getValueClass = (): string => {
+    if (level === null) return 'level-bar__value';
+    return `level-bar__value level-bar__value--wealth-${level}`;
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="level-bar">
       {showLabel && (
-        <span className="text-xs text-zinc-400 uppercase tracking-wider w-14">
+        <span className="level-bar__label">
           {level !== null ? 'Wealth' : '???'}
         </span>
       )}
-      <div className="flex gap-0.5 flex-1">
+      <div className="level-bar__segments">
         {segments.map((seg) => (
-          <div
-            key={seg}
-            className={`h-2 flex-1 rounded-sm transition-colors ${getSegmentColor(seg, level)}`}
-          />
+          <div key={seg} className={getSegmentClass(seg)} />
         ))}
       </div>
       {level !== null && (
-        <span className={`text-xs font-mono w-6 text-right ${
-          level <= 2 ? 'text-amber-700' :
-          level <= 4 ? 'text-amber-500' :
-          level <= 5 ? 'text-yellow-400' :
-          'text-yellow-300'
-        }`}>
-          {level}
-        </span>
+        <span className={getValueClass()}>{level}</span>
       )}
     </div>
   );

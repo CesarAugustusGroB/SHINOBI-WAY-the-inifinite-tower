@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { Skull } from 'lucide-react';
+import './GameOver.css';
 
 interface GameOverProps {
   locationName: string;
@@ -9,29 +10,68 @@ interface GameOverProps {
   onRetry: () => void;
 }
 
-const GameOver: React.FC<GameOverProps> = ({ locationName, dangerLevel, regionName, playerLevel, onRetry }) => {
-  const getDangerColor = (level: number): string => {
-    if (level <= 2) return 'text-green-500';
-    if (level <= 4) return 'text-yellow-500';
-    if (level <= 6) return 'text-orange-500';
-    return 'text-red-500';
+const GameOver: React.FC<GameOverProps> = ({
+  locationName,
+  dangerLevel,
+  regionName,
+  playerLevel,
+  onRetry
+}) => {
+  // Keyboard shortcut
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onRetry();
+    }
+  }, [onRetry]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
+  // Get danger level modifier for CSS
+  const getDangerModifier = (level: number): string => {
+    if (level <= 2) return 'game-over__danger--safe';
+    if (level <= 4) return 'game-over__danger--low';
+    if (level <= 6) return 'game-over__danger--medium';
+    return 'game-over__danger--high';
   };
 
   return (
-    <div className="min-h-screen bg-black text-red-700 flex flex-col items-center justify-center font-mono relative">
-      <Skull size={64} className="mb-6 text-zinc-800" />
-      <h1 className="text-6xl font-bold mb-4">DEATH</h1>
-      <p className="text-zinc-500 mb-6 text-xl">
-        You fell at {locationName} <span className={getDangerColor(dangerLevel)}>(Danger {dangerLevel})</span>
-        {playerLevel ? ` at Level ${playerLevel}` : ''}
-      </p>
-      <p className="text-zinc-600 mb-12 text-sm">{regionName}</p>
-      <button
-        onClick={onRetry}
-        className="px-12 py-4 border border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white uppercase tracking-widest text-sm"
-      >
-        Try Again
-      </button>
+    <div className="game-over">
+      <div className="game-over__content">
+        {/* Death Icon */}
+        <Skull size={64} className="game-over__icon" />
+
+        {/* Title */}
+        <h1 className="game-over__title">Death</h1>
+
+        {/* Stats Panel */}
+        <div className="game-over__panel">
+          <p className="game-over__location">
+            You fell at {locationName}
+            <span className={`game-over__danger ${getDangerModifier(dangerLevel)}`}>
+              (Danger {dangerLevel})
+            </span>
+          </p>
+
+          <p className="game-over__region">{regionName}</p>
+
+          {playerLevel && (
+            <div className="game-over__level">
+              <span>Reached Level</span>
+              <span className="game-over__level-value">{playerLevel}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Retry Button */}
+        <button type="button" onClick={onRetry} className="game-over__retry">
+          <span className="game-over__retry-text">Try Again</span>
+          <span className="sw-shortcut">Enter</span>
+        </button>
+      </div>
     </div>
   );
 };
