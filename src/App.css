@@ -1,4 +1,7 @@
 /* src/App.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Character Stats Panel - Left sidebar background */
 .character-stats-panel {

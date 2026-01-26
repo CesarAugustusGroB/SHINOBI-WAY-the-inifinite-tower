@@ -148,7 +148,7 @@ export function useTreasureHandlers(
     setPendingBagFullItem,
   } = setters;
 
-  const { addLog, returnToMap, returnToMapActivityComplete } = deps;
+  const { addLog, returnToMap, returnToMapActivityComplete, onAutoTreasureGuardianVictory } = deps;
 
   /**
    * Helper: Complete treasure activity and return to map.
