@@ -27,6 +27,9 @@ export interface UseExplorationDeps {
   currentLocation: Location | null;
   activitySetters: ActivitySceneSetters;
   setEnemy: (enemy: Enemy | null) => void;
+  // Auto-combat callbacks for when ENABLE_MANUAL_COMBAT is false
+  onAutoCombat?: (room: BranchingRoom, floor: BranchingFloor, setFloor: React.Dispatch<React.SetStateAction<BranchingFloor | null>>) => void;
+  onAutoEliteCombat?: (room: BranchingRoom, enemy: Enemy, artifact: Item, floor: BranchingFloor, setFloor: React.Dispatch<React.SetStateAction<BranchingFloor | null>>) => void;
 }
 
 /**
@@ -97,6 +100,8 @@ export function useExploration(
     currentLocation,
     activitySetters,
     setEnemy,
+    onAutoCombat,
+    onAutoEliteCombat,
   } = deps;
 
   const { setDroppedItems, setDroppedSkill } = activitySetters;
@@ -118,6 +123,8 @@ export function useExploration(
     setShowApproachSelector,
     setCurrentIntel,
     currentIntel,
+    onAutoCombat,
+    onAutoEliteCombat,
   });
 
   // Location cards - card selection and location navigation

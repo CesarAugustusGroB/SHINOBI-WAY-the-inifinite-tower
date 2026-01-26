@@ -92,6 +92,7 @@ import { Merchant, Training, Event } from './scenes/activities';
 import AssetCompanion from './scenes/AssetCompanion';
 import DiceRollResultModal from './components/modals/DiceRollResultModal';
 import { attemptEliteEscape } from './game/systems/EliteChallengeSystem';
+import { simulateGameCombat, CombatSimulationResult } from './game/systems/CombatSimulationService';
 // Shared components
 import ErrorBoundary from './components/shared/ErrorBoundary';
 // Layout components
@@ -436,6 +437,92 @@ const App: React.FC = () => {
       currentTreasureHunt, locationFloor, selectedBranchingRoom, currentLocation, difficulty,
       setDiceRollResult, setTreasureHuntReward, setCurrentTreasureHunt, setCurrentTreasure]);
 
+  // Auto-combat handler for when ENABLE_MANUAL_COMBAT is false
+  const handleAutoCombat = useCallback((
+    room: BranchingRoom,
+    floor: import('./game/types').BranchingFloor,
+    setFloor: React.Dispatch<React.SetStateAction<import('./game/types').BranchingFloor | null>>
+  ) => {
+    if (!player || !playerStats || !room.activities.combat) return;
+
+    const combatEnemy = room.activities.combat.enemy;
+    addLog(`Auto-combat started against ${combatEnemy.name}...`, 'info');
+
+    // Run simulation
+    const result = simulateGameCombat(player, playerStats, combatEnemy);
+
+    // Update player HP and chakra based on simulation result
+    setPlayer(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        currentHp: Math.max(1, result.playerHpRemaining),
+        currentChakra: result.playerChakraRemaining,
+      };
+    });
+
+    if (result.won) {
+      addLog(`Victory! Defeated ${combatEnemy.name} in ${result.turnsElapsed} turns.`, 'gain');
+      if (result.gutsTriggered > 0) {
+        addLog(`Guts triggered ${result.gutsTriggered} time(s)!`, 'info');
+      }
+
+      // Complete the activity in the floor
+      const updatedFloor = completeActivity(floor, room.id, 'combat');
+      setFloor(updatedFloor);
+
+      // Call victory handler
+      handleCombatVictory(combatEnemy, null);
+    } else {
+      addLog(`Defeated by ${combatEnemy.name} after ${result.turnsElapsed} turns...`, 'danger');
+      setGameState(GameState.GAME_OVER);
+    }
+  }, [player, playerStats, addLog, handleCombatVictory, setGameState]);
+
+  // Auto-elite-combat handler for when ENABLE_MANUAL_COMBAT is false
+  const handleAutoEliteCombat = useCallback((
+    room: BranchingRoom,
+    eliteEnemy: Enemy,
+    artifact: Item,
+    floor: import('./game/types').BranchingFloor,
+    setFloor: React.Dispatch<React.SetStateAction<import('./game/types').BranchingFloor | null>>
+  ) => {
+    if (!player || !playerStats) return;
+
+    addLog(`Auto-combat started against elite guardian: ${eliteEnemy.name}...`, 'danger');
+
+    // Run simulation
+    const result = simulateGameCombat(player, playerStats, eliteEnemy);
+
+    // Update player HP and chakra based on simulation result
+    setPlayer(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        currentHp: Math.max(1, result.playerHpRemaining),
+        currentChakra: result.playerChakraRemaining,
+      };
+    });
+
+    if (result.won) {
+      addLog(`Victory! Defeated elite guardian ${eliteEnemy.name} in ${result.turnsElapsed} turns.`, 'gain');
+      addLog(`Obtained artifact: ${artifact.name}!`, 'loot');
+
+      // Complete the activity in the floor
+      const updatedFloor = completeActivity(floor, room.id, 'eliteChallenge');
+      setFloor(updatedFloor);
+
+      // Set pending artifact for loot scene
+      setPendingArtifact(artifact);
+
+      // Call victory handler (with elite enemy)
+      handleCombatVictory(eliteEnemy, null);
+    } else {
+      addLog(`Defeated by elite guardian ${eliteEnemy.name} after ${result.turnsElapsed} turns...`, 'danger');
+      setGameState(GameState.GAME_OVER);
+    }
+  }, [player, playerStats, addLog, handleCombatVictory, setGameState]);
+
   // Combat hook - manages enemy, turns, and combat logic
   const {
     enemy,
@@ -501,6 +588,8 @@ const App: React.FC = () => {
     currentLocation,
     activitySetters,
     setEnemy,
+    onAutoCombat: handleAutoCombat,
+    onAutoEliteCombat: handleAutoEliteCombat,
   });
 
   // Treasure system handlers
@@ -553,6 +642,10 @@ const App: React.FC = () => {
       addLog,
       returnToMap,
       returnToMapActivityComplete,
+      onAutoTreasureGuardianVictory: (guardian: Enemy) => {
+        // Call victory handler for treasure guardian auto-combat
+        handleCombatVictory(guardian, null);
+      },
     }
   );
 
@@ -867,10 +960,38 @@ const App: React.FC = () => {
         }
       }
 
-      setEnemy(combatEnemy);
-      setTurnState('PLAYER');
-      setActiveEvent(null);
-      setGameState(GameState.COMBAT);
+      // Check if manual combat is enabled
+      if (FeatureFlags.ENABLE_MANUAL_COMBAT) {
+        setEnemy(combatEnemy);
+        setTurnState('PLAYER');
+        setActiveEvent(null);
+        setGameState(GameState.COMBAT);
+      } else {
+        // Auto-simulate event combat
+        addLog(`Engaging ${combatEnemy.name} from event...`, 'info');
+        const simResult = simulateGameCombat(player, playerStats, combatEnemy);
+
+        // Update player HP and chakra
+        setPlayer(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            currentHp: Math.max(1, simResult.playerHpRemaining),
+            currentChakra: simResult.playerChakraRemaining,
+          };
+        });
+
+        setActiveEvent(null);
+
+        if (simResult.won) {
+          addLog(`Victory! Defeated ${combatEnemy.name} in ${simResult.turnsElapsed} turns.`, 'gain');
+          // Call victory handler for rewards
+          handleCombatVictory(combatEnemy, null);
+        } else {
+          addLog(`Defeated by ${combatEnemy.name}...`, 'danger');
+          setGameState(GameState.GAME_OVER);
+        }
+      }
       return;
     }
 

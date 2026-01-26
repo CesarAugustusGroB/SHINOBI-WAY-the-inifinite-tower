@@ -44,6 +44,9 @@ export const FeatureFlags = {
   /** Enable training rooms in exploration */
   ENABLE_TRAINING: true,
 
+  /** Enable manual/interactive combat. When false, combat is auto-simulated */
+  ENABLE_MANUAL_COMBAT: false,
+
   // ─────────────────────────────────────────────────────────────
   // UI Features
   // ─────────────────────────────────────────────────────────────

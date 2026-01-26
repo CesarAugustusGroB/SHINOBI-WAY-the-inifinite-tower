@@ -11,6 +11,7 @@ import {
   logModalOpen, logStateChange, logExplorationCheckpoint,
   logIntelGain
 } from '../game/utils/explorationDebug';
+import { FeatureFlags } from '../config/featureFlags';
 
 /**
  * Activity scene data setters - passed from App.tsx
@@ -49,6 +50,10 @@ export interface ActivityHandlerDeps {
   setShowApproachSelector: React.Dispatch<React.SetStateAction<boolean>>;
   setCurrentIntel: React.Dispatch<React.SetStateAction<number>>;
   currentIntel: number;
+  // Auto-combat callback for when ENABLE_MANUAL_COMBAT is false
+  onAutoCombat?: (room: BranchingRoom, floor: BranchingFloor, setFloor: React.Dispatch<React.SetStateAction<BranchingFloor | null>>) => void;
+  // Auto-elite-combat callback for elite challenges when ENABLE_MANUAL_COMBAT is false
+  onAutoEliteCombat?: (room: BranchingRoom, enemy: Enemy, artifact: Item, floor: BranchingFloor, setFloor: React.Dispatch<React.SetStateAction<BranchingFloor | null>>) => void;
 }
 
 /**
@@ -79,6 +84,8 @@ export function useActivityHandler(deps: ActivityHandlerDeps): UseActivityHandle
     setShowApproachSelector,
     setCurrentIntel,
     currentIntel,
+    onAutoCombat,
+    onAutoEliteCombat,
   } = deps;
 
   const {
@@ -116,10 +123,25 @@ export function useActivityHandler(deps: ActivityHandlerDeps): UseActivityHandle
       case 'combat':
         if (currentRoom.activities.combat) {
           logActivityStart(currentRoom.id, 'combat', { enemy: currentRoom.activities.combat.enemy.name });
-          logModalOpen('ApproachSelector', { roomId: currentRoom.id, enemy: currentRoom.activities.combat.enemy.name });
-          setSelectedBranchingRoom(currentRoom);
-          setShowApproachSelector(true);
-          addLog(`Enemy spotted: ${currentRoom.activities.combat.enemy.name}. Choose your approach!`, 'info');
+
+          // Check if manual combat is enabled
+          if (FeatureFlags.ENABLE_MANUAL_COMBAT) {
+            logModalOpen('ApproachSelector', { roomId: currentRoom.id, enemy: currentRoom.activities.combat.enemy.name });
+            setSelectedBranchingRoom(currentRoom);
+            setShowApproachSelector(true);
+            addLog(`Enemy spotted: ${currentRoom.activities.combat.enemy.name}. Choose your approach!`, 'info');
+          } else {
+            // Auto-combat mode
+            if (onAutoCombat) {
+              addLog(`Engaging ${currentRoom.activities.combat.enemy.name} in combat...`, 'info');
+              onAutoCombat(currentRoom, updatedFloor, setFloor);
+            } else {
+              // Fallback to manual combat if callback not provided
+              setSelectedBranchingRoom(currentRoom);
+              setShowApproachSelector(true);
+              addLog(`Enemy spotted: ${currentRoom.activities.combat.enemy.name}. Choose your approach!`, 'info');
+            }
+          }
         }
         break;
 
@@ -194,14 +216,33 @@ export function useActivityHandler(deps: ActivityHandlerDeps): UseActivityHandle
         if (currentRoom.activities.eliteChallenge && !currentRoom.activities.eliteChallenge.completed) {
           const challenge = currentRoom.activities.eliteChallenge;
           logActivityStart(currentRoom.id, 'eliteChallenge', { enemy: challenge.enemy.name, artifact: challenge.artifact.name });
-          logStateChange(exploreState.toString(), 'ELITE_CHALLENGE', 'elite challenge activity');
-          setEliteChallengeData({
-            enemy: challenge.enemy,
-            artifact: challenge.artifact,
-            room: currentRoom,
-          });
-          setGameState(GameState.ELITE_CHALLENGE);
-          addLog(`An artifact guardian bars your path...`, 'danger');
+
+          // Check if manual combat is enabled
+          if (FeatureFlags.ENABLE_MANUAL_COMBAT) {
+            logStateChange(exploreState.toString(), 'ELITE_CHALLENGE', 'elite challenge activity');
+            setEliteChallengeData({
+              enemy: challenge.enemy,
+              artifact: challenge.artifact,
+              room: currentRoom,
+            });
+            setGameState(GameState.ELITE_CHALLENGE);
+            addLog(`An artifact guardian bars your path...`, 'danger');
+          } else {
+            // Auto-combat mode for elite challenge
+            if (onAutoEliteCombat) {
+              addLog(`Engaging artifact guardian: ${challenge.enemy.name}...`, 'danger');
+              onAutoEliteCombat(currentRoom, challenge.enemy, challenge.artifact, updatedFloor, setFloor);
+            } else {
+              // Fallback to manual if callback not provided
+              setEliteChallengeData({
+                enemy: challenge.enemy,
+                artifact: challenge.artifact,
+                room: currentRoom,
+              });
+              setGameState(GameState.ELITE_CHALLENGE);
+              addLog(`An artifact guardian bars your path...`, 'danger');
+            }
+          }
         }
         break;
 
@@ -242,7 +283,7 @@ export function useActivityHandler(deps: ActivityHandlerDeps): UseActivityHandle
     setMerchantItems, setMerchantDiscount, setActiveEvent,
     setTrainingData, setScrollDiscoveryData, setEliteChallengeData,
     setDroppedItems, setDroppedSkill, setCurrentIntel, currentIntel,
-    setCurrentTreasure, setCurrentTreasureHunt
+    setCurrentTreasure, setCurrentTreasureHunt, onAutoCombat, onAutoEliteCombat
   ]);
 
   return { executeRoomActivity };

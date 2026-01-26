@@ -14,7 +14,8 @@ import {
 import { addToBag } from '../game/systems/LootSystem';
 import { generateEnemy } from '../game/systems/EnemySystem';
 import { TurnState } from './useCombat';
-import { LaunchProperties } from '../config/featureFlags';
+import { LaunchProperties, FeatureFlags } from '../config/featureFlags';
+import { simulateGameCombat } from '../game/systems/CombatSimulationService';
 
 /**
  * State dependencies for treasure handlers
@@ -64,6 +65,8 @@ export interface TreasureHandlerDeps {
   addLog: (text: string, type?: LogEntry['type']) => void;
   returnToMap: () => void;
   returnToMapActivityComplete: (updatedFloor?: BranchingFloor) => void;
+  // Auto-combat callback for treasure guardian when ENABLE_MANUAL_COMBAT is false
+  onAutoTreasureGuardianVictory?: (guardian: Enemy) => void;
 }
 
 /**
@@ -220,7 +223,7 @@ export function useTreasureHandlers(
 
   // Fight guardian for guaranteed map piece (treasure hunter)
   const handleTreasureFightGuardian = useCallback(() => {
-    if (!currentTreasure || !currentTreasureHunt || !player || !selectedBranchingRoom || !locationFloor) return;
+    if (!currentTreasure || !currentTreasureHunt || !player || !playerStats || !selectedBranchingRoom || !locationFloor) return;
 
     // Generate a guardian enemy based on danger level
     const guardian = generateEnemy(
@@ -235,16 +238,49 @@ export function useTreasureHandlers(
     // Clear any pending artifact - this is a map piece fight
     setPendingArtifact(null);
 
-    setEnemy(guardian);
-    setTurnState('PLAYER');
-    setShowApproachSelector(true);
-    setCurrentTreasure(null);
-    // Keep currentTreasureHunt for after combat
+    // Check if manual combat is enabled
+    if (FeatureFlags.ENABLE_MANUAL_COMBAT) {
+      setEnemy(guardian);
+      setTurnState('PLAYER');
+      setShowApproachSelector(true);
+      setCurrentTreasure(null);
+      // Keep currentTreasureHunt for after combat
 
-    addLog('A guardian appears to protect the treasure map piece!', 'danger');
-  }, [currentTreasure, currentTreasureHunt, player, selectedBranchingRoom, locationFloor,
+      addLog('A guardian appears to protect the treasure map piece!', 'danger');
+    } else {
+      // Auto-simulate treasure guardian combat
+      addLog(`Engaging Treasure Guardian...`, 'danger');
+      const simResult = simulateGameCombat(player, playerStats, guardian);
+
+      // Update player HP and chakra
+      setPlayer(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          currentHp: Math.max(1, simResult.playerHpRemaining),
+          currentChakra: simResult.playerChakraRemaining,
+        };
+      });
+
+      setCurrentTreasure(null);
+
+      if (simResult.won) {
+        addLog(`Victory! Defeated Treasure Guardian in ${simResult.turnsElapsed} turns.`, 'gain');
+        // Set enemy for victory handler to process
+        setEnemy(guardian);
+        // Call victory callback if provided
+        if (onAutoTreasureGuardianVictory) {
+          onAutoTreasureGuardianVictory(guardian);
+        }
+      } else {
+        addLog(`Defeated by Treasure Guardian...`, 'danger');
+        setGameState(GameState.GAME_OVER);
+      }
+    }
+  }, [currentTreasure, currentTreasureHunt, player, playerStats, selectedBranchingRoom, locationFloor,
       currentDangerLevel, difficulty, region, addLog, setPendingArtifact, setEnemy,
-      setTurnState, setShowApproachSelector, setCurrentTreasure]);
+      setTurnState, setShowApproachSelector, setCurrentTreasure, setPlayer, setGameState,
+      onAutoTreasureGuardianVictory]);
 
   // Roll dice for map piece (treasure hunter)
   const handleTreasureRollDice = useCallback(() => {
