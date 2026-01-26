@@ -63,7 +63,7 @@ export interface TreasureHandlerSetters {
 export interface TreasureHandlerDeps {
   addLog: (text: string, type?: LogEntry['type']) => void;
   returnToMap: () => void;
-  returnToMapActivityComplete: () => void;
+  returnToMapActivityComplete: (updatedFloor?: BranchingFloor) => void;
 }
 
 /**
@@ -147,6 +147,27 @@ export function useTreasureHandlers(
 
   const { addLog, returnToMap, returnToMapActivityComplete } = deps;
 
+  /**
+   * Helper: Complete treasure activity and return to map.
+   * Extracts common logic from handleTreasureSelectItem, handleBagFullSell, handleBagFullLeave.
+   */
+  const completeTreasureAndReturn = useCallback(() => {
+    let finalFloor: BranchingFloor | undefined;
+    if (locationFloor && selectedBranchingRoom) {
+      finalFloor = completeActivity(locationFloor, selectedBranchingRoom.id, 'treasure');
+      setLocationFloor(finalFloor);
+    }
+    if (branchingFloor && selectedBranchingRoom) {
+      const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'treasure');
+      setBranchingFloor(updatedFloor);
+    }
+    setCurrentTreasure(null);
+    setCurrentTreasureHunt(null);
+    returnToMapActivityComplete(finalFloor);
+  }, [locationFloor, branchingFloor, selectedBranchingRoom,
+      setLocationFloor, setBranchingFloor, setCurrentTreasure,
+      setCurrentTreasureHunt, returnToMapActivityComplete]);
+
   // Reveal treasure choices (pay chakra)
   const handleTreasureReveal = useCallback(() => {
     if (!currentTreasure || !player) return;
@@ -185,16 +206,6 @@ export function useTreasureHandlers(
       addLog(`Found ${currentTreasure.ryoBonus} Ryo alongside the treasure!`, 'loot');
     }
 
-    // Complete treasure activity
-    if (locationFloor) {
-      const updatedFloor = completeActivity(locationFloor, selectedBranchingRoom.id, 'treasure');
-      setLocationFloor(updatedFloor);
-    }
-    if (branchingFloor) {
-      const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'treasure');
-      setBranchingFloor(updatedFloor);
-    }
-
     // Add item directly to bag (skip loot screen)
     const updatedPlayer = addToBag(player, selectedItem);
     if (updatedPlayer) {
@@ -202,13 +213,10 @@ export function useTreasureHandlers(
       addLog(`${selectedItem.name} added to your bag!`, 'loot');
     }
 
-    // Clear treasure state and return to map
-    setCurrentTreasure(null);
-    setCurrentTreasureHunt(null);
-    returnToMapActivityComplete();
-  }, [currentTreasure, player, selectedBranchingRoom, locationFloor, branchingFloor, addLog,
-      setPlayer, setLocationFloor, setBranchingFloor, setCurrentTreasure, setCurrentTreasureHunt,
-      returnToMapActivityComplete, setPendingBagFullItem]);
+    // Complete activity and return to map
+    completeTreasureAndReturn();
+  }, [currentTreasure, player, selectedBranchingRoom, addLog,
+      setPlayer, setPendingBagFullItem, completeTreasureAndReturn]);
 
   // Fight guardian for guaranteed map piece (treasure hunter)
   const handleTreasureFightGuardian = useCallback(() => {
@@ -393,24 +401,11 @@ export function useTreasureHandlers(
       addLog(`Found ${currentTreasure.ryoBonus} Ryo alongside the treasure!`, 'loot');
     }
 
-    // Complete treasure activity
-    if (locationFloor) {
-      const updatedFloor = completeActivity(locationFloor, selectedBranchingRoom.id, 'treasure');
-      setLocationFloor(updatedFloor);
-    }
-    if (branchingFloor) {
-      const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'treasure');
-      setBranchingFloor(updatedFloor);
-    }
-
-    // Clear state and return to map
+    // Clear pending state and complete activity
     setPendingBagFullItem(null);
-    setCurrentTreasure(null);
-    setCurrentTreasureHunt(null);
-    returnToMapActivityComplete();
-  }, [pendingBagFullItem, currentTreasure, player, selectedBranchingRoom, locationFloor, branchingFloor,
-      addLog, setPlayer, setLocationFloor, setBranchingFloor, setPendingBagFullItem,
-      setCurrentTreasure, setCurrentTreasureHunt, returnToMapActivityComplete]);
+    completeTreasureAndReturn();
+  }, [pendingBagFullItem, currentTreasure, player, selectedBranchingRoom,
+      addLog, setPlayer, setPendingBagFullItem, completeTreasureAndReturn]);
 
   // Leave pending item behind when bag is full
   const handleBagFullLeave = useCallback(() => {
@@ -424,24 +419,11 @@ export function useTreasureHandlers(
       addLog(`Found ${currentTreasure.ryoBonus} Ryo alongside the treasure!`, 'loot');
     }
 
-    // Complete treasure activity
-    if (locationFloor) {
-      const updatedFloor = completeActivity(locationFloor, selectedBranchingRoom.id, 'treasure');
-      setLocationFloor(updatedFloor);
-    }
-    if (branchingFloor) {
-      const updatedFloor = completeActivity(branchingFloor, selectedBranchingRoom.id, 'treasure');
-      setBranchingFloor(updatedFloor);
-    }
-
-    // Clear state and return to map
+    // Clear pending state and complete activity
     setPendingBagFullItem(null);
-    setCurrentTreasure(null);
-    setCurrentTreasureHunt(null);
-    returnToMapActivityComplete();
-  }, [pendingBagFullItem, currentTreasure, player, selectedBranchingRoom, locationFloor, branchingFloor,
-      addLog, setPlayer, setLocationFloor, setBranchingFloor, setPendingBagFullItem,
-      setCurrentTreasure, setCurrentTreasureHunt, returnToMapActivityComplete]);
+    completeTreasureAndReturn();
+  }, [pendingBagFullItem, currentTreasure, player, selectedBranchingRoom,
+      addLog, setPlayer, setPendingBagFullItem, completeTreasureAndReturn]);
 
   return {
     handleTreasureReveal,

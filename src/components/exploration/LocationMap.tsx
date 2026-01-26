@@ -7,6 +7,7 @@ import {
 } from '../../game/types';
 import RoomCard from './RoomCard';
 import { getCurrentRoom, getChildRooms } from '../../game/systems/LocationSystem';
+import { ACTIVITY_FULL_NAMES } from '../../game/constants/activityLabels';
 import './exploration.css';
 
 interface LocationMapProps {
@@ -236,42 +237,42 @@ const LocationMap: React.FC<LocationMapProps> = ({
               <div className="location-map__selected-activities">
                 {selectedRoom.activities.combat && !selectedRoom.activities.combat.completed && (
                   <span className="location-map__activity-tag location-map__activity-tag--combat">
-                    Combat: {selectedRoom.activities.combat.enemy.name}
+                    {ACTIVITY_FULL_NAMES.combat}: {selectedRoom.activities.combat.enemy.name}
                   </span>
                 )}
                 {selectedRoom.activities.eliteChallenge && !selectedRoom.activities.eliteChallenge.completed && (
                   <span className="location-map__activity-tag location-map__activity-tag--elite">
-                    Elite: {selectedRoom.activities.eliteChallenge.enemy.name}
+                    {ACTIVITY_FULL_NAMES.eliteChallenge}: {selectedRoom.activities.eliteChallenge.enemy.name}
                   </span>
                 )}
                 {selectedRoom.activities.merchant && !selectedRoom.activities.merchant.completed && (
                   <span className="location-map__activity-tag location-map__activity-tag--merchant">
-                    Merchant
+                    {ACTIVITY_FULL_NAMES.merchant}
                   </span>
                 )}
                 {selectedRoom.activities.event && !selectedRoom.activities.event.completed && (
                   <span className="location-map__activity-tag location-map__activity-tag--event">
-                    Event
+                    {ACTIVITY_FULL_NAMES.event}
                   </span>
                 )}
                 {selectedRoom.activities.scrollDiscovery && !selectedRoom.activities.scrollDiscovery.completed && (
                   <span className="location-map__activity-tag location-map__activity-tag--scroll">
-                    Scroll Discovery
+                    {ACTIVITY_FULL_NAMES.scrollDiscovery}
                   </span>
                 )}
                 {selectedRoom.activities.rest && !selectedRoom.activities.rest.completed && (
                   <span className="location-map__activity-tag location-map__activity-tag--rest">
-                    Rest (+{selectedRoom.activities.rest.healPercent}% HP)
+                    {ACTIVITY_FULL_NAMES.rest} (+{selectedRoom.activities.rest.healPercent}% HP)
                   </span>
                 )}
                 {selectedRoom.activities.training && !selectedRoom.activities.training.completed && (
                   <span className="location-map__activity-tag location-map__activity-tag--training">
-                    Training
+                    {ACTIVITY_FULL_NAMES.training}
                   </span>
                 )}
                 {selectedRoom.activities.treasure && !selectedRoom.activities.treasure.collected && (
                   <span className="location-map__activity-tag location-map__activity-tag--treasure">
-                    Treasure
+                    {ACTIVITY_FULL_NAMES.treasure}
                   </span>
                 )}
               </div>

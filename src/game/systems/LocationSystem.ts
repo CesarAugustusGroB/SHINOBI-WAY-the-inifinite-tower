@@ -54,6 +54,9 @@ import {
   Item,
   PrimaryStat,
   ACTIVITY_ORDER,
+  ACTIVITY_EXCLUSIONS,
+  ActivityCountWeights,
+  ActivityWeights,
   DEFAULT_MERCHANT_SLOTS,
   DEFAULT_TREASURE_QUALITY,
   TreasureQuality,
@@ -65,6 +68,7 @@ import { generateEnemy } from './EnemySystem';
 import { generateLoot, generateRandomArtifact, generateSkillForFloor, generateComponentByQuality } from './LootSystem';
 import {
   ROOM_TYPE_CONFIGS,
+  ROOM_TYPE_ACTIVITY_CONFIGS,
   getRandomRoomName,
   getRandomRoomDescription,
   getRandomTerrain,
@@ -102,56 +106,60 @@ function maybeUpgradeQuality(baseQuality: TreasureQuality): TreasureQuality {
 }
 
 // ============================================================================
-// ACTIVITY LIMITING
+// WEIGHTED ACTIVITY SELECTION UTILITIES
 // ============================================================================
 
 /**
- * Activity priority for limiting (lower index = higher priority, kept first).
- * Combat is handled separately and always preserved.
+ * Select activity count (1, 2, or 3) based on weighted probabilities.
+ * Returns 0 for START rooms (no activities).
  */
-const ACTIVITY_PRIORITY: (keyof RoomActivities)[] = [
-  'eliteChallenge',  // Rare, high-value artifacts
-  'merchant',        // Player agency
-  'event',           // Story content
-  'treasure',        // Rewards
-  'scrollDiscovery', // Progression
-  'rest',            // Recovery
-  'training',        // Optional growth
-  'infoGathering',   // Intel system
-];
+function selectActivityCount(weights: ActivityCountWeights, isStartRoom: boolean): number {
+  if (isStartRoom) return 0;
+
+  const totalWeight = weights.one + weights.two + weights.three;
+  if (totalWeight === 0) return 1; // Fallback to 1 activity
+
+  const roll = Math.random() * totalWeight;
+
+  if (roll < weights.one) return 1;
+  if (roll < weights.one + weights.two) return 2;
+  return 3;
+}
 
 /**
- * Limit activities to maxCount, preserving combat and highest priority.
- * Returns activities unchanged if maxCount is 0 (unlimited).
+ * Build activity pool from room type weights.
+ * Filters out activities with 0 weight.
  */
-function limitActivities(
-  activities: RoomActivities,
-  maxCount: number
-): RoomActivities {
-  if (maxCount <= 0) return activities;
+function buildActivityPool(
+  weights: ActivityWeights
+): { activity: keyof RoomActivities; weight: number }[] {
+  return (Object.entries(weights) as [keyof RoomActivities, number][])
+    .filter(([_, weight]) => weight > 0)
+    .map(([activity, weight]) => ({ activity, weight }));
+}
 
-  const keys = Object.keys(activities) as (keyof RoomActivities)[];
-  if (keys.length <= maxCount) return activities;
+/**
+ * Select an activity from weighted pool using weighted random selection.
+ * Each activity's weight represents relative probability.
+ * Returns null if pool is empty.
+ */
+function selectWeightedActivity(
+  pool: { activity: keyof RoomActivities; weight: number }[]
+): keyof RoomActivities | null {
+  if (pool.length === 0) return null;
 
-  const result: RoomActivities = {};
-  let count = 0;
+  const totalWeight = pool.reduce((sum, item) => sum + item.weight, 0);
+  if (totalWeight === 0) return null;
 
-  // Always keep combat first
-  if (activities.combat) {
-    result.combat = activities.combat;
-    count++;
+  let roll = Math.random() * totalWeight;
+
+  for (const item of pool) {
+    roll -= item.weight;
+    if (roll <= 0) return item.activity;
   }
 
-  // Add remaining by priority until limit reached
-  for (const key of ACTIVITY_PRIORITY) {
-    if (count >= maxCount) break;
-    if (key !== 'combat' && activities[key]) {
-      (result as Record<keyof RoomActivities, unknown>)[key] = activities[key];
-      count++;
-    }
-  }
-
-  return result;
+  // Fallback to last item (shouldn't happen, but safe)
+  return pool[pool.length - 1].activity;
 }
 
 // ============================================================================
@@ -318,6 +326,7 @@ function createRoom(
 
 /**
  * Generate combat activity for a room.
+ * Called only when weighted selection picks combat for this room.
  */
 function generateCombatActivity(
   room: BranchingRoom,
@@ -326,11 +335,7 @@ function generateCombatActivity(
   difficulty: number,
   arc: string,
   player?: Player
-): RoomActivities['combat'] | undefined {
-  if (config.hasCombat !== 'required' && (config.hasCombat !== 'optional' || Math.random() >= 0.5)) {
-    return undefined;
-  }
-
+): RoomActivities['combat'] {
   const isElite = room.tier === 2 && Math.random() < 0.3;
   const enemyType = isElite ? 'ELITE' : 'NORMAL';
   const dangerLevel = floorToDangerLevel(floor);
@@ -345,15 +350,13 @@ function generateCombatActivity(
 
 /**
  * Generate merchant activity for a room.
+ * Called only when weighted selection picks merchant for this room.
  */
 function generateMerchantActivity(
-  config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType],
   floor: number,
   difficulty: number,
   player?: Player
-): RoomActivities['merchant'] | undefined {
-  if (!config.hasMerchant) return undefined;
-
+): RoomActivities['merchant'] {
   const itemCount = player?.merchantSlots ?? DEFAULT_MERCHANT_SLOTS;
   const items: Item[] = [];
   for (let i = 0; i < itemCount; i++) {
@@ -369,14 +372,13 @@ function generateMerchantActivity(
 
 /**
  * Generate event activity for a room.
+ * Called only when weighted selection picks event for this room.
  */
 function generateEventActivity(
-  config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType],
   arc: string
 ): RoomActivities['event'] | undefined {
   // Check feature flag first
   if (!FeatureFlags.ENABLE_STORY_EVENTS) return undefined;
-  if (!config.hasEvent) return undefined;
 
   const arcEvents = EVENTS.filter(e => !e.allowedArcs || e.allowedArcs.includes(arc));
   const event = arcEvents.length > 0
@@ -390,15 +392,11 @@ function generateEventActivity(
 
 /**
  * Generate scroll discovery activity for a room.
+ * Called only when weighted selection picks scrollDiscovery for this room.
  */
 function generateScrollDiscoveryActivity(
-  config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType],
   floor: number
-): RoomActivities['scrollDiscovery'] | undefined {
-  if (!config.hasScrollDiscovery && (!config.hasEvent || Math.random() >= 0.25)) {
-    return undefined;
-  }
-
+): RoomActivities['scrollDiscovery'] {
   const skill = generateSkillForFloor(floor);
   return {
     availableScrolls: [skill],
@@ -410,6 +408,7 @@ function generateScrollDiscoveryActivity(
 /**
  * Generate elite challenge activity for a room.
  * This is the ONLY source of artifacts in the game.
+ * Called only when weighted selection picks eliteChallenge for this room.
  */
 function generateEliteChallengeActivity(
   room: BranchingRoom,
@@ -420,9 +419,6 @@ function generateEliteChallengeActivity(
 ): RoomActivities['eliteChallenge'] | undefined {
   // Check feature flag first
   if (!FeatureFlags.ENABLE_ELITE_CHALLENGES) return undefined;
-
-  const isValidRoom = room.type === BranchingRoomType.SHRINE || room.type === BranchingRoomType.RUINS;
-  if (!isValidRoom || Math.random() >= 0.15) return undefined;
 
   const eliteDangerLevel = floorToDangerLevel(floor + 1);
   const eliteEnemy = generateEnemy(eliteDangerLevel, player?.locationsCleared ?? 0, 'ELITE', difficulty + 15, arc);
@@ -437,12 +433,9 @@ function generateEliteChallengeActivity(
 
 /**
  * Generate rest activity for a room.
+ * Called only when weighted selection picks rest for this room.
  */
-function generateRestActivity(
-  config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType]
-): RoomActivities['rest'] | undefined {
-  if (!config.hasRest) return undefined;
-
+function generateRestActivity(): RoomActivities['rest'] {
   return {
     healPercent: 30 + Math.floor(Math.random() * 20),
     chakraRestorePercent: 40 + Math.floor(Math.random() * 20),
@@ -452,14 +445,13 @@ function generateRestActivity(
 
 /**
  * Generate training activity for a room.
+ * Called only when weighted selection picks training for this room.
  */
 function generateTrainingActivity(
-  config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType],
   floor: number
 ): RoomActivities['training'] | undefined {
   // Check feature flag first
   if (!FeatureFlags.ENABLE_TRAINING) return undefined;
-  if (!config.hasTraining) return undefined;
 
   const allStats: PrimaryStat[] = [
     PrimaryStat.WILLPOWER, PrimaryStat.CHAKRA, PrimaryStat.STRENGTH,
@@ -529,18 +521,16 @@ export function getRequiredMapPieces(dangerLevel: number): number {
  * Generate treasure activity for a room.
  * Randomly assigns either LOCKED_CHEST or TREASURE_HUNTER type.
  * If huntDeclined is true, always generates LOCKED_CHEST.
+ * Called only when weighted selection picks treasure for this room.
  */
 function generateTreasureActivity(
-  config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType],
   floor: number,
   difficulty: number,
   wealthLevel: number = 4,
   player?: Player,
   treasureHunt?: TreasureHunt | null,
   huntDeclined?: boolean
-): RoomActivities['treasure'] | undefined {
-  if (!config.hasTreasure) return undefined;
-
+): RoomActivities['treasure'] {
   const quality = maybeUpgradeQuality(player?.treasureQuality ?? DEFAULT_TREASURE_QUALITY);
   const { choiceCount, artifactChance, ryoMultiplier } = getTreasureConfig(wealthLevel);
 
@@ -720,12 +710,9 @@ export function getTreasureHuntReward(
 
 /**
  * Generate info gathering activity for a room.
+ * Called only when weighted selection picks infoGathering for this room.
  */
-function generateInfoGatheringActivity(
-  config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType]
-): RoomActivities['infoGathering'] | undefined {
-  if (!config.hasInfoGathering) return undefined;
-
+function generateInfoGatheringActivity(): RoomActivities['infoGathering'] {
   const flavorTexts = [
     'You gather information from locals.',
     'Ancient inscriptions reveal secrets.',
@@ -746,8 +733,55 @@ function generateInfoGatheringActivity(
 // ============================================================================
 
 /**
- * Generate all activities for a room based on room type configuration.
- * Delegates to specialized helper functions for each activity type.
+ * Generate specific activity data based on activity type.
+ * Delegates to existing generator functions (now without config checks).
+ */
+function generateActivityData(
+  activityKey: keyof RoomActivities,
+  room: BranchingRoom,
+  config: typeof ROOM_TYPE_CONFIGS[BranchingRoomType],
+  floor: number,
+  difficulty: number,
+  arc: string,
+  player?: Player,
+  wealthLevel: number = 4,
+  treasureHunt?: TreasureHunt | null,
+  huntDeclined?: boolean
+): RoomActivities[keyof RoomActivities] | undefined {
+  switch (activityKey) {
+    case 'combat':
+      return generateCombatActivity(room, config, floor, difficulty, arc, player);
+    case 'eliteChallenge':
+      return generateEliteChallengeActivity(room, floor, difficulty, arc, player);
+    case 'merchant':
+      return generateMerchantActivity(floor, difficulty, player);
+    case 'event':
+      return generateEventActivity(arc);
+    case 'scrollDiscovery':
+      return generateScrollDiscoveryActivity(floor);
+    case 'rest':
+      return generateRestActivity();
+    case 'training':
+      return generateTrainingActivity(floor);
+    case 'treasure':
+      return generateTreasureActivity(floor, difficulty, wealthLevel, player, treasureHunt, huntDeclined);
+    case 'infoGathering':
+      return generateInfoGatheringActivity();
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Generate all activities for a room using the weighted probability system.
+ *
+ * Algorithm:
+ * 1. Get activity config for room type
+ * 2. Determine activity count (1, 2, or 3) from weights
+ * 3. Build pool of available activities (weight > 0)
+ * 4. Select activities via weighted random, respecting exclusions
+ * 5. Generate data for each selected activity
+ * 6. Ensure minimum 1 activity (except START rooms)
  */
 function generateActivities(
   room: BranchingRoom,
@@ -760,36 +794,75 @@ function generateActivities(
   treasureHunt?: TreasureHunt | null,
   huntDeclined?: boolean
 ): RoomActivities {
+  const roomType = room.type;
+  const activityConfig = ROOM_TYPE_ACTIVITY_CONFIGS[roomType];
+
+  // Step 1: Determine how many activities this room will have
+  const isStartRoom = roomType === BranchingRoomType.START;
+  const targetCount = selectActivityCount(activityConfig.activityCountWeights, isStartRoom);
+
+  if (targetCount === 0) {
+    return {}; // START room - no activities
+  }
+
+  // Step 2: Build weighted activity pool
+  const pool = buildActivityPool(activityConfig.activityWeights);
+
+  // Step 3: Select activities via weighted random
+  const selectedActivities: (keyof RoomActivities)[] = [];
+  const excludedActivities = new Set<keyof RoomActivities>();
+
+  for (let i = 0; i < targetCount && pool.length > 0; i++) {
+    // Filter pool: remove already selected and excluded activities
+    const availablePool = pool.filter(
+      item => !selectedActivities.includes(item.activity) &&
+              !excludedActivities.has(item.activity)
+    );
+
+    if (availablePool.length === 0) break;
+
+    // Weighted random selection
+    const selected = selectWeightedActivity(availablePool);
+    if (!selected) break;
+
+    selectedActivities.push(selected);
+
+    // Add exclusions for this activity (e.g., combat excludes eliteChallenge)
+    const exclusions = ACTIVITY_EXCLUSIONS[selected] || [];
+    exclusions.forEach(e => excludedActivities.add(e));
+  }
+
+  // Step 4: Ensure minimum 1 activity (fallback for non-START rooms)
+  if (selectedActivities.length === 0 && !isStartRoom && pool.length > 0) {
+    // Find highest-weight activity as fallback
+    const sortedPool = [...pool].sort((a, b) => b.weight - a.weight);
+    if (sortedPool[0]) {
+      selectedActivities.push(sortedPool[0].activity);
+    }
+  }
+
+  // Step 5: Generate activity data for each selected activity
   const activities: RoomActivities = {};
 
-  const combat = generateCombatActivity(room, config, floor, difficulty, arc, player);
-  if (combat) activities.combat = combat;
+  for (const activityKey of selectedActivities) {
+    const activityData = generateActivityData(
+      activityKey,
+      room,
+      config,
+      floor,
+      difficulty,
+      arc,
+      player,
+      wealthLevel,
+      treasureHunt,
+      huntDeclined
+    );
+    if (activityData) {
+      (activities as Record<keyof RoomActivities, unknown>)[activityKey] = activityData;
+    }
+  }
 
-  const merchant = generateMerchantActivity(config, floor, difficulty, player);
-  if (merchant) activities.merchant = merchant;
-
-  const event = generateEventActivity(config, arc);
-  if (event) activities.event = event;
-
-  const scrollDiscovery = generateScrollDiscoveryActivity(config, floor);
-  if (scrollDiscovery) activities.scrollDiscovery = scrollDiscovery;
-
-  const eliteChallenge = generateEliteChallengeActivity(room, floor, difficulty, arc, player);
-  if (eliteChallenge) activities.eliteChallenge = eliteChallenge;
-
-  const rest = generateRestActivity(config);
-  if (rest) activities.rest = rest;
-
-  const training = generateTrainingActivity(config, floor);
-  if (training) activities.training = training;
-
-  const treasure = generateTreasureActivity(config, floor, difficulty, wealthLevel, player, treasureHunt, huntDeclined);
-  if (treasure) activities.treasure = treasure;
-
-  const infoGathering = generateInfoGatheringActivity(config);
-  if (infoGathering) activities.infoGathering = infoGathering;
-
-  return limitActivities(activities, LaunchProperties.MAX_ACTIVITIES_PER_ROOM);
+  return activities;
 }
 
 /**

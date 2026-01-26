@@ -20,9 +20,12 @@ import {
   CheckCircle,
   Lock,
   Sparkles,
+  Radio,
+  Skull,
 } from 'lucide-react';
 import { getCurrentActivity } from '../../game/systems/LocationSystem';
 import { getBranchingRoomColors } from '../../game/constants/roomTypeMapping';
+import { ACTIVITY_LABELS } from '../../game/constants/activityLabels';
 import './exploration.css';
 
 interface RoomCardProps {
@@ -84,6 +87,12 @@ const RoomCard: React.FC<RoomCardProps> = ({
     if (room.activities.treasure && !room.activities.treasure.collected) {
       icons.push(<Gift key="treasure" className="room-card__activity text-amber-400" />);
     }
+    if (room.activities.eliteChallenge && !room.activities.eliteChallenge.completed) {
+      icons.push(<Skull key="eliteChallenge" className="room-card__activity text-red-400" />);
+    }
+    if (room.activities.infoGathering && !room.activities.infoGathering.completed) {
+      icons.push(<Radio key="infoGathering" className="room-card__activity text-teal-400" />);
+    }
 
     return icons;
   };
@@ -143,7 +152,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
         {/* Current activity label */}
         {currentActivity && !room.isCleared && (
           <div className="room-card__current-activity">
-            {currentActivity}
+            {ACTIVITY_LABELS[currentActivity] || currentActivity}
           </div>
         )}
       </div>

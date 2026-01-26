@@ -70,12 +70,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--sw-space-8);
-  padding: var(--sw-space-3) var(--sw-space-6);
-  background: var(--sw-glass-bg-dark);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--sw-glass-border);
-  border-radius: var(--sw-radius-lg);
+  z-index: 1;
 }
 
 .ryo-display {
@@ -216,50 +211,127 @@
    =========================================== */
 
 .item-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: var(--sw-space-4);
   flex: 1;
 }
 
-@media (max-width: 1024px) {
-  .item-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 640px) {
-  .item-grid {
-    grid-template-columns: 1fr;
-  }
-}
+/* Item grid is flexbox - cards have fixed width, wrap naturally */
 
 /* ===========================================
    Item Card
    =========================================== */
 
 .item-card {
-  background: var(--sw-glass-bg);
-  border: 2px solid var(--sw-glass-border);
+  position: relative;
+  width: 200px;
+  height: 260px;
+  border: 2px solid var(--treasure-gold-dark, #b8860b);
   border-radius: var(--sw-radius-lg);
-  padding: var(--sw-space-4);
   cursor: pointer;
   transition: all var(--sw-transition-slow);
   display: flex;
   flex-direction: column;
-  gap: var(--sw-space-3);
-  position: relative;
   overflow: hidden;
-  min-height: 280px;
+}
+
+/* Frame overlay */
+.item-card__frame {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--treasure-parchment-light, #3d332a) 0%, var(--treasure-parchment, #2a231a) 100%);
+  border-radius: var(--sw-radius-lg);
+  pointer-events: none;
+}
+
+/* Corner ornaments */
+.item-card__corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--treasure-gold, #d4af37);
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.item-card__corner--tl {
+  top: 6px;
+  left: 6px;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 4px 0 0 0;
+}
+
+.item-card__corner--tr {
+  top: 6px;
+  right: 6px;
+  border-left: none;
+  border-bottom: none;
+  border-radius: 0 4px 0 0;
+}
+
+.item-card__corner--bl {
+  bottom: 6px;
+  left: 6px;
+  border-right: none;
+  border-top: none;
+  border-radius: 0 0 0 4px;
+}
+
+.item-card__corner--br {
+  bottom: 6px;
+  right: 6px;
+  border-left: none;
+  border-top: none;
+  border-radius: 0 0 4px 0;
+}
+
+/* Card content area */
+.item-card__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sw-space-1);
+  padding: var(--sw-space-3);
+  flex: 1;
+}
+
+/* Item icon */
+.item-card__icon {
+  font-size: 2rem;
+  text-align: center;
+}
+
+/* Decorative divider */
+.item-card__divider {
+  width: 3rem;
+  height: 1px;
+  margin: var(--sw-space-1) auto;
+  background: linear-gradient(90deg, transparent, var(--treasure-gold-dark, #b8860b), transparent);
 }
 
 .item-card:hover:not(.item-card--dimmed) {
-  transform: translateY(-6px);
+  transform: translateY(-4px);
+  border-color: var(--treasure-gold, #d4af37);
+  box-shadow: 0 0 25px var(--treasure-glow, rgba(212, 175, 55, 0.3));
+}
+
+.item-card:hover:not(.item-card--dimmed) .item-card__corner {
+  opacity: 0.8;
 }
 
 .item-card--selected {
   transform: translateY(-4px);
-  animation: sw-select-pulse 0.4s ease-out;
+  border-color: var(--treasure-gold, #d4af37);
+  box-shadow: 0 0 25px var(--treasure-glow, rgba(212, 175, 55, 0.3));
+}
+
+.item-card--selected .item-card__corner {
+  opacity: 0.8;
 }
 
 .item-card--dimmed {
@@ -268,108 +340,32 @@
   cursor: default;
 }
 
-/* Rarity Colors */
-.item-card--broken {
-  border-color: var(--sw-rarity-broken);
-  background: var(--sw-rarity-broken-bg);
-}
+/* Rarity-specific corner colors */
+.item-card--broken .item-card__corner { border-color: var(--sw-rarity-broken); }
+.item-card--common .item-card__corner { border-color: var(--sw-text-muted); }
+.item-card--rare .item-card__corner { border-color: var(--sw-rarity-rare); }
+.item-card--epic .item-card__corner { border-color: var(--sw-rarity-epic); }
+.item-card--legendary .item-card__corner { border-color: var(--sw-rarity-legendary); }
+.item-card--cursed .item-card__corner { border-color: var(--sw-rarity-cursed); }
 
-.item-card--broken:hover:not(.item-card--dimmed),
-.item-card--broken.item-card--selected {
-  border-color: var(--sw-rarity-broken);
-  box-shadow: 0 0 15px rgba(120, 113, 108, 0.2);
-}
-
-.item-card--common {
-  border-color: var(--sw-rarity-common);
-  background: var(--sw-rarity-common-bg);
-}
-
-.item-card--common:hover:not(.item-card--dimmed),
-.item-card--common.item-card--selected {
-  border-color: var(--sw-rarity-common);
-  box-shadow: 0 0 15px rgba(161, 161, 170, 0.2);
-}
-
-.item-card--rare {
-  border-color: var(--sw-rarity-rare);
-  background: var(--sw-rarity-rare-bg);
-}
-
+/* Rarity-specific hover glows */
 .item-card--rare:hover:not(.item-card--dimmed),
 .item-card--rare.item-card--selected {
-  border-color: var(--sw-rarity-rare);
   box-shadow: 0 0 20px var(--sw-rarity-rare-glow);
-}
-
-.item-card--epic {
-  border-color: var(--sw-rarity-epic);
-  background: var(--sw-rarity-epic-bg);
 }
 
 .item-card--epic:hover:not(.item-card--dimmed),
 .item-card--epic.item-card--selected {
-  border-color: var(--sw-rarity-epic);
   box-shadow: 0 0 20px var(--sw-rarity-epic-glow);
-}
-
-.item-card--legendary {
-  border-color: var(--sw-rarity-legendary);
-  background: var(--sw-rarity-legendary-bg);
-  position: relative;
-}
-
-.item-card--legendary::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(249, 115, 22, 0.1),
-    transparent
-  );
-  background-size: 200% 100%;
-  animation: sw-legendary-shimmer 3s ease-in-out infinite;
-  pointer-events: none;
 }
 
 .item-card--legendary:hover:not(.item-card--dimmed),
 .item-card--legendary.item-card--selected {
-  border-color: var(--sw-rarity-legendary);
   box-shadow: 0 0 25px var(--sw-rarity-legendary-glow);
-}
-
-.item-card--cursed {
-  border-color: var(--sw-rarity-cursed);
-  background: var(--sw-rarity-cursed-bg);
-  position: relative;
-}
-
-.item-card--cursed::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(220, 38, 38, 0.15),
-    transparent
-  );
-  background-size: 200% 100%;
-  animation: sw-legendary-shimmer 2.5s ease-in-out infinite;
-  pointer-events: none;
 }
 
 .item-card--cursed:hover:not(.item-card--dimmed),
 .item-card--cursed.item-card--selected {
-  border-color: var(--sw-rarity-cursed);
   box-shadow: 0 0 25px var(--sw-rarity-cursed-glow);
 }
 
@@ -426,9 +422,9 @@
 
 /* Item Card Content */
 .item-card__name {
-  font-size: var(--sw-text-base);
+  font-size: var(--sw-text-sm);
   font-weight: 600;
-  margin-bottom: var(--sw-space-1);
+  text-align: center;
 }
 
 .item-card__name--broken { color: var(--sw-rarity-broken); }
@@ -449,10 +445,10 @@
 .item-card__stats {
   display: flex;
   flex-direction: column;
-  gap: var(--sw-space-2);
+  gap: var(--sw-space-1);
   font-family: var(--sw-font-mono);
-  font-size: var(--sw-text-xs);
-  max-height: 7rem;
+  font-size: var(--sw-text-2xs);
+  flex: 1;
   overflow-y: auto;
 }
 
@@ -496,13 +492,13 @@
 /* Item Card Footer */
 .item-card__footer {
   margin-top: auto;
-  padding-top: var(--sw-space-3);
-  border-top: 1px solid var(--sw-glass-border);
+  padding-top: var(--sw-space-2);
+  border-top: 1px solid rgba(212, 175, 55, 0.2);
 }
 
 .item-card__price {
   text-align: center;
-  margin-bottom: var(--sw-space-2);
+  margin-bottom: var(--sw-space-1);
 }
 
 .item-card__price-current {
@@ -528,7 +524,7 @@
 
 .item-card__buy-button {
   width: 100%;
-  padding: var(--sw-space-2);
+  padding: var(--sw-space-1) var(--sw-space-2);
   border: 1px solid;
   border-radius: var(--sw-radius-sm);
   font-size: var(--sw-text-2xs);

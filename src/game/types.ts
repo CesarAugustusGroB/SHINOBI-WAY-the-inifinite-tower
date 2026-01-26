@@ -1136,6 +1136,56 @@ export const ACTIVITY_ORDER: (keyof RoomActivities)[] = [
   'infoGathering'    // Intel gathering (+25%)
 ];
 
+// ============================================================================
+// WEIGHTED ACTIVITY SYSTEM
+// ============================================================================
+
+/**
+ * Weight (0-100) for each activity type.
+ * 0 = never appears, 100 = very likely (but not guaranteed)
+ * Higher weights increase probability but don't guarantee appearance.
+ */
+export interface ActivityWeights {
+  combat: number;
+  eliteChallenge: number;
+  merchant: number;
+  event: number;
+  scrollDiscovery: number;
+  rest: number;
+  training: number;
+  treasure: number;
+  infoGathering: number;
+}
+
+/**
+ * Weights for how many activities a room type tends to have.
+ * Values are relative weights, not percentages.
+ * Example: { one: 20, two: 60, three: 20 } = 20% for 1, 60% for 2, 20% for 3
+ */
+export interface ActivityCountWeights {
+  one: number;
+  two: number;
+  three: number;
+}
+
+/**
+ * Complete activity configuration for a room type.
+ * Replaces the old boolean-based activity flags.
+ */
+export interface RoomTypeActivityConfig {
+  activityCountWeights: ActivityCountWeights;
+  activityWeights: ActivityWeights;
+}
+
+/**
+ * Activities that cannot appear together in the same room.
+ * If activity A is selected, activities in its exclusion list are removed from the pool.
+ */
+export const ACTIVITY_EXCLUSIONS: Partial<Record<keyof RoomActivities, (keyof RoomActivities)[]>> = {
+  combat: ['eliteChallenge'],
+  eliteChallenge: ['combat'],
+};
+
 export interface RoomRevealRequirement {
   skill?: string;          // Skill ID required to reveal
   item?: string;           // Item ID required
@@ -1214,21 +1264,12 @@ export interface BranchingFloor {
 }
 
 // Room type configuration for generation
+// Note: Activity generation is now handled by ROOM_TYPE_ACTIVITY_CONFIGS (weighted system)
 export interface RoomTypeConfig {
   type: BranchingRoomType;
   name: string;
   icon: string;
   description: string;
-
-  // What activities this room type can have
-  hasCombat: boolean | 'optional' | 'required';
-  hasMerchant: boolean;
-  hasEvent: boolean;
-  hasRest: boolean;
-  hasTraining: boolean;
-  hasTreasure: boolean;
-  hasScrollDiscovery?: boolean; // Rooms where jutsu scrolls can be found
-  hasInfoGathering?: boolean;   // Rooms where intel can be gathered (+25%)
 
   // Appearance weights by tier
   tier0Weight: number;
@@ -1307,6 +1348,7 @@ export interface LocationFlags {
   hasMerchant: boolean;          // Merchant available in this location
   hasRest: boolean;              // Rest point available
   hasTraining: boolean;          // Training available
+  hasInfoGathering?: boolean;    // Info gathering available (intel bonus)
 }
 
 export interface LocationTerrainEffect {

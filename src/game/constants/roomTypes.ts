@@ -5,6 +5,7 @@
 import {
   BranchingRoomType,
   CombatModifierType,
+  RoomTypeActivityConfig,
   RoomTypeConfig,
   TerrainType,
 } from '../types';
@@ -13,18 +14,13 @@ import {
 // ROOM TYPE CONFIGURATIONS
 // ============================================================================
 
+// Note: Activity generation is handled by ROOM_TYPE_ACTIVITY_CONFIGS (weighted system)
 export const ROOM_TYPE_CONFIGS: Record<BranchingRoomType, RoomTypeConfig> = {
   [BranchingRoomType.START]: {
     type: BranchingRoomType.START,
     name: 'Entrance',
     icon: '🚪',
     description: 'The path begins here.',
-    hasCombat: false,
-    hasMerchant: false,
-    hasEvent: false,
-    hasRest: false,
-    hasTraining: false,
-    hasTreasure: false,
     tier0Weight: 100,
     tier1Weight: 0,
     tier2Weight: 0,
@@ -35,13 +31,6 @@ export const ROOM_TYPE_CONFIGS: Record<BranchingRoomType, RoomTypeConfig> = {
     name: 'Village',
     icon: '🏘️',
     description: 'A small settlement. Merchants and travelers pass through.',
-    hasCombat: 'optional',
-    hasMerchant: true,
-    hasEvent: true,
-    hasRest: true,
-    hasTraining: false,
-    hasTreasure: false,
-    hasInfoGathering: true, // Gather intel from locals
     tier0Weight: 0,
     tier1Weight: 25,
     tier2Weight: 15,
@@ -53,12 +42,6 @@ export const ROOM_TYPE_CONFIGS: Record<BranchingRoomType, RoomTypeConfig> = {
     name: 'Outpost',
     icon: '⚔️',
     description: 'A military checkpoint. Enemies patrol the area.',
-    hasCombat: 'required',
-    hasMerchant: true,
-    hasEvent: false,
-    hasRest: false,
-    hasTraining: false,
-    hasTreasure: true,
     tier0Weight: 0,
     tier1Weight: 30,
     tier2Weight: 25,
@@ -70,14 +53,6 @@ export const ROOM_TYPE_CONFIGS: Record<BranchingRoomType, RoomTypeConfig> = {
     name: 'Shrine',
     icon: '⛩️',
     description: 'A sacred place. Ancient scrolls may be found here.',
-    hasCombat: 'optional',
-    hasMerchant: false,
-    hasEvent: true,
-    hasRest: true,
-    hasTraining: false,
-    hasTreasure: false,
-    hasScrollDiscovery: true, // Shrines often contain ancient jutsu scrolls
-    hasInfoGathering: true,   // Commune with spirits for intel
     tier0Weight: 0,
     tier1Weight: 15,
     tier2Weight: 20,
@@ -89,12 +64,6 @@ export const ROOM_TYPE_CONFIGS: Record<BranchingRoomType, RoomTypeConfig> = {
     name: 'Camp',
     icon: '🔥',
     description: 'A resting spot. But danger may lurk nearby.',
-    hasCombat: 'optional',
-    hasMerchant: false,
-    hasEvent: false,
-    hasRest: true,
-    hasTraining: true,
-    hasTreasure: false,
     tier0Weight: 0,
     tier1Weight: 20,
     tier2Weight: 15,
@@ -106,13 +75,6 @@ export const ROOM_TYPE_CONFIGS: Record<BranchingRoomType, RoomTypeConfig> = {
     name: 'Ruins',
     icon: '🏛️',
     description: 'Ancient structures hold forgotten scrolls and treasures.',
-    hasCombat: 'optional',
-    hasMerchant: false,
-    hasEvent: true,
-    hasRest: false,
-    hasTraining: false,
-    hasTreasure: true,
-    hasScrollDiscovery: true, // Ruins contain lost jutsu techniques
     tier0Weight: 0,
     tier1Weight: 10,
     tier2Weight: 25,
@@ -124,12 +86,6 @@ export const ROOM_TYPE_CONFIGS: Record<BranchingRoomType, RoomTypeConfig> = {
     name: 'Bridge',
     icon: '🌉',
     description: 'A narrow crossing. There is no turning back.',
-    hasCombat: 'required',
-    hasMerchant: false,
-    hasEvent: false,
-    hasRest: false,
-    hasTraining: false,
-    hasTreasure: false,
     tier0Weight: 0,
     tier1Weight: 0,
     tier2Weight: 10,
@@ -141,12 +97,6 @@ export const ROOM_TYPE_CONFIGS: Record<BranchingRoomType, RoomTypeConfig> = {
     name: 'Boss Gate',
     icon: '👹',
     description: 'A powerful presence blocks the way forward.',
-    hasCombat: 'required',
-    hasMerchant: false,
-    hasEvent: false,
-    hasRest: false,
-    hasTraining: false,
-    hasTreasure: true,
     tier0Weight: 0,
     tier1Weight: 0,
     tier2Weight: 0, // Only spawned as exit room
@@ -159,12 +109,6 @@ export const ROOM_TYPE_CONFIGS: Record<BranchingRoomType, RoomTypeConfig> = {
     name: 'Forest',
     icon: '🌲',
     description: 'Dense trees provide cover... for you and your enemies.',
-    hasCombat: 'required',
-    hasMerchant: false,
-    hasEvent: true,
-    hasRest: false,
-    hasTraining: false,
-    hasTreasure: false,
     tier0Weight: 0,
     tier1Weight: 20,
     tier2Weight: 20,
@@ -176,12 +120,6 @@ export const ROOM_TYPE_CONFIGS: Record<BranchingRoomType, RoomTypeConfig> = {
     name: 'Cave',
     icon: '🕳️',
     description: 'Dark passages lead to hidden chambers.',
-    hasCombat: 'optional',
-    hasMerchant: false,
-    hasEvent: false,
-    hasRest: true,
-    hasTraining: false,
-    hasTreasure: true,
     tier0Weight: 0,
     tier1Weight: 15,
     tier2Weight: 20,
@@ -193,16 +131,209 @@ export const ROOM_TYPE_CONFIGS: Record<BranchingRoomType, RoomTypeConfig> = {
     name: 'Battlefield',
     icon: '💀',
     description: 'The scars of war remain. Echoes of battle persist.',
-    hasCombat: 'required',
-    hasMerchant: false,
-    hasEvent: false,
-    hasRest: false,
-    hasTraining: true,
-    hasTreasure: true,
     tier0Weight: 0,
     tier1Weight: 10,
     tier2Weight: 15,
     combatModifiers: [CombatModifierType.CORRUPTED, CombatModifierType.PREPARED],
+  },
+};
+
+// ============================================================================
+// WEIGHTED ACTIVITY CONFIGURATIONS
+// ============================================================================
+// Each room type defines:
+// - activityCountWeights: Probability distribution for 1, 2, or 3 activities
+// - activityWeights: Weight (0-100) for each activity type
+//
+// Higher weight = more likely to appear (but not guaranteed)
+// Weight of 0 = activity will never appear in this room type
+// Combat and EliteChallenge are mutually exclusive
+
+export const ROOM_TYPE_ACTIVITY_CONFIGS: Record<BranchingRoomType, RoomTypeActivityConfig> = {
+  // START - Tutorial room, no activities
+  [BranchingRoomType.START]: {
+    activityCountWeights: { one: 0, two: 0, three: 0 },
+    activityWeights: {
+      combat: 0,
+      eliteChallenge: 0,
+      merchant: 0,
+      event: 0,
+      scrollDiscovery: 0,
+      rest: 0,
+      training: 0,
+      treasure: 0,
+      infoGathering: 0,
+    },
+  },
+
+  // VILLAGE - Settlement focused on services & social interactions
+  // High: infoGathering, merchant, rest | Medium: event | Low: combat, training, scrollDiscovery
+  [BranchingRoomType.VILLAGE]: {
+    activityCountWeights: { one: 10, two: 50, three: 40 },
+    activityWeights: {
+      combat: 30,
+      eliteChallenge: 0,
+      merchant: 80,
+      event: 60,
+      scrollDiscovery: 20,
+      rest: 70,
+      training: 20,
+      treasure: 10,
+      infoGathering: 90,
+    },
+  },
+
+  // OUTPOST - Military checkpoint with combat and supplies
+  // High: combat | Medium: merchant, treasure, training | Low: rest, elite, event, info
+  [BranchingRoomType.OUTPOST]: {
+    activityCountWeights: { one: 20, two: 60, three: 20 },
+    activityWeights: {
+      combat: 100,
+      eliteChallenge: 10,
+      merchant: 60,
+      event: 10,
+      scrollDiscovery: 0,
+      rest: 20,
+      training: 30,
+      treasure: 40,
+      infoGathering: 10,
+    },
+  },
+
+  // SHRINE - Sacred place for discovery and spiritual activities
+  // High: infoGathering, scrollDiscovery | Medium: event, rest, training, elite | Low: combat, treasure
+  [BranchingRoomType.SHRINE]: {
+    activityCountWeights: { one: 30, two: 50, three: 20 },
+    activityWeights: {
+      combat: 20,
+      eliteChallenge: 30,
+      merchant: 0,
+      event: 60,
+      scrollDiscovery: 70,
+      rest: 60,
+      training: 40,
+      treasure: 30,
+      infoGathering: 80,
+    },
+  },
+
+  // CAMP - Rest stop focused on recovery and training
+  // High: rest, training | Medium: event, merchant, info | Low: combat, treasure, scroll
+  [BranchingRoomType.CAMP]: {
+    activityCountWeights: { one: 40, two: 50, three: 10 },
+    activityWeights: {
+      combat: 20,
+      eliteChallenge: 0,
+      merchant: 30,
+      event: 40,
+      scrollDiscovery: 10,
+      rest: 100,
+      training: 80,
+      treasure: 10,
+      infoGathering: 30,
+    },
+  },
+
+  // RUINS - Ancient structures with treasure and danger
+  // High: treasure, scrollDiscovery | Medium: combat, event, elite, info | Low: rest, training
+  [BranchingRoomType.RUINS]: {
+    activityCountWeights: { one: 20, two: 50, three: 30 },
+    activityWeights: {
+      combat: 60,
+      eliteChallenge: 40,
+      merchant: 0,
+      event: 60,
+      scrollDiscovery: 80,
+      rest: 10,
+      training: 10,
+      treasure: 90,
+      infoGathering: 50,
+    },
+  },
+
+  // BRIDGE - Chokepoint with mandatory combat, minimal else
+  // High: combat, elite | Medium: treasure | Low: event | None: most others
+  [BranchingRoomType.BRIDGE]: {
+    activityCountWeights: { one: 60, two: 35, three: 5 },
+    activityWeights: {
+      combat: 100,
+      eliteChallenge: 40,
+      merchant: 0,
+      event: 20,
+      scrollDiscovery: 0,
+      rest: 0,
+      training: 0,
+      treasure: 30,
+      infoGathering: 0,
+    },
+  },
+
+  // BOSS_GATE - Final challenge with high stakes
+  // High: combat, elite, treasure | Medium: event | Low: merchant, scroll, rest | None: training, info
+  [BranchingRoomType.BOSS_GATE]: {
+    activityCountWeights: { one: 50, two: 40, three: 10 },
+    activityWeights: {
+      combat: 100,
+      eliteChallenge: 70,
+      merchant: 10,
+      event: 40,
+      scrollDiscovery: 10,
+      rest: 20,
+      training: 0,
+      treasure: 60,
+      infoGathering: 0,
+    },
+  },
+
+  // FOREST - Wilderness with combat and exploration
+  // High: combat | Medium: event, rest, treasure, scroll, training, info | Low: elite, merchant
+  [BranchingRoomType.FOREST]: {
+    activityCountWeights: { one: 30, two: 55, three: 15 },
+    activityWeights: {
+      combat: 90,
+      eliteChallenge: 20,
+      merchant: 10,
+      event: 40,
+      scrollDiscovery: 30,
+      rest: 40,
+      training: 30,
+      treasure: 40,
+      infoGathering: 20,
+    },
+  },
+
+  // CAVE - Underground with treasure focus
+  // High: treasure, combat | Medium: rest, scroll, elite, info | Low: event, training | None: merchant
+  [BranchingRoomType.CAVE]: {
+    activityCountWeights: { one: 25, two: 50, three: 25 },
+    activityWeights: {
+      combat: 70,
+      eliteChallenge: 30,
+      merchant: 0,
+      event: 20,
+      scrollDiscovery: 40,
+      rest: 50,
+      training: 20,
+      treasure: 100,
+      infoGathering: 30,
+    },
+  },
+
+  // BATTLEFIELD - War zone with combat and training
+  // High: combat, training, elite, treasure | Medium: event, info, scroll | Low: merchant, rest
+  [BranchingRoomType.BATTLEFIELD]: {
+    activityCountWeights: { one: 20, two: 50, three: 30 },
+    activityWeights: {
+      combat: 100,
+      eliteChallenge: 60,
+      merchant: 20,
+      event: 50,
+      scrollDiscovery: 30,
+      rest: 10,
+      training: 70,
+      treasure: 60,
+      infoGathering: 40,
+    },
   },
 };
 

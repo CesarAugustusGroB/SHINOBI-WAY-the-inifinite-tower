@@ -232,85 +232,104 @@ const ItemCard: React.FC<ItemCardProps> = ({
       tabIndex={isDimmed ? -1 : 0}
       onKeyDown={(e) => e.key === 'Enter' && handleClick()}
     >
-      {/* Header */}
-      <div className="item-card__header">
-        <span className={`item-card__rarity-tag item-card__rarity-tag--${rarityClass}`}>
-          {rarityLabel}
-        </span>
-        <span className="item-card__afford-indicator">
-          {affordable ? (
-            <CheckCircle size={14} className="text-green-500" />
-          ) : (
-            <AlertTriangle size={14} className="text-red-500" />
-          )}
-        </span>
-      </div>
+      {/* Frame overlay */}
+      <div className="item-card__frame" />
 
-      {/* Item Info */}
-      <div>
-        <h3 className={`item-card__name item-card__name--${rarityClass}`}>
-          {item.name}
-        </h3>
-        <p className="item-card__type">{item.type}</p>
-      </div>
+      {/* Corner ornaments */}
+      <div className="item-card__corner item-card__corner--tl" />
+      <div className="item-card__corner item-card__corner--tr" />
+      <div className="item-card__corner item-card__corner--bl" />
+      <div className="item-card__corner item-card__corner--br" />
 
-      {/* Stats */}
-      <div className="item-card__stats">
-        {Object.entries(statComparisons)
-          .filter(([, data]) => data.value !== 0 || data.delta !== 0)
-          .map(([key, data]) => (
-            <div key={key} className="item-card__stat">
-              <span className="item-card__stat-name">{formatStatName(key)}</span>
-              <div className="item-card__stat-values">
-                <span className="item-card__stat-value">+{data.value}</span>
-                {data.delta !== 0 && !data.isNew && (
-                  <span
-                    className={`item-card__stat-delta ${
-                      data.delta > 0
-                        ? 'item-card__stat-delta--increase'
-                        : 'item-card__stat-delta--decrease'
-                    }`}
-                  >
-                    {data.delta > 0 ? '\u25B2' : '\u25BC'}
-                    {Math.abs(data.delta)}
-                  </span>
-                )}
-                {data.isNew && (
-                  <span className="item-card__stat-delta item-card__stat-delta--new">
-                    NEW
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
-      </div>
-
-      {/* Footer */}
-      <div className="item-card__footer">
-        <div className="item-card__price">
-          <span
-            className={`item-card__price-current ${
-              affordable
-                ? 'item-card__price-current--affordable'
-                : 'item-card__price-current--unaffordable'
-            }`}
-          >
-            {price} Ryo
+      {/* Content */}
+      <div className="item-card__content">
+        {/* Header */}
+        <div className="item-card__header">
+          <span className={`item-card__rarity-tag item-card__rarity-tag--${rarityClass}`}>
+            {rarityLabel}
           </span>
-          {discountPercent > 0 && (
-            <span className="item-card__price-original">{item.value}</span>
-          )}
+          <span className="item-card__afford-indicator">
+            {affordable ? (
+              <CheckCircle size={14} className="text-green-500" />
+            ) : (
+              <AlertTriangle size={14} className="text-red-500" />
+            )}
+          </span>
         </div>
-        <button
-          type="button"
-          className={`item-card__buy-button ${
-            affordable ? 'item-card__buy-button--affordable' : 'item-card__buy-button--unaffordable'
-          }`}
-          onClick={handleBuy}
-          disabled={!affordable}
-        >
-          {affordable ? 'Buy' : 'Cannot Afford'}
-        </button>
+
+        {/* Item Icon */}
+        <div className="item-card__icon">{item.icon || '📦'}</div>
+
+        {/* Item Info */}
+        <div className="item-card__info">
+          <h3 className={`item-card__name item-card__name--${rarityClass}`}>
+            {item.name}
+          </h3>
+        </div>
+
+        {/* Decorative divider */}
+        <div className="item-card__divider" />
+
+        {/* Stats */}
+        <div className="item-card__stats">
+          {Object.entries(statComparisons)
+            .filter(([, data]) => data.value !== 0 || data.delta !== 0)
+            .map(([key, data]) => (
+              <div key={key} className="item-card__stat">
+                <span className="item-card__stat-name">{formatStatName(key)}</span>
+                <div className="item-card__stat-values">
+                  <span className="item-card__stat-value">+{data.value}</span>
+                  {data.delta !== 0 && !data.isNew && (
+                    <span
+                      className={`item-card__stat-delta ${
+                        data.delta > 0
+                          ? 'item-card__stat-delta--increase'
+                          : 'item-card__stat-delta--decrease'
+                      }`}
+                    >
+                      {data.delta > 0 ? '▲' : '▼'}
+                      {Math.abs(data.delta)}
+                    </span>
+                  )}
+                  {data.isNew && (
+                    <span className="item-card__stat-delta item-card__stat-delta--new">
+                      NEW
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+        </div>
+
+        {/* Footer */}
+        <div className="item-card__footer">
+          <div className="item-card__price">
+            <span
+              className={`item-card__price-current ${
+                affordable
+                  ? 'item-card__price-current--affordable'
+                  : 'item-card__price-current--unaffordable'
+              }`}
+            >
+              {price} Ryo
+            </span>
+            {discountPercent > 0 && (
+              <span className="item-card__price-original">
+                {Math.floor(item.value * MERCHANT.ITEM_PRICE_MULTIPLIER)}
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            className={`item-card__buy-button ${
+              affordable ? 'item-card__buy-button--affordable' : 'item-card__buy-button--unaffordable'
+            }`}
+            onClick={handleBuy}
+            disabled={!affordable}
+          >
+            BUY
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -414,7 +433,9 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
         </span>
         {discountPercent > 0 && (
           <>
-            <span className="preview-panel__price-original">{item.value}</span>
+            <span className="preview-panel__price-original">
+              {Math.floor(item.value * MERCHANT.ITEM_PRICE_MULTIPLIER)}
+            </span>
             <div className="preview-panel__price-discount">
               {discountPercent}% OFF!
             </div>
@@ -578,7 +599,30 @@ const Merchant: React.FC<MerchantProps> = ({
       </header>
 
       {/* Resources Bar */}
-      <div className="merchant__resources">
+      <div className="merchant__resources sw-panel--ornate">
+        {/* Gold corner flourishes */}
+        <div className="sw-panel__flourish sw-panel__flourish--tl">
+          <span className="sw-panel__flourish-curl" />
+          <span className="sw-panel__flourish-line" />
+          <span className="sw-panel__flourish-line-v" />
+        </div>
+        <div className="sw-panel__flourish sw-panel__flourish--tr">
+          <span className="sw-panel__flourish-curl" />
+          <span className="sw-panel__flourish-line" />
+          <span className="sw-panel__flourish-line-v" />
+        </div>
+        <div className="sw-panel__flourish sw-panel__flourish--bl">
+          <span className="sw-panel__flourish-curl" />
+          <span className="sw-panel__flourish-line" />
+          <span className="sw-panel__flourish-line-v" />
+        </div>
+        <div className="sw-panel__flourish sw-panel__flourish--br">
+          <span className="sw-panel__flourish-curl" />
+          <span className="sw-panel__flourish-line" />
+          <span className="sw-panel__flourish-line-v" />
+        </div>
+
+        {/* Content */}
         <RyoDisplay current={player.ryo} previewCost={selectedPrice} />
         <MerchantStatus
           quality={player.treasureQuality}
@@ -609,7 +653,7 @@ const Merchant: React.FC<MerchantProps> = ({
           <ServiceButton
             variant="quality"
             cost={qualityCost}
-            label="Quality \u2191"
+            label="Quality ↑"
             onClick={onUpgradeQuality}
             disabled={isProcessing || player.ryo < qualityCost}
           />

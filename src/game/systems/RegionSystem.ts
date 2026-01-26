@@ -196,6 +196,7 @@ export function getLocationActivities(location: Location): LocationActivities {
   if (location.flags.hasMerchant) activities.merchant = 'normal';
   if (location.flags.hasTraining) activities.training = 'normal';
   if (location.flags.hasRest) activities.rest = 'normal';
+  if (location.flags.hasInfoGathering) activities.infoGathering = 'normal';
 
   return activities;
 }

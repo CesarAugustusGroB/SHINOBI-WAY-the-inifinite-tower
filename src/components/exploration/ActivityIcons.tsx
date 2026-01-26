@@ -1,5 +1,6 @@
 import React from 'react';
 import { LocationActivities, ActivityStatus } from '../../game/types';
+import { ACTIVITY_LABELS } from '../../game/constants/activityLabels';
 import './exploration.css';
 
 interface ActivityIconsProps {
@@ -19,7 +20,7 @@ const ActivityIcons: React.FC<ActivityIconsProps> = ({ activities }) => {
     );
   }
 
-  // Activity icon mapping with color classes
+  // Activity icon mapping with color classes (labels from centralized ACTIVITY_LABELS)
   const activityIcons: { key: keyof LocationActivities; icon: string; specialIcon: string; colorClass: string }[] = [
     { key: 'combat', icon: '⚔️', specialIcon: '⚔️✨', colorClass: 'activity-icons__icon--combat' },
     { key: 'merchant', icon: '🛒', specialIcon: '🛒✨', colorClass: 'activity-icons__icon--merchant' },
@@ -29,7 +30,7 @@ const ActivityIcons: React.FC<ActivityIconsProps> = ({ activities }) => {
     { key: 'scrollDiscovery', icon: '📜', specialIcon: '📜✨', colorClass: 'activity-icons__icon--scroll' },
     { key: 'treasure', icon: '💎', specialIcon: '💎✨', colorClass: 'activity-icons__icon--treasure' },
     { key: 'eliteChallenge', icon: '👹', specialIcon: '👹✨', colorClass: 'activity-icons__icon--elite' },
-    { key: 'infoGathering', icon: '🔍', specialIcon: '🔍✨', colorClass: 'activity-icons__icon--info' },
+    { key: 'infoGathering', icon: '📡', specialIcon: '📡✨', colorClass: 'activity-icons__icon--info' },
   ];
 
   const activeActivities = activityIcons.filter(({ key }) => activities[key] !== false);
@@ -43,9 +44,10 @@ const ActivityIcons: React.FC<ActivityIconsProps> = ({ activities }) => {
         activeActivities.map(({ key, icon, specialIcon, colorClass }) => {
           const status: ActivityStatus = activities[key];
           const isSpecial = status === 'special';
+          const label = ACTIVITY_LABELS[key as keyof typeof ACTIVITY_LABELS];
           const classes = [
             'activity-icons__icon',
-            isSpecial ? colorClass : '',
+            colorClass,  // Always apply color class
             isSpecial ? 'activity-icons__icon--special' : ''
           ].filter(Boolean).join(' ');
 
@@ -53,7 +55,7 @@ const ActivityIcons: React.FC<ActivityIconsProps> = ({ activities }) => {
             <span
               key={key}
               className={classes}
-              title={`${key}${isSpecial ? ' (Special)' : ''}`}
+              title={`${label}${isSpecial ? ' (Special)' : ''}`}
             >
               {isSpecial ? specialIcon : icon}
             </span>

@@ -407,6 +407,7 @@ const DROWNED_SHRINE: LocationConfig = {
     hasMerchant: false,
     hasRest: false,
     hasTraining: true,
+    hasInfoGathering: true,
   },
   unlockCondition: { type: 'intel', requirement: 'drowned_shrine_discovered' },
 };
